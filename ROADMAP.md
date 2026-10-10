@@ -14,7 +14,7 @@
 
 Build a reliable, privacy-first mobile toolkit that provides useful website tools, AI-assisted storage intelligence, and an Android application.
 
-The project will prioritize real functionality, user safety, accessibility, performance, and maintainability.
+The project prioritizes real functionality, user safety, accessibility, performance, privacy, and maintainability.
 
 Global adoption is a long-term ambition, not a guaranteed outcome.
 
@@ -26,56 +26,198 @@ The following decisions are locked:
 - Repository: Mobile-Freedom
 - Hybrid Architecture
 - Website-first development
-- Android application integration
+- Android application integration after the website milestones
 - Mobile-only development workflow
 - Privacy-first data handling
 - Explicit confirmation before destructive actions
-- Verification before declaring a milestone PASS
-- No roadmap scope changes without explicit project-owner approval
+- Verification before declaring any milestone PASS
+- No roadmap scope or order changes without explicit project-owner approval
+- No milestone may be skipped, merged, renamed, or removed
 
-## 3. Master Roadmap
+## 3. Authoritative 23-Milestone Register
 
-The approved master roadmap contains 23 milestones.
+The following milestone names and order are locked.
 
-The exact milestone names, order, scope, and dependencies must follow the previously approved Master Development Roadmap v1.0.
+### Phase A — Product and Website Foundation
 
-This document must not be used to invent, rename, reorder, merge, or remove locked milestones.
+1. **M1 — Product Vision & Requirements**
+2. **M2 — System Architecture**
+3. **M3 — GitHub Repository & Engineering Foundation**
+4. **M4 — Mobile Freedom Web Foundation**
+5. **M5 — Image Tools Engine**
+6. **M6 — PDF & Document Tools**
+7. **M7 — Everyday Utility Tools**
+8. **M8 — File Analysis Engine**
 
-If the original milestone register is not available, implementation must pause until the authoritative list can be checked.
+### Phase B — Storage Intelligence
 
-## 4. Initial Foundation
+9. **M9 — Duplicate Photo & Video Analyzer**
+10. **M10 — Storage Intelligence Dashboard**
+11. **M11 — AI Storage Assistant**
+12. **M12 — Storage Trend & Prediction**
 
-### M1 — Product Vision and Requirements
+### Phase C — Android Application and Storage Management
 
-Document the product purpose, user needs, website requirements, Android requirements, privacy boundaries, and acceptance criteria.
+13. **M13 — Android App Foundation**
+14. **M14 — Device Storage Analyzer**
+15. **M15 — Safe Cleanup Engine**
+16. **M16 — Android Storage Monitoring**
 
-### M2 — Architecture
+### Phase D — Quality, Security, and Reliability
 
-Document the locked Hybrid Architecture, component responsibilities, data flow, security boundaries, and deployment approach.
+17. **M17 — Privacy & Security Hardening**
+18. **M18 — Performance & Compatibility**
+19. **M19 — Complete Regression QA**
+20. **M20 — Internationalization**
+21. **M21 — Scalability & Reliability**
 
-### M3 — Repository and Engineering Foundation
+### Phase E — Sustainability and Release
 
-Establish the project structure, coding conventions, build workflow, automated checks, and mobile-compatible development process.
+22. **M22 — Monetization & Sustainability**
+23. **M23 — Public Release**
 
-These descriptions are provisional summaries and must be checked against the authoritative 23-milestone roadmap before milestone approval.
+**Important:** These phase headings are organizational groupings only. The locked milestone names and order remain authoritative. Detailed implementation must follow the approved requirements and dependencies.
 
-## 5. Product Development Direction
+## 4. M1 — Product Vision & Requirements
 
-The planned product includes:
+M1 must establish and document:
 
-- Mobile-first website
-- Practical everyday web tools
-- File analysis utilities
-- AI Storage Assistant
-- Duplicate file detection
-- Storage usage insights
-- Android application
-- Privacy and security controls
-- Automated testing and release verification
+- Product vision and purpose
+- Intended users and user needs
+- Website tools and functionality
+- Android application goals
+- Privacy-first principles
+- Data handling boundaries
+- Security expectations
+- Product non-goals
+- Functional requirements
+- Quality requirements
+- Measurable acceptance criteria
 
-Feature implementation must follow the locked milestone sequence.
+### M1 Acceptance Criteria
 
-## 6. Mobile-Only Workflow
+M1 may be marked PASS only when:
+
+- The product requirements are documented.
+- Website-first development is clearly defined.
+- Android development is positioned in the approved roadmap sequence.
+- Privacy and security boundaries are documented.
+- Requirements and non-goals are reviewed.
+- The project owner approves the requirements baseline.
+
+Until these criteria are verified, M1 remains IN PROGRESS or NOT STARTED.
+
+## 5. M2 — System Architecture
+
+M2 must document and review the locked Hybrid Architecture, including:
+
+- Website application responsibilities
+- Shared core modules
+- AI service boundaries
+- Android application responsibilities
+- Optional backend responsibilities
+- Data flow and storage boundaries
+- Security and privacy controls
+- Error handling
+- Deployment approach
+- Component integration
+
+### M2 Acceptance Criteria
+
+M2 may be marked PASS only after the architecture document has been reviewed against the locked design and its requirements have been verified.
+
+No architecture change may be made without explicit project-owner approval.
+
+## 6. M3 — GitHub Repository & Engineering Foundation
+
+M3 covers:
+
+- Repository organization
+- Source-code structure
+- Coding conventions
+- Dependency management
+- Build and test workflow
+- Automated quality checks
+- Error reporting
+- Version control practices
+- Mobile-compatible development workflow
+
+### M3 Acceptance Criteria
+
+M3 may be marked PASS only after the required repository structure and engineering checks are verified.
+
+Creating files or committing documentation alone does not prove M3 completion.
+
+## 7. Website-First Development
+
+Website milestones must follow the approved order:
+
+- M4 — Mobile Freedom Web Foundation
+- M5 — Image Tools Engine
+- M6 — PDF & Document Tools
+- M7 — Everyday Utility Tools
+- M8 — File Analysis Engine
+
+Each milestone must have documented requirements and verified acceptance criteria before it is marked PASS.
+
+The website must prioritize mobile usability, accessible controls, clear errors, performance, and privacy-conscious processing.
+
+## 8. Storage Intelligence Development
+
+The storage intelligence milestones are:
+
+- M9 — Duplicate Photo & Video Analyzer
+- M10 — Storage Intelligence Dashboard
+- M11 — AI Storage Assistant
+- M12 — Storage Trend & Prediction
+
+These milestones must follow the locked order and their approved dependencies.
+
+AI-generated recommendations must not silently delete user files or bypass user confirmation.
+
+## 9. Android Development
+
+The Android milestones are:
+
+- M13 — Android App Foundation
+- M14 — Device Storage Analyzer
+- M15 — Safe Cleanup Engine
+- M16 — Android Storage Monitoring
+
+Android implementation must respect operating-system permissions and restrictions.
+
+The application must explain relevant permissions and avoid claiming access to data that the operating system does not expose.
+
+Destructive cleanup operations must include appropriate safeguards and explicit user confirmation.
+
+## 10. Security, Quality, and Reliability
+
+The quality milestones are:
+
+- M17 — Privacy & Security Hardening
+- M18 — Performance & Compatibility
+- M19 — Complete Regression QA
+- M20 — Internationalization
+- M21 — Scalability & Reliability
+
+Required testing must cover relevant functionality, error handling, security boundaries, supported devices, performance, accessibility, and regression risks.
+
+Security claims must be based on evidence and testing.
+
+## 11. Monetization and Public Release
+
+The final milestones are:
+
+- M22 — Monetization & Sustainability
+- M23 — Public Release
+
+Monetization must be implemented transparently and must respect privacy, applicable platform requirements, and user trust.
+
+Public release requires completion of the applicable acceptance criteria, regression checks, security review, deployment verification, and release documentation.
+
+A planned release does not mean the product is already production-ready.
+
+## 12. Mobile-Only Development Workflow
 
 Development will prioritize:
 
@@ -90,9 +232,9 @@ Development will prioritize:
 
 Desktop-dependent instructions should be avoided when a reliable mobile-compatible alternative exists.
 
-## 7. Milestone Status Rules
+## 13. Milestone Status Rules
 
-Each milestone must be marked using one of these statuses:
+Allowed status values:
 
 - NOT STARTED
 - IN PROGRESS
@@ -100,41 +242,61 @@ Each milestone must be marked using one of these statuses:
 - PASS
 - LOCKED
 
-A milestone may be marked PASS only after its defined acceptance criteria and required tests have been verified.
+Use these rules:
 
-Document creation or a successful commit alone does not prove that a milestone is complete.
+- NOT STARTED: Work has not begun.
+- IN PROGRESS: Work is underway but acceptance criteria are not all verified.
+- BLOCKED: Work cannot proceed because a dependency or issue must be resolved.
+- PASS: All required acceptance criteria and tests have been verified.
+- LOCKED: An approved baseline or decision must not be changed without authorization.
 
-## 8. Change Control
+A milestone may be marked PASS only when supported by verification evidence.
+
+## 14. Change Control
 
 The 23-milestone roadmap and Hybrid Architecture are locked.
 
-Any change to the approved milestone scope, order, dependencies, or architecture requires explicit project-owner approval.
+Any change to the approved milestone names, scope, order, dependencies, or architecture requires explicit project-owner approval.
 
-Corrections that preserve the approved plan may be documented without changing its scope.
+Corrections that preserve the approved plan are allowed.
 
-## 9. Current Progress
+No milestone may be silently skipped, merged, renamed, or removed.
+
+## 15. Current Progress
+
+The following records reflect the repository status at the time of this roadmap update and must be reverified when necessary:
 
 - GitHub repository created: VERIFIED
 - README.md created: VERIFIED
 - PRODUCT_SPEC.md committed: VERIFIED
 - ARCHITECTURE.md committed: VERIFIED
 - SECURITY.md committed: VERIFIED
-- ROADMAP.md: IN PROGRESS
+- ROADMAP.md 23-milestone register: DOCUMENTED; commit verification pending
 - M1 acceptance review: NOT STARTED
+- M2 architecture review: NOT STARTED
+- M3 engineering foundation verification: NOT STARTED
 - Website implementation: NOT STARTED
 - Android implementation: NOT STARTED
+- Public release: NOT STARTED
 
-## 10. Next Actions
+Documentation commits do not automatically establish milestone completion.
 
-1. Save and review this roadmap record.
-2. Verify the authoritative 23-milestone register.
-3. Complete the M1 acceptance review.
-4. Proceed to subsequent milestones in the approved order.
-5. Establish automated build and test verification.
-6. Begin implementation only when the relevant milestone requirements are satisfied.
+## 16. Immediate Next Actions
+
+1. Commit and verify this roadmap update.
+2. Review PRODUCT_SPEC.md against M1 requirements.
+3. Review ARCHITECTURE.md against the locked Hybrid Architecture.
+4. Identify and document any gaps without changing locked scope.
+5. Obtain project-owner approval of the M1 requirements baseline.
+6. Verify M3 repository and engineering requirements.
+7. Proceed through subsequent milestones in the approved order.
 
 ---
 
-**Roadmap Status: LOCKED**
+**Roadmap Version:** 1.0  
+**Milestone Count:** 23  
+**Architecture:** Hybrid — LOCKED  
+**Development Workflow:** Mobile-Only  
+**Roadmap Scope and Order:** LOCKED
 
-**Important:** The authoritative original milestone register takes precedence over any summary in this file.
+**Final Rule:** No milestone is PASS until its acceptance criteria and required verification are complete.
