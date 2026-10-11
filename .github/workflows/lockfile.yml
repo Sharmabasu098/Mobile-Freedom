@@ -1,0 +1,45 @@
+name: Generate and Verify Lockfile
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-lockfile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate package-lock.json
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Verify locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Verify production build
+        run: npm run build
+
+      - name: Create lockfile pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ github.token }}
+          branch: chore/add-package-lock
+          delete-branch: true
+          commit-message: "Add package-lock.json for reproducible builds"
+          title: "Add package-lock.json"
+          body: |
+            This pull request adds package-lock.json.
+            The workflow generated the lockfile and verified dependency installation and the production build.
+          add-paths: package-lock.json
