@@ -237,3 +237,14 @@ Status: DOCUMENTATION DRAFT — REVIEW REQUIRED. This section does not establish
 - [ ] Error messages and logs do not expose unnecessary personal data.
 
 **Status:** REVIEW REQUIRED — Source code and tests are not yet available for verification.
+
+## Gap D — Deployment and Testing Responsibilities
+
+### Verification Checklist
+
+- [ ] Build and automated test responsibilities are defined.
+- [ ] Mobile browser testing is included.
+- [ ] Published applications are tested after deployment.
+- [ ] Deployment failures have a clear status and recovery process.
+
+**Status:** REVIEW REQUIRED — Source code and tests are not yet available for verification.
