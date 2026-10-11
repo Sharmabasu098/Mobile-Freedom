@@ -31,3 +31,6 @@ jobs:
 
       - name: Run production build
         run: npm run build
+
+      - name: Verify build artifact
+        run: test -s dist/index.html
