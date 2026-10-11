@@ -213,3 +213,15 @@ Platform-specific operations are isolated appropriately.
 Error, partial-result, cancellation, and retry behavior is defined.
 Integration behavior has been tested when implementation exists.
 Status: DOCUMENTATION DRAFT — REVIEW REQUIRED. This section does not establish that any component has been implemented or tested, and it does not mark M2 as PASS.
+## Gap B — Error Handling, Recovery, and Partial Failure
+
+### Verification Checklist
+
+- [ ] Unsupported or invalid files are rejected safely.
+- [ ] Errors display clear, understandable messages.
+- [ ] Partial or interrupted operations are never reported as successful.
+- [ ] Retry is allowed only when safe.
+- [ ] Cancellation and recovery behavior is clearly defined.
+- [ ] Errors do not expose secrets or unnecessary personal data.
+
+**Status:** REVIEW REQUIRED — Source code and tests are not yet available for verification.
