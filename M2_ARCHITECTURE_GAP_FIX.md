@@ -225,3 +225,15 @@ Status: DOCUMENTATION DRAFT — REVIEW REQUIRED. This section does not establish
 - [ ] Errors do not expose secrets or unnecessary personal data.
 
 **Status:** REVIEW REQUIRED — Source code and tests are not yet available for verification.
+
+## Gap C — AI, Backend, and Data-Minimization Boundaries
+
+### Verification Checklist
+
+- [ ] AI services receive only the minimum necessary information.
+- [ ] Local processing is preferred whenever practical.
+- [ ] API secrets are never embedded in public frontend code.
+- [ ] Backend authentication, authorization, and data validation requirements are defined.
+- [ ] Error messages and logs do not expose unnecessary personal data.
+
+**Status:** REVIEW REQUIRED — Source code and tests are not yet available for verification.
