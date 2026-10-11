@@ -1,8 +1,8 @@
 # Mobile Freedom — System Architecture
 
-**Document:** ARCHITECTURE.md
-**Version:** 1.0
-**Architecture Status:** HYBRID — LOCKED
+**Document:** ARCHITECTURE.md  
+**Version:** 1.0  
+**Architecture Status:** HYBRID — LOCKED  
 **Development Method:** MOBILE-ONLY
 
 ---
@@ -53,7 +53,7 @@ Shared modules may contain:
 - Storage estimation logic
 - Shared business rules
 
-Only code that is suitable for both web and Android environments should be shared.
+Only code suitable for both web and Android environments should be shared.
 
 Platform-specific functionality must remain in the appropriate application.
 
@@ -216,3 +216,80 @@ The architecture is ready for implementation when:
 8. Testing and deployment responsibilities are defined.
 
 **Current Status: INITIAL ARCHITECTURE DOCUMENT — REVIEW REQUIRED**
+
+---
+
+## 16. Component Interfaces and Data Contracts — Gap A
+
+This section clarifies implementation boundaries without changing the locked Hybrid Architecture or the 23-milestone roadmap.
+
+### 16.1 Interface Principles
+
+- Components must expose documented inputs and outputs.
+- Inputs must be validated before processing.
+- Components must not depend on unrelated components' internal state.
+- Web- and Android-specific capabilities must remain behind platform-appropriate interfaces.
+- Components must report success only when the requested operation actually succeeds.
+- Data sent to an optional backend or remote AI service must be limited to what the requested task requires.
+
+### 16.2 Component Responsibilities and Contracts
+
+| Component | Expected input | Expected output | Boundary |
+|---|---|---|---|
+| Web Application | User action and user-provided input | Displayed result, status, or error | Presents results; does not invent processing results |
+| Shared Core Modules | Validated data and operation parameters | Reusable calculation, validation, or analysis result | Contains only code suitable for supported platforms |
+| Image Tools | Supported image and requested operation | Processed image or clear error | Must preserve the original unless the user chooses otherwise |
+| PDF and Document Tools | Supported document and requested operation | Resulting document or clear error | Must identify unsupported operations |
+| File Analysis | User-selected file and analysis request | Actual findings or clear error | Must not claim access to unprovided data |
+| Storage Intelligence | Verified analysis results | Summary, estimates, or trends with limitations stated | Must distinguish measured values from estimates |
+| AI Services | Minimum necessary context and, when relevant, verified results | Explanation or recommendation | Must not authorize destructive actions |
+| Optional Backend | Authorized request and minimum necessary data | Service response or structured failure | Must enforce applicable authentication, authorization, validation, and secret management |
+| Android Application | User action, supported platform data, and granted permissions | Actual device-analysis result or clear error | Must follow Android APIs and permission restrictions |
+
+These are architecture-level contracts. Exact TypeScript types and APIs must be defined when the corresponding implementation is introduced.
+
+### 16.3 Result and Error Handling
+
+Every implemented operation must make its outcome unambiguous:
+
+- A successful operation returns its actual result.
+- A failed operation returns a clear error code and user-understandable message.
+- A partial result must be identified as partial.
+- An operation that was cancelled or interrupted must not be reported as successful.
+- Retrying is allowed only when it is safe for that operation.
+- Errors must not expose secrets or unnecessary personal data.
+
+Exact shared error types and retry rules must be confirmed during implementation and testing.
+
+### 16.4 Validation and Data Boundaries
+
+- Validate required inputs, supported file types, and applicable size limits before processing.
+- Check required permissions before platform-specific operations.
+- Do not treat filenames or file contents as trusted instructions.
+- Do not send file contents or personal data to remote services unless required for the requested task and appropriately disclosed.
+- Keep analysis separate from destructive execution.
+- Require explicit user confirmation before destructive actions.
+
+### 16.5 Integration Flow
+
+The intended high-level flow is:
+
+1. The user initiates an operation in the application.
+2. The application validates the request and required permissions.
+3. The responsible component processes the request.
+4. The component returns an actual result, a partial result, a cancellation status, or an error.
+5. The application presents the outcome accurately.
+6. Any destructive operation requires separate explicit user confirmation.
+
+### 16.6 Gap A Verification Checklist
+
+- [ ] Component responsibilities and boundaries have been reviewed.
+- [ ] Inputs and outputs are documented for each implemented component.
+- [ ] Shared data structures and validation rules are defined where needed.
+- [ ] Platform-specific operations are isolated appropriately.
+- [ ] Error, partial-result, cancellation, and retry behavior is defined.
+- [ ] Integration behavior has been tested when implementation exists.
+
+**Status:** DOCUMENTATION DRAFT — REVIEW REQUIRED.
+
+This section does not establish that any component has been implemented or tested, and it does not mark M2 as PASS.
