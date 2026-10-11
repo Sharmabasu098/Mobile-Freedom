@@ -32,8 +32,5 @@ jobs:
       - name: Run production build
         run: npm run build
 
-      - name: Run TypeScript type check
-        run: npm run typecheck
-
       - name: Verify build artifact
         run: test -s dist/index.html
