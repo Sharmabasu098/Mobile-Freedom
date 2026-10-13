@@ -306,7 +306,7 @@ function render(): void {
 
   document.querySelectorAll<HTMLButtonElement>("[data-category]")
     .forEach((button) => {
-      const key = button.dataset.category as Category;
+      const key = button.dataset["category"] as Category;
       button.textContent = labels[key];
       button.setAttribute(
         "aria-pressed",
@@ -333,7 +333,7 @@ element<HTMLInputElement>("search-input").addEventListener("input", () => {
 document.querySelectorAll<HTMLButtonElement>("[data-category]")
   .forEach((button) => {
     button.addEventListener("click", () => {
-      category = button.dataset.category as Category;
+      category = button.dataset["category"] as Category;
       render();
     });
   });
@@ -345,8 +345,8 @@ element("language").addEventListener("click", () => {
 
 element("theme").addEventListener("click", () => {
   darkMode = !darkMode;
-  document.documentElement.dataset.theme =
-    darkMode ? "dark" : "light";
+  document.documentElement.dataset["theme"] =
+  darkMode ? "dark" : "light";
   render();
 });
 
