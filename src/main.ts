@@ -1,6 +1,7 @@
 /**
  * Mobile Freedom
  * M4.1 — Responsive Homepage Foundation
+ * M4.2 — Live Category and Search Result Count
  */
 
 import "./style.css";
@@ -34,6 +35,8 @@ const translations = {
       "Our goal is to process files locally wherever practical. Each tool will explain its limitations.",
     planned: "Planned — not available yet",
     empty: "No matching tools found. Try another search.",
+    results: (count: number) =>
+      `${count} ${count === 1 ? "tool" : "tools"} found.`,
     language: "हिन्दी",
     dark: "Dark theme",
     light: "Light theme",
@@ -56,6 +59,7 @@ const translations = {
       "जहाँ संभव होगा, फाइलें ब्राउज़र में ही प्रोसेस करने का लक्ष्य है। हर टूल अपनी सीमाएँ स्पष्ट करेगा।",
     planned: "योजना में — अभी उपलब्ध नहीं",
     empty: "कोई मेल खाता टूल नहीं मिला। दूसरा शब्द आज़माएँ।",
+    results: (count: number) => `${count} टूल मिले।`,
     language: "English",
     dark: "डार्क थीम",
     light: "लाइट थीम",
@@ -255,6 +259,10 @@ function renderTools(): void {
     );
   });
 
+  // Update the count whenever search, category, or language changes.
+  element<HTMLParagraphElement>("search-status").textContent =
+    translations[language].results(filtered.length);
+
   element<HTMLDivElement>("tool-grid").innerHTML = filtered
     .map(
       (tool) => `
@@ -304,14 +312,12 @@ function render(): void {
     utility: t.utility,
   };
 
-  document.querySelectorAll<HTMLButtonElement>("[data-category]")
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-category]")
     .forEach((button) => {
       const key = button.dataset["category"] as Category;
       button.textContent = labels[key];
-      button.setAttribute(
-        "aria-pressed",
-        String(category === key)
-      );
+      button.setAttribute("aria-pressed", String(category === key));
     });
 
   renderTools();
@@ -321,8 +327,6 @@ element("search-form").addEventListener("submit", (event) => {
   event.preventDefault();
   query = element<HTMLInputElement>("search-input").value.trim();
   renderTools();
-  element("search-status").textContent =
-    `${element("tool-grid").children.length} tools found.`;
 });
 
 element<HTMLInputElement>("search-input").addEventListener("input", () => {
@@ -330,7 +334,8 @@ element<HTMLInputElement>("search-input").addEventListener("input", () => {
   renderTools();
 });
 
-document.querySelectorAll<HTMLButtonElement>("[data-category]")
+document
+  .querySelectorAll<HTMLButtonElement>("[data-category]")
   .forEach((button) => {
     button.addEventListener("click", () => {
       category = button.dataset["category"] as Category;
@@ -345,8 +350,7 @@ element("language").addEventListener("click", () => {
 
 element("theme").addEventListener("click", () => {
   darkMode = !darkMode;
-  document.documentElement.dataset["theme"] =
-  darkMode ? "dark" : "light";
+  document.documentElement.dataset["theme"] = darkMode ? "dark" : "light";
   render();
 });
 
