@@ -225,3 +225,93 @@ describe("Image Engine — actual processing behavior", () => {
     expect(bitmap.close).toHaveBeenCalledOnce();
   });
 });
+
+describe("Image Engine — robustness and cleanup", () => {
+  function setupFailureMocks(
+    failure: "no-context" | "no-blob" | "draw-error",
+  ) {
+    const bitmap = {
+      width: 800,
+      height: 600,
+      close: vi.fn(),
+    };
+
+    const context = {
+      drawImage: vi.fn(() => {
+        if (failure === "draw-error") {
+          throw new Error("Canvas drawing failed.");
+        }
+      }),
+    };
+
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() =>
+        failure === "no-context" ? null : context,
+      ),
+      toBlob: vi.fn((callback: BlobCallback) => {
+        callback(
+          failure === "no-blob"
+            ? null
+            : new Blob(["processed"], {
+                type: "image/png",
+              }),
+        );
+      }),
+    };
+
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn().mockResolvedValue(bitmap),
+    );
+
+    vi.stubGlobal("document", {
+      createElement: vi.fn(() => canvas),
+    });
+
+    return { bitmap, canvas };
+  }
+
+  it("reports an error when Canvas context is unavailable", async () => {
+    const { bitmap, canvas } = setupFailureMocks("no-context");
+
+    const file = makeFile("photo.png", "image/png");
+
+    await expect(processImage(file)).rejects.toThrow(
+      "Image processing is not supported by this browser.",
+    );
+
+    expect(bitmap.close).toHaveBeenCalledOnce();
+    expect(canvas.width).toBe(0);
+    expect(canvas.height).toBe(0);
+  });
+
+  it("reports an error when Canvas cannot create an output image", async () => {
+    const { bitmap, canvas } = setupFailureMocks("no-blob");
+
+    const file = makeFile("photo.png", "image/png");
+
+    await expect(processImage(file)).rejects.toThrow(
+      "Could not create the processed image.",
+    );
+
+    expect(bitmap.close).toHaveBeenCalledOnce();
+    expect(canvas.width).toBe(0);
+    expect(canvas.height).toBe(0);
+  });
+
+  it("cleans up resources when drawing fails", async () => {
+    const { bitmap, canvas } = setupFailureMocks("draw-error");
+
+    const file = makeFile("photo.png", "image/png");
+
+    await expect(processImage(file)).rejects.toThrow(
+      "Canvas drawing failed.",
+    );
+
+    expect(bitmap.close).toHaveBeenCalledOnce();
+    expect(canvas.width).toBe(0);
+    expect(canvas.height).toBe(0);
+  });
+});
