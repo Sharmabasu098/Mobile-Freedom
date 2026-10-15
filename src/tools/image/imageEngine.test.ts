@@ -1,4 +1,4 @@
-import { describe, expect, it, } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   processImage,
@@ -73,5 +73,155 @@ describe("Image Engine — error handling", () => {
     await expect(processImage(file)).rejects.toThrow(
       "The selected file is empty.",
     );
+  });
+});
+
+describe("Image Engine — actual processing behavior", () => {
+  function setupBrowserMocks(
+    options: {
+      width?: number;
+      height?: number;
+      outputBlob?: Blob;
+    } = {},
+  ) {
+    const bitmap = {
+      width: options.width ?? 800,
+      height: options.height ?? 600,
+      close: vi.fn(),
+    };
+
+    const context = {
+      drawImage: vi.fn(),
+    };
+
+    const outputBlob =
+      options.outputBlob ??
+      new Blob(["processed-image"], {
+        type: "image/webp",
+      });
+
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => context),
+      toBlob: vi.fn(
+        (
+          callback: BlobCallback,
+          type?: string,
+        ) => {
+          const result = new Blob(
+            ["processed-image"],
+            { type: type ?? outputBlob.type },
+          );
+
+          callback(result);
+        },
+      ),
+    };
+
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn().mockResolvedValue(bitmap),
+    );
+
+    vi.stubGlobal("document", {
+      createElement: vi.fn(() => canvas),
+    });
+
+    return { bitmap, canvas, context };
+  }
+
+  it("processes an image and reports output details", async () => {
+    setupBrowserMocks();
+
+    const file = makeFile("photo.png", "image/png");
+    const result = await processImage(file);
+
+    expect(result.blob).toBeInstanceOf(Blob);
+    expect(result.width).toBe(800);
+    expect(result.height).toBe(600);
+    expect(result.format).toBe("image/png");
+    expect(result.originalBytes).toBe(file.size);
+    expect(result.outputBytes).toBeGreaterThan(0);
+  });
+
+  it("resizes an image to requested dimensions", async () => {
+    const { canvas } = setupBrowserMocks();
+
+    const file = makeFile("photo.png", "image/png");
+
+    const result = await processImage(file, {
+      width: 400,
+      height: 300,
+    });
+
+    expect(result.width).toBe(400);
+    expect(result.height).toBe(300);
+    expect(canvas.width).toBe(0);
+    expect(canvas.height).toBe(0);
+  });
+
+  it("preserves aspect ratio when only width is supplied", async () => {
+    setupBrowserMocks({
+      width: 800,
+      height: 600,
+    });
+
+    const file = makeFile("photo.png", "image/png");
+
+    const result = await processImage(file, {
+      width: 400,
+    });
+
+    expect(result.width).toBe(400);
+    expect(result.height).toBe(300);
+  });
+
+  it("supports requesting a different output format", async () => {
+    setupBrowserMocks();
+
+    const file = makeFile("photo.png", "image/png");
+
+    const result = await processImage(file, {
+      format: "image/webp",
+      quality: 0.7,
+    });
+
+    expect(result.format).toBe("image/webp");
+    expect(result.blob.type).toBe("image/webp");
+  });
+
+  it("rejects invalid image dimensions", async () => {
+    setupBrowserMocks();
+
+    const file = makeFile("photo.png", "image/png");
+
+    await expect(
+      processImage(file, { width: 0 }),
+    ).rejects.toThrow(
+      "Image dimensions must be positive whole numbers.",
+    );
+  });
+
+  it("rejects invalid quality values", async () => {
+    setupBrowserMocks();
+
+    const file = makeFile("photo.png", "image/png");
+
+    await expect(
+      processImage(file, { quality: 2 }),
+    ).rejects.toThrow(
+      "Image quality must be between 0 and 1.",
+    );
+  });
+
+  it("closes the image bitmap after processing", async () => {
+    const { bitmap } = setupBrowserMocks();
+
+    const file = makeFile("photo.png", "image/png");
+
+    await processImage(file);
+
+    expect(bitmap.close).toHaveBeenCalledOnce();
   });
 });
