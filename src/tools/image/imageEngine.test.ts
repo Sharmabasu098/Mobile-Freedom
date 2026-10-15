@@ -337,20 +337,24 @@ describe("Image Compressor — M5.4", () => {
       height: 0,
       getContext: vi.fn(() => context),
       toBlob: vi.fn(
-        (
-          callback: BlobCallback,
-          type?: string,
-          _quality?: number,
-        ) => {
-          callback(
-            new Blob(
-              ["x".repeat(outputSize)],
-              { type: type ?? outputType },
-            ),
-          );
-        },
+  (
+    callback: BlobCallback,
+    type?: string,
+    _quality?: number,
+  ) => {
+    const actualType =
+      outputType === "image/png"
+        ? "image/png"
+        : type ?? outputType;
+
+    callback(
+      new Blob(
+        ["x".repeat(outputSize)],
+        { type: actualType },
       ),
-    };
+    );
+  },
+),
 
     vi.stubGlobal(
       "createImageBitmap",
