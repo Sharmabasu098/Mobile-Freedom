@@ -328,6 +328,10 @@ describe("Image Compressor — M5.4", () => {
       close: vi.fn(),
     };
 
+        const context = {
+      drawImage: vi.fn(),
+    };
+
         const canvas = {
       width: 0,
       height: 0,
