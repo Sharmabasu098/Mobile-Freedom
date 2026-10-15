@@ -6,11 +6,6 @@
 
 import "./style.css";
 
-import {
-  compressImage,
-  SUPPORTED_IMAGE_TYPES,
-} from "./tools/image/imageEngine";
-
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
 
