@@ -234,3 +234,77 @@ export async function processImage(
     }
   }
 }
+
+/**
+ * M5.4 — Image Compressor
+ *
+ * Compresses an image locally in the browser.
+ * WebP output is used by default to support lossy compression
+ * while preserving transparency where supported.
+ */
+
+export interface ImageCompressionOptions {
+  /**
+   * Compression quality from 0 to 1.
+   * Lower values generally produce smaller files with more
+   * visible quality loss.
+   */
+  quality?: number;
+}
+
+export interface ImageCompressionResult
+  extends ImageProcessResult {
+  bytesSaved: number;
+  percentageSaved: number;
+  sizeReduced: boolean;
+}
+
+export async function compressImage(
+  file: File,
+  options: ImageCompressionOptions = {},
+): Promise<ImageCompressionResult> {
+  const quality = options.quality ?? 0.8;
+
+  if (
+    !Number.isFinite(quality) ||
+    quality < 0 ||
+    quality > 1
+  ) {
+    throw new Error(
+      "Compression quality must be between 0 and 1.",
+    );
+  }
+
+  const result = await processImage(file, {
+    format: "image/webp",
+    quality,
+  });
+
+  if (result.blob.type !== "image/webp") {
+    throw new Error(
+      "WebP compression is not supported by this browser.",
+    );
+  }
+
+  const bytesSaved = Math.max(
+    0,
+    result.originalBytes - result.outputBytes,
+  );
+
+  const percentageSaved =
+    result.originalBytes > 0
+      ? Math.max(
+          0,
+          ((result.originalBytes - result.outputBytes) /
+            result.originalBytes) *
+            100,
+        )
+      : 0;
+
+  return {
+    ...result,
+    bytesSaved,
+    percentageSaved,
+    sizeReduced: result.outputBytes < result.originalBytes,
+  };
+}
