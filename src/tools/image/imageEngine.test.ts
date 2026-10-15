@@ -318,17 +318,70 @@ describe("Image Engine — robustness and cleanup", () => {
 });
 
 describe("Image Compressor — M5.4", () => {
-  it("uses the default compression quality of 0.8", async () => {
-    setupBrowserMocks();
+  function setupCompressorMocks(
+    outputSize = 4,
+    outputType = "image/webp",
+  ) {
+    const bitmap = {
+      width: 800,
+      height: 600,
+      close: vi.fn(),
+    };
 
-    const file = makeFile("photo.png", "image/png");
+    const context = {
+      drawImage: vi.fn(),
+    };
 
-    await compressImage(file);
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => context),
+      toBlob: vi.fn(
+        (
+          callback: BlobCallback,
+          type?: string,
+          _quality?: number,
+        ) => {
+          callback(
+            new Blob(
+              ["x".repeat(outputSize)],
+              { type: type ?? outputType },
+            ),
+          );
+        },
+      ),
+    };
 
-    // The engine should request WebP output.
-    expect(
-      document.createElement,
-    ).toHaveBeenCalled();
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn().mockResolvedValue(bitmap),
+    );
+
+    vi.stubGlobal("document", {
+      createElement: vi.fn(() => canvas),
+    });
+
+    return { bitmap, canvas };
+  }
+
+  it("returns compression statistics", async () => {
+    setupCompressorMocks(4);
+
+    const file = makeFile(
+      "photo.png",
+      "image/png",
+      "x".repeat(100),
+    );
+
+    const result = await compressImage(file);
+
+    expect(result.blob).toBeInstanceOf(Blob);
+    expect(result.format).toBe("image/webp");
+    expect(result.originalBytes).toBe(100);
+    expect(result.outputBytes).toBe(4);
+    expect(result.bytesSaved).toBe(96);
+    expect(result.percentageSaved).toBe(96);
+    expect(result.sizeReduced).toBe(true);
   });
 
   it("rejects quality below zero", async () => {
@@ -351,7 +404,7 @@ describe("Image Compressor — M5.4", () => {
     );
   });
 
-  it("rejects a non-finite quality value", async () => {
+  it("rejects NaN quality", async () => {
     const file = makeFile("photo.png", "image/png");
 
     await expect(
@@ -362,27 +415,46 @@ describe("Image Compressor — M5.4", () => {
   });
 
   it("accepts quality values of zero and one", async () => {
-    setupBrowserMocks();
-
     const file = makeFile("photo.png", "image/png");
+
+    setupCompressorMocks();
 
     await expect(
       compressImage(file, { quality: 0 }),
     ).resolves.toBeDefined();
+
+    setupCompressorMocks();
+
+    await expect(
+      compressImage(file, { quality: 1 }),
+    ).resolves.toBeDefined();
   });
 
   it("reports size reduction without negative savings", async () => {
-    setupBrowserMocks();
+    setupCompressorMocks(200);
 
-    const file = makeFile("photo.png", "image/png");
+    const file = makeFile(
+      "photo.png",
+      "image/png",
+      "small",
+    );
 
     const result = await compressImage(file);
 
-    expect(result.bytesSaved).toBeGreaterThanOrEqual(0);
-    expect(result.percentageSaved).toBeGreaterThanOrEqual(0);
-    expect(typeof result.sizeReduced).toBe("boolean");
-    expect(result.sizeReduced).toBe(
-      result.outputBytes < result.originalBytes,
+    expect(result.sizeReduced).toBe(false);
+    expect(result.bytesSaved).toBe(0);
+    expect(result.percentageSaved).toBe(0);
+  });
+
+  it("rejects when WebP output is unavailable", async () => {
+    setupCompressorMocks(10, "image/png");
+
+    const file = makeFile("photo.png", "image/png");
+
+    await expect(
+      compressImage(file),
+    ).rejects.toThrow(
+      "WebP compression is not supported by this browser.",
     );
   });
 });
