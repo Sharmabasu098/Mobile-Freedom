@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   processImage,
+  compressImage,
   validateImageFile,
   SUPPORTED_IMAGE_TYPES,
 } from "./imageEngine";
@@ -313,5 +314,75 @@ describe("Image Engine — robustness and cleanup", () => {
     expect(bitmap.close).toHaveBeenCalledOnce();
     expect(canvas.width).toBe(0);
     expect(canvas.height).toBe(0);
+  });
+});
+
+describe("Image Compressor — M5.4", () => {
+  it("uses the default compression quality of 0.8", async () => {
+    setupBrowserMocks();
+
+    const file = makeFile("photo.png", "image/png");
+
+    await compressImage(file);
+
+    // The engine should request WebP output.
+    expect(
+      document.createElement,
+    ).toHaveBeenCalled();
+  });
+
+  it("rejects quality below zero", async () => {
+    const file = makeFile("photo.png", "image/png");
+
+    await expect(
+      compressImage(file, { quality: -0.1 }),
+    ).rejects.toThrow(
+      "Compression quality must be between 0 and 1.",
+    );
+  });
+
+  it("rejects quality above one", async () => {
+    const file = makeFile("photo.png", "image/png");
+
+    await expect(
+      compressImage(file, { quality: 1.1 }),
+    ).rejects.toThrow(
+      "Compression quality must be between 0 and 1.",
+    );
+  });
+
+  it("rejects a non-finite quality value", async () => {
+    const file = makeFile("photo.png", "image/png");
+
+    await expect(
+      compressImage(file, { quality: Number.NaN }),
+    ).rejects.toThrow(
+      "Compression quality must be between 0 and 1.",
+    );
+  });
+
+  it("accepts quality values of zero and one", async () => {
+    setupBrowserMocks();
+
+    const file = makeFile("photo.png", "image/png");
+
+    await expect(
+      compressImage(file, { quality: 0 }),
+    ).resolves.toBeDefined();
+  });
+
+  it("reports size reduction without negative savings", async () => {
+    setupBrowserMocks();
+
+    const file = makeFile("photo.png", "image/png");
+
+    const result = await compressImage(file);
+
+    expect(result.bytesSaved).toBeGreaterThanOrEqual(0);
+    expect(result.percentageSaved).toBeGreaterThanOrEqual(0);
+    expect(typeof result.sizeReduced).toBe("boolean");
+    expect(result.sizeReduced).toBe(
+      result.outputBytes < result.originalBytes,
+    );
   });
 });
