@@ -6,6 +6,11 @@
 
 import "./style.css";
 
+import {
+  compressImage,
+  SUPPORTED_IMAGE_TYPES,
+} from "./tools/image/imageEngine";
+
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
 
@@ -274,9 +279,15 @@ function renderTools(): void {
               ? tool.descriptionEn
               : tool.descriptionHi
           }</p>
-          <span class="tool-status">
-            ${translations[language].planned}
-          </span>
+          ${
+  tool.en === "Image Compressor"
+    ? `<button class="tool-status compressor-open" type="button" data-open-compressor>
+        ${language === "en" ? "Open tool" : "टूल खोलें"}
+      </button>`
+    : `<span class="tool-status">
+        ${translations[language].planned}
+      </span>`
+          }
         </article>
       `
     )
