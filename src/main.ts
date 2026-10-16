@@ -697,6 +697,7 @@ if (target.closest("[data-open-converter]")) {
 if (target.closest("[data-open-resizer]")) {
   openImageResizer();
 }
+});
 
 // M5.3 — Image Format Converter
 
