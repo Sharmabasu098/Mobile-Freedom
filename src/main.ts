@@ -691,8 +691,12 @@ document.addEventListener("click", (event) => {
 
 if (target.closest("[data-open-converter]")) {
   openImageConverter();
+  return;
 }
-});
+
+if (target.closest("[data-open-resizer]")) {
+  openImageResizer();
+}
 
 // M5.3 — Image Format Converter
 
