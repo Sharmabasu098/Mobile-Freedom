@@ -5,7 +5,11 @@
  */
 
 import "./style.css";
-import { compressImage } from "./tools/image/imageEngine";
+
+import {
+  compressImage,
+  processImage,
+} from "./tools/image/imageEngine";
 
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
@@ -277,7 +281,11 @@ function renderTools(): void {
           }</p>
           ${
   tool.en === "Image Compressor"
-    ? `<button class="tool-status compressor-open" type="button" data-open-compressor>
+  ? `<button class="tool-status compressor-open" type="button" data-open-compressor>
+      ${language === "en" ? "Open tool" : "टूल खोलें"}
+    </button>`
+  : tool.en === "Image Converter"
+    ? `<button class="tool-status compressor-open" type="button" data-open-converter>
         ${language === "en" ? "Open tool" : "टूल खोलें"}
       </button>`
     : `<span class="tool-status">
@@ -677,6 +685,223 @@ document.addEventListener("click", (event) => {
   }
 
   if (target.closest("[data-open-compressor]")) {
-    openImageCompressor();
-  }
+  openImageCompressor();
+  return;
+}
+
+if (target.closest("[data-open-converter]")) {
+  openImageConverter();
+}
 });
+
+// M5.3 — Image Format Converter
+
+let converterObjectUrl: string | null = null;
+
+function openImageConverter(): void {
+  const home = element<HTMLElement>("home");
+
+  document.getElementById("image-converter-screen")?.remove();
+
+  const screen = document.createElement("section");
+  screen.id = "image-converter-screen";
+  screen.className = "section";
+
+  screen.innerHTML = `
+    <div class="container">
+      <div class="tool-card">
+        <h2>${language === "en" ? "Image Format Converter" : "इमेज फॉर्मेट कन्वर्टर"}</h2>
+
+        <p>
+          ${language === "en"
+            ? "Convert an image to JPEG, PNG, or WebP in your browser."
+            : "अपने ब्राउज़र में इमेज को JPEG, PNG या WebP में बदलें।"}
+        </p>
+
+        <button id="converter-back" class="control-button" type="button">
+          ${language === "en" ? "← Back" : "← वापस जाएँ"}
+        </button>
+
+        <div style="margin-top:20px">
+          <label for="converter-file">
+            ${language === "en" ? "Choose an image" : "इमेज चुनें"}
+          </label>
+          <input
+            id="converter-file"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style="display:block;width:100%;margin-top:10px"
+          />
+        </div>
+
+        <div style="margin-top:20px">
+          <label for="converter-format">
+            ${language === "en" ? "Output format" : "आउटपुट फॉर्मेट"}
+          </label>
+          <select id="converter-format" style="display:block;width:100%;margin-top:10px">
+            <option value="image/jpeg">JPEG</option>
+            <option value="image/png">PNG</option>
+            <option value="image/webp">WebP</option>
+          </select>
+        </div>
+
+        <div style="margin-top:20px">
+          <label for="converter-quality">
+            ${language === "en" ? "Quality (for JPEG/WebP)" : "क्वालिटी (JPEG/WebP के लिए)"}
+            <span id="converter-quality-value">80%</span>
+          </label>
+          <input
+            id="converter-quality"
+            type="range"
+            min="10"
+            max="100"
+            value="80"
+            style="display:block;width:100%;margin-top:10px"
+          />
+        </div>
+
+        <button
+          id="converter-run"
+          class="control-button"
+          type="button"
+          style="margin-top:20px;background:var(--accent);color:white"
+        >
+          ${language === "en" ? "Convert Image" : "इमेज कन्वर्ट करें"}
+        </button>
+
+        <p id="converter-status" role="status" aria-live="polite"></p>
+
+        <div id="converter-result" hidden>
+          <p id="converter-details"></p>
+          <a
+            id="converter-download"
+            class="control-button"
+            style="display:inline-block;text-decoration:none"
+          >
+            ${language === "en" ? "Download converted image" : "कन्वर्ट की गई इमेज डाउनलोड करें"}
+          </a>
+        </div>
+      </div>
+    </div>
+  `;
+
+  home.hidden = true;
+  home.after(screen);
+
+  const fileInput = screen.querySelector<HTMLInputElement>("#converter-file");
+  const formatInput = screen.querySelector<HTMLSelectElement>("#converter-format");
+  const qualityInput = screen.querySelector<HTMLInputElement>("#converter-quality");
+  const qualityValue = screen.querySelector<HTMLElement>("#converter-quality-value");
+  const runButton = screen.querySelector<HTMLButtonElement>("#converter-run");
+  const backButton = screen.querySelector<HTMLButtonElement>("#converter-back");
+  const status = screen.querySelector<HTMLParagraphElement>("#converter-status");
+  const result = screen.querySelector<HTMLDivElement>("#converter-result");
+  const details = screen.querySelector<HTMLParagraphElement>("#converter-details");
+  const download = screen.querySelector<HTMLAnchorElement>("#converter-download");
+
+  if (
+    !fileInput || !formatInput || !qualityInput || !qualityValue ||
+    !runButton || !backButton || !status || !result || !details || !download
+  ) {
+    screen.remove();
+    home.hidden = false;
+    throw new Error("Image Converter UI initialization failed.");
+  }
+
+  function releaseConverterUrl(): void {
+    if (converterObjectUrl) {
+      URL.revokeObjectURL(converterObjectUrl);
+      converterObjectUrl = null;
+    }
+  }
+
+  function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
+
+  qualityInput.addEventListener("input", () => {
+    qualityValue.textContent = `${qualityInput.value}%`;
+  });
+
+  fileInput.addEventListener("change", () => {
+    releaseConverterUrl();
+    result.hidden = true;
+
+    const file = fileInput.files?.[0];
+    status.textContent = file
+      ? `${language === "en" ? "Selected" : "चुनी गई"}: ${file.name} (${formatBytes(file.size)})`
+      : "";
+  });
+
+  formatInput.addEventListener("change", () => {
+    qualityInput.disabled = formatInput.value === "image/png";
+  });
+
+  qualityInput.disabled = formatInput.value === "image/png";
+
+  runButton.addEventListener("click", async () => {
+    const file = fileInput.files?.[0];
+
+    if (!file) {
+      status.textContent = language === "en"
+        ? "Please choose an image first."
+        : "पहले एक इमेज चुनें।";
+      return;
+    }
+
+    releaseConverterUrl();
+    result.hidden = true;
+    runButton.disabled = true;
+    status.textContent = language === "en"
+      ? "Converting image locally..."
+      : "इमेज को ब्राउज़र में कन्वर्ट किया जा रहा है...";
+
+    try {
+      const format = formatInput.value as "image/jpeg" | "image/png" | "image/webp";
+      const converted = await processImage(file, {
+        format,
+        quality: Number(qualityInput.value) / 100,
+      });
+
+      converterObjectUrl = URL.createObjectURL(converted.blob);
+
+      const extension = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+      }[converted.format];
+
+      download.href = converterObjectUrl;
+      download.download = `${file.name.replace(/\.[^.]+$/, "")}-converted.${extension}`;
+
+      details.textContent =
+        `${language === "en" ? "Output" : "आउटपुट"}: ${extension.toUpperCase()} · ` +
+        `${formatBytes(converted.outputBytes)} · ${converted.width} × ${converted.height}`;
+
+      result.hidden = false;
+      status.textContent = language === "en"
+        ? "Conversion completed successfully."
+        : "इमेज कन्वर्ज़न सफलतापूर्वक पूरा हुआ।";
+    } catch (error) {
+      releaseConverterUrl();
+      status.textContent = error instanceof Error
+        ? error.message
+        : (language === "en"
+          ? "Image conversion failed. Please try another image."
+          : "इमेज कन्वर्ज़न विफल हुआ। दूसरी इमेज आज़माएँ।");
+    } finally {
+      runButton.disabled = false;
+    }
+  });
+
+  backButton.addEventListener("click", () => {
+    releaseConverterUrl();
+    screen.remove();
+    home.hidden = false;
+    home.scrollIntoView({ behavior: "auto", block: "start" });
+  });
+
+  screen.scrollIntoView({ behavior: "auto", block: "start" });
+}
