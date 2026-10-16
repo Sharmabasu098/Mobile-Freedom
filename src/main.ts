@@ -1125,6 +1125,9 @@ function openImageResizer(): void {
       return;
     }
 
+        releaseResizerUrl();
+    result.hidden = true;
+
     if (
       !Number.isSafeInteger(width) || width < 1 ||
       !Number.isSafeInteger(height) || height < 1
@@ -1134,9 +1137,6 @@ function openImageResizer(): void {
         : "चौड़ाई और ऊँचाई के लिए सही सकारात्मक पूर्णांक दर्ज करें।";
       return;
     }
-
-    releaseResizerUrl();
-    result.hidden = true;
     runButton.disabled = true;
     status.textContent = language === "en"
       ? "Resizing image locally..."
