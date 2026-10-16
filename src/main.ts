@@ -288,6 +288,10 @@ function renderTools(): void {
     ? `<button class="tool-status compressor-open" type="button" data-open-converter>
         ${language === "en" ? "Open tool" : "टूल खोलें"}
       </button>`
+   : tool.en === "Image Resizer"
+      ? `<button class="tool-status compressor-open" type="button" data-open-resizer>
+          ${language === "en" ? "Open tool" : "टूल खोलें"}
+        </button>`
     : `<span class="tool-status">
         ${translations[language].planned}
       </span>`
