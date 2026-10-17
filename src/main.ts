@@ -615,63 +615,330 @@ function openImageCompressor(): void {
         "#compressor-preview-note"
       );
 
-      if (!originalSize || !outputSize || !savedSize || !previewNote) {
-        throw new Error("Compression result UI is incomplete.");
-      }
+      // M5.4 — Image Compressor UI Integration
 
-      originalSize.textContent =
-        `${language === "en" ? "Original size" : "मूल आकार"}: ` +
-        formatFileSize(compressed.originalBytes);
+let compressorObjectUrls: string[] = [];
 
-      outputSize.textContent =
-        `${language === "en" ? "Compressed size" : "कंप्रेस आकार"}: ` +
-        formatFileSize(compressed.outputBytes);
+function openImageCompressor(): void {
+  const home = element<HTMLElement>("home");
 
-      savedSize.textContent = compressed.sizeReduced
-        ? (
+  // Prevent duplicate compressor screens.
+  document.getElementById("image-compressor-screen")?.remove();
+
+  const screen = document.createElement("section");
+  screen.id = "image-compressor-screen";
+  screen.className = "section";
+
+  screen.innerHTML = `
+    <div class="container">
+      <div class="tool-card">
+        <h2 id="compressor-heading">
+          ${language === "en" ? "Image Compressor" : "इमेज कंप्रेसर"}
+        </h2>
+
+        <p>
+          ${
             language === "en"
-              ? `Saved ${formatFileSize(compressed.bytesSaved)} (${compressed.percentageSaved.toFixed(1)}%).`
-              : `${formatFileSize(compressed.bytesSaved)} (${compressed.percentageSaved.toFixed(1)}%) आकार बचा।`
-          )
-        : (
-            language === "en"
-              ? "The compressed file is not smaller than the original."
-              : "कंप्रेस की गई फाइल मूल फाइल से छोटी नहीं हुई।"
-          );
+              ? "Compress multiple images locally in this browser."
+              : "इस ब्राउज़र में ही एक साथ कई इमेज कंप्रेस करें।"
+          }
+        </p>
 
-      previewNote.textContent =
+        <button
+          class="control-button"
+          id="compressor-back"
+          type="button"
+        >
+          ${language === "en" ? "← Back" : "← वापस जाएँ"}
+        </button>
+
+        <div style="margin-top:22px;">
+          <label for="compressor-file">
+            <strong>
+              ${language === "en" ? "Choose images" : "इमेज चुनें"}
+            </strong>
+          </label>
+
+          <input
+            id="compressor-file"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            style="display:block; width:100%; margin-top:12px;"
+          />
+
+          <p id="compressor-selection-status" role="status"></p>
+        </div>
+
+        <div style="margin-top:22px;">
+          <label for="compressor-quality">
+            <strong>
+              ${language === "en" ? "Image quality" : "इमेज क्वालिटी"}
+            </strong>:
+            <span id="compressor-quality-value">80%</span>
+          </label>
+
+          <input
+            id="compressor-quality"
+            type="range"
+            min="10"
+            max="100"
+            value="80"
+            style="display:block; width:100%; margin-top:12px;"
+          />
+
+          <p style="color:var(--muted);">
+            ${
+              language === "en"
+                ? "Lower quality may reduce file size more, but can affect image appearance."
+                : "कम क्वालिटी से फाइल छोटी हो सकती है, लेकिन तस्वीर की गुणवत्ता प्रभावित हो सकती है।"
+            }
+          </p>
+        </div>
+
+        <button
+          class="control-button"
+          id="compressor-run"
+          type="button"
+          style="margin-top:12px; background:var(--accent); color:white;"
+        >
+          ${language === "en" ? "Compress All Images" : "सभी इमेज कंप्रेस करें"}
+        </button>
+
+        <p id="compressor-status" role="status" aria-live="polite"></p>
+
+        <div id="compressor-result" hidden>
+          <h3>
+            ${language === "en" ? "Compression results" : "कंप्रेशन परिणाम"}
+          </h3>
+
+          <div id="compressor-results-list"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  home.hidden = true;
+  home.after(screen);
+
+  const backButton =
+    screen.querySelector<HTMLButtonElement>("#compressor-back");
+
+  const fileInput =
+    screen.querySelector<HTMLInputElement>("#compressor-file");
+
+  const qualityInput =
+    screen.querySelector<HTMLInputElement>("#compressor-quality");
+
+  const qualityValue =
+    screen.querySelector<HTMLElement>("#compressor-quality-value");
+
+  const selectionStatus =
+    screen.querySelector<HTMLParagraphElement>(
+      "#compressor-selection-status"
+    );
+
+  const runButton =
+    screen.querySelector<HTMLButtonElement>("#compressor-run");
+
+  const status =
+    screen.querySelector<HTMLParagraphElement>("#compressor-status");
+
+  const result =
+    screen.querySelector<HTMLDivElement>("#compressor-result");
+
+  const resultsList =
+    screen.querySelector<HTMLDivElement>("#compressor-results-list");
+
+  if (
+    !backButton ||
+    !fileInput ||
+    !qualityInput ||
+    !qualityValue ||
+    !selectionStatus ||
+    !runButton ||
+    !status ||
+    !result ||
+    !resultsList
+  ) {
+    screen.remove();
+    home.hidden = false;
+    throw new Error("Image Compressor UI initialization failed.");
+  }
+
+  function releaseCompressorUrls(): void {
+    for (const url of compressorObjectUrls) {
+      URL.revokeObjectURL(url);
+    }
+
+    compressorObjectUrls = [];
+  }
+
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(2)} KB`;
+    }
+
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
+
+  function createResultCard(fileName: string): HTMLDivElement {
+    const card = document.createElement("div");
+    card.className = "tool-card";
+    card.style.marginTop = "16px";
+
+    const heading = document.createElement("h4");
+    heading.textContent = fileName;
+
+    const details = document.createElement("p");
+
+    const downloadLink = document.createElement("a");
+    downloadLink.className = "control-button";
+    downloadLink.style.display = "inline-block";
+    downloadLink.style.textDecoration = "none";
+    downloadLink.textContent =
+      language === "en"
+        ? "Download compressed image"
+        : "कंप्रेस की गई इमेज डाउनलोड करें";
+
+    card.append(heading, details, downloadLink);
+    resultsList.append(card);
+
+    return card;
+  }
+
+  qualityInput.addEventListener("input", () => {
+    qualityValue.textContent = `${qualityInput.value}%`;
+  });
+
+  fileInput.addEventListener("change", () => {
+    releaseCompressorUrls();
+    result.hidden = true;
+    resultsList.replaceChildren();
+    status.textContent = "";
+
+    const files = Array.from(fileInput.files ?? []);
+
+    selectionStatus.textContent =
+      language === "en"
+        ? `${files.length} image(s) selected.`
+        : `${files.length} इमेज चुनी गईं।`;
+  });
+
+  runButton.addEventListener("click", async () => {
+    const files = Array.from(fileInput.files ?? []);
+
+    if (files.length === 0) {
+      status.textContent =
         language === "en"
-          ? "Output format: WebP. Check the downloaded image before deleting your original."
-          : "आउटपुट फॉर्मेट: WebP। मूल इमेज हटाने से पहले डाउनलोड की गई इमेज जाँच लें।";
+          ? "Please choose images first."
+          : "पहले इमेज चुनें।";
+      return;
+    }
 
-      download.href = compressorObjectUrl;
-      download.download =
-        `${file.name.replace(/\.[^.]+$/, "")}-compressed.webp`;
+    releaseCompressorUrls();
+    resultsList.replaceChildren();
+    result.hidden = true;
+    runButton.disabled = true;
+    fileInput.disabled = true;
+
+    let successfulCount = 0;
+    let failedCount = 0;
+
+    status.textContent =
+      language === "en"
+        ? `Compressing ${files.length} image(s)...`
+        : `${files.length} इमेज कंप्रेस की जा रही हैं...`;
+
+    try {
+      for (let index = 0; index < files.length; index++) {
+        const file = files[index];
+
+        const card = createResultCard(file.name);
+
+        const details = card.querySelector<HTMLParagraphElement>("p");
+        const downloadLink =
+          card.querySelector<HTMLAnchorElement>("a");
+
+        if (!details || !downloadLink) {
+          throw new Error("Compression result UI is incomplete.");
+        }
+
+        details.textContent =
+          language === "en"
+            ? `Processing image ${index + 1} of ${files.length}...`
+            : `${files.length} में से ${index + 1}वीं इमेज प्रोसेस हो रही है...`;
+
+        try {
+          const compressed = await compressImage(file, {
+            quality: Number(qualityInput.value) / 100,
+          });
+
+          const outputUrl = URL.createObjectURL(compressed.blob);
+          compressorObjectUrls.push(outputUrl);
+
+          details.textContent =
+            `${language === "en" ? "Original size" : "मूल आकार"}: ` +
+            `${formatFileSize(compressed.originalBytes)}\n` +
+            `${language === "en" ? "Compressed size" : "कंप्रेस आकार"}: ` +
+            `${formatFileSize(compressed.outputBytes)}\n` +
+            (
+              compressed.sizeReduced
+                ? (
+                    language === "en"
+                      ? `Saved ${formatFileSize(compressed.bytesSaved)} (${compressed.percentageSaved.toFixed(1)}%).`
+                      : `${formatFileSize(compressed.bytesSaved)} (${compressed.percentageSaved.toFixed(1)}%) आकार बचा।`
+                  )
+                : (
+                    language === "en"
+                      ? "The compressed file is not smaller than the original."
+                      : "कंप्रेस की गई फाइल मूल फाइल से छोटी नहीं हुई।"
+                  )
+            );
+
+          downloadLink.href = outputUrl;
+          downloadLink.download =
+            `${file.name.replace(/\.[^.]+$/, "")}-compressed.webp`;
+
+          successfulCount++;
+        } catch (error) {
+          failedCount++;
+
+          details.textContent =
+            language === "en"
+              ? `Failed: ${
+                  error instanceof Error
+                    ? error.message
+                    : "Image compression failed."
+                }`
+              : `विफल: ${
+                  error instanceof Error
+                    ? error.message
+                    : "इमेज कंप्रेशन विफल हुआ।"
+                }`;
+
+          downloadLink.remove();
+        }
+      }
 
       result.hidden = false;
 
       status.textContent =
         language === "en"
-          ? "Compression completed successfully."
-          : "इमेज कंप्रेशन सफलतापूर्वक पूरा हुआ।";
-    } catch (error) {
-      releaseCompressorUrl();
-
-      status.textContent =
-        error instanceof Error
-          ? error.message
-          : (
-              language === "en"
-                ? "Image compression failed. Please try another image."
-                : "इमेज कंप्रेशन विफल हुआ। दूसरी इमेज आज़माएँ।"
-            );
+          ? `Finished. ${successfulCount} successful, ${failedCount} failed.`
+          : `काम पूरा हुआ। ${successfulCount} सफल, ${failedCount} विफल।`;
     } finally {
       runButton.disabled = false;
+      fileInput.disabled = false;
     }
   });
 
   backButton.addEventListener("click", () => {
-    releaseCompressorUrl();
+    releaseCompressorUrls();
     screen.remove();
     home.hidden = false;
     home.scrollIntoView({ behavior: "auto", block: "start" });
@@ -689,18 +956,18 @@ document.addEventListener("click", (event) => {
   }
 
   if (target.closest("[data-open-compressor]")) {
-  openImageCompressor();
-  return;
-}
+    openImageCompressor();
+    return;
+  }
 
-if (target.closest("[data-open-converter]")) {
-  openImageConverter();
-  return;
-}
+  if (target.closest("[data-open-converter]")) {
+    openImageConverter();
+    return;
+  }
 
-if (target.closest("[data-open-resizer]")) {
-  openImageResizer();
-}
+  if (target.closest("[data-open-resizer]")) {
+    openImageResizer();
+  }
 });
 
 // M5.3 — Image Format Converter
