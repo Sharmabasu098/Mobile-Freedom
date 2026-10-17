@@ -11,6 +11,8 @@ import {
   processImage,
 } from "./tools/image/imageEngine";
 
+import { processBatch } from "./tools/image/batchProcessing";
+
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
 
