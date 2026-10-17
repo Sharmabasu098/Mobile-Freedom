@@ -11,11 +11,6 @@ import {
   processImage,
 } from "./tools/image/imageEngine";
 
-import {
-  compressImage,
-  processImage,
-} from "./tools/image/imageEngine";
-
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
 
