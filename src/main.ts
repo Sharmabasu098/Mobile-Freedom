@@ -218,6 +218,29 @@ app.innerHTML = `
       </div>
     </section>
 
+        <section class="section" aria-labelledby="tools-heading">
+      <div class="container">
+        <div class="section-heading">
+          <h2 id="tools-heading"></h2>
+          <p id="tools-subtitle"></p>
+        </div>
+
+        <nav class="category-list" aria-label="Tool categories">
+          <button class="category-button" data-category="all"
+            aria-pressed="true" type="button"></button>
+          <button class="category-button" data-category="image"
+            aria-pressed="false" type="button"></button>
+          <button class="category-button" data-category="document"
+            aria-pressed="false" type="button"></button>
+          <button class="category-button" data-category="utility"
+            aria-pressed="false" type="button"></button>
+        </nav>
+
+        <div class="tool-grid" id="tool-grid"></div>
+        <p class="empty-state" id="empty-state" hidden></p>
+      </div>
+    </section>
+
     <section class="section">
       <div class="container">
         <aside class="privacy-banner">
@@ -380,144 +403,6 @@ render();
 console.info("Mobile Freedom: M4 homepage initialized.");
 
 // M5.4 — Image Compressor UI Integration
-
-let compressorObjectUrl: string | null = null;
-
-function openImageCompressor(): void {
-  const home = element<HTMLElement>("home");
-
-  // Prevent duplicate compressor screens.
-  document.getElementById("image-compressor-screen")?.remove();
-
-  const screen = document.createElement("section");
-  screen.id = "image-compressor-screen";
-  screen.className = "section";
-
-  screen.innerHTML = `
-    <div class="container">
-      <div class="tool-card">
-        <h2 id="compressor-heading">
-          ${language === "en" ? "Image Compressor" : "इमेज कंप्रेसर"}
-        </h2>
-
-        <p>
-          ${
-            language === "en"
-              ? "Compress your image locally in this browser."
-              : "इस ब्राउज़र में ही अपनी इमेज कंप्रेस करें।"
-          }
-        </p>
-
-        <button
-          class="control-button"
-          id="compressor-back"
-          type="button"
-        >
-          ${language === "en" ? "← Back" : "← वापस जाएँ"}
-        </button>
-
-        <div style="margin-top: 22px;">
-          <label for="compressor-file">
-            <strong>
-              ${language === "en" ? "Choose an image" : "इमेज चुनें"}
-            </strong>
-          </label>
-
-          <input
-            id="compressor-file"
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            style="display:block; width:100%; margin-top:12px;"
-          />
-        </div>
-
-        <div style="margin-top:22px;">
-          <label for="compressor-quality">
-            <strong>
-              ${language === "en" ? "Image quality" : "इमेज क्वालिटी"}
-            </strong>:
-            <span id="compressor-quality-value">80%</span>
-          </label>
-
-          <input
-            id="compressor-quality"
-            type="range"
-            min="10"
-            max="100"
-            value="80"
-            style="display:block; width:100%; margin-top:12px;"
-          />
-
-          <p style="color:var(--muted);">
-            ${
-              language === "en"
-                ? "Lower quality may reduce file size more, but can affect image appearance."
-                : "कम क्वालिटी से फाइल छोटी हो सकती है, लेकिन तस्वीर की गुणवत्ता प्रभावित हो सकती है।"
-            }
-          </p>
-        </div>
-
-        <button
-          class="control-button"
-          id="compressor-run"
-          type="button"
-          style="margin-top:12px; background:var(--accent); color:white;"
-        >
-          ${language === "en" ? "Compress Image" : "इमेज कंप्रेस करें"}
-        </button>
-
-        <p id="compressor-status" role="status" aria-live="polite"></p>
-
-        <div id="compressor-result" hidden>
-          <h3>
-            ${language === "en" ? "Compression result" : "कंप्रेशन परिणाम"}
-          </h3>
-
-          <p id="compressor-original-size"></p>
-          <p id="compressor-output-size"></p>
-          <p id="compressor-saved-size"></p>
-          <p id="compressor-preview-note"></p>
-
-          <a
-            id="compressor-download"
-            class="control-button"
-            style="display:inline-block; text-decoration:none;"
-          >
-            ${language === "en" ? "Download compressed image" : "कंप्रेस की गई इमेज डाउनलोड करें"}
-          </a>
-        </div>
-      </div>
-    </div>
-  `;
-
-  home.hidden = true;
-  home.after(screen);
-
-  const backButton =
-    screen.querySelector<HTMLButtonElement>("#compressor-back");
-
-  const fileInput =
-    screen.querySelector<HTMLInputElement>("#compressor-file");
-
-  const qualityInput =
-    screen.querySelector<HTMLInputElement>("#compressor-quality");
-
-  const qualityValue =
-    screen.querySelector<HTMLElement>("#compressor-quality-value");
-
-  const runButton =
-    screen.querySelector<HTMLButtonElement>("#compressor-run");
-
-  const status =
-    screen.querySelector<HTMLParagraphElement>("#compressor-status");
-
-  const result =
-    screen.querySelector<HTMLDivElement>("#compressor-result");
-
-  const download =
-    screen.querySelector<HTMLAnchorElement>("#compressor-download");
-
-      // M5.4 — Image Compressor UI Integration
 
 let compressorObjectUrls: string[] = [];
 
@@ -749,7 +634,7 @@ function openImageCompressor(): void {
     fileInput.disabled = true;
 
     let successfulCount = 0;
-    let failedCount = 0;
+        let failedCount = 0;
 
     status.textContent =
       language === "en"
@@ -1362,3 +1247,5 @@ function openImageResizer(): void {
 
   screen.scrollIntoView({ behavior: "auto", block: "start" });
 }
+
+            
