@@ -1483,4 +1483,5 @@ function openImageResizer(): void {
   });
 
     screen.scrollIntoView({ behavior: "auto", block: "start" });
-}
+   }
+  }
