@@ -923,56 +923,288 @@ function openImageConverter(): void {
     result.hidden = true;
     runButton.disabled = true;
     status.textContent = language === "en"
-      ? "Converting image locally..."
-      : "इमेज को ब्राउज़र में कन्वर्ट किया जा रहा है...";
+
+ // M5.3 — Batch Image Format Converter
+
+let converterObjectUrls: string[] = [];
+
+function openImageConverter(): void {
+  const home = element<HTMLElement>("home");
+
+  document.getElementById("image-converter-screen")?.remove();
+
+  const screen = document.createElement("section");
+  screen.id = "image-converter-screen";
+  screen.className = "section";
+
+  screen.innerHTML = `
+    <div class="container">
+      <div class="tool-card">
+        <h2>${language === "en" ? "Image Format Converter" : "इमेज फॉर्मेट कन्वर्टर"}</h2>
+
+        <p>
+          ${language === "en"
+            ? "Convert multiple images to JPEG, PNG, or WebP locally in your browser."
+            : "अपने ब्राउज़र में कई इमेज को JPEG, PNG या WebP में कन्वर्ट करें।"}
+        </p>
+
+        <button id="converter-back" class="control-button" type="button">
+          ${language === "en" ? "← Back" : "← वापस जाएँ"}
+        </button>
+
+        <div style="margin-top:20px">
+          <label for="converter-file">
+            ${language === "en" ? "Choose images" : "इमेज चुनें"}
+          </label>
+          <input
+            id="converter-file"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            style="display:block;width:100%;margin-top:10px"
+          />
+          <p id="converter-selection" role="status"></p>
+        </div>
+
+        <div style="margin-top:20px">
+          <label for="converter-format">
+            ${language === "en" ? "Output format" : "आउटपुट फॉर्मेट"}
+          </label>
+          <select id="converter-format" style="display:block;width:100%;margin-top:10px">
+            <option value="image/jpeg">JPEG</option>
+            <option value="image/png">PNG</option>
+            <option value="image/webp">WebP</option>
+          </select>
+        </div>
+
+        <div style="margin-top:20px">
+          <label for="converter-quality">
+            ${language === "en" ? "Quality (for JPEG/WebP)" : "क्वालिटी (JPEG/WebP के लिए)"}
+            <span id="converter-quality-value">80%</span>
+          </label>
+          <input
+            id="converter-quality"
+            type="range"
+            min="10"
+            max="100"
+            value="80"
+            style="display:block;width:100%;margin-top:10px"
+          />
+        </div>
+
+        <button
+          id="converter-run"
+          class="control-button"
+          type="button"
+          style="margin-top:20px;background:var(--accent);color:white"
+        >
+          ${language === "en" ? "Convert All Images" : "सभी इमेज कन्वर्ट करें"}
+        </button>
+
+        <p id="converter-status" role="status" aria-live="polite"></p>
+
+        <div id="converter-result" hidden>
+          <h3>${language === "en" ? "Conversion Results" : "कन्वर्ज़न परिणाम"}</h3>
+          <div id="converter-results-list"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  home.hidden = true;
+  home.after(screen);
+
+  const fileInput =
+    screen.querySelector<HTMLInputElement>("#converter-file");
+  const formatInput =
+    screen.querySelector<HTMLSelectElement>("#converter-format");
+  const qualityInput =
+    screen.querySelector<HTMLInputElement>("#converter-quality");
+  const qualityValue =
+    screen.querySelector<HTMLElement>("#converter-quality-value");
+  const selection =
+    screen.querySelector<HTMLParagraphElement>("#converter-selection");
+  const runButton =
+    screen.querySelector<HTMLButtonElement>("#converter-run");
+  const backButton =
+    screen.querySelector<HTMLButtonElement>("#converter-back");
+  const status =
+    screen.querySelector<HTMLParagraphElement>("#converter-status");
+  const result =
+    screen.querySelector<HTMLDivElement>("#converter-result");
+  const resultsList =
+    screen.querySelector<HTMLDivElement>("#converter-results-list");
+
+  if (
+    !fileInput || !formatInput || !qualityInput || !qualityValue ||
+    !selection || !runButton || !backButton || !status ||
+    !result || !resultsList
+  ) {
+    screen.remove();
+    home.hidden = false;
+    throw new Error("Image Converter UI initialization failed.");
+  }
+
+  function releaseConverterUrls(): void {
+    converterObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+    converterObjectUrls = [];
+  }
+
+  function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024 {
+      return `${(bytes / 1024).toFixed(2)} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
+
+  qualityInput.addEventListener("input", () => {
+    qualityValue.textContent = `${qualityInput.value}%`;
+  });
+
+  formatInput.addEventListener("change", () => {
+    qualityInput.disabled = formatInput.value === "image/png";
+  });
+
+  qualityInput.disabled = formatInput.value === "image/png";
+
+  fileInput.addEventListener("change", () => {
+    releaseConverterUrls();
+    resultsList.replaceChildren();
+    result.hidden = true;
+    status.textContent = "";
+
+    const files = Array.from(fileInput.files ?? []);
+
+    selection.textContent = files.length
+      ? (language === "en"
+          ? `${files.length} image(s) selected.`
+          : `${files.length} इमेज चुनी गईं।`)
+      : "";
+  });
+
+  runButton.addEventListener("click", async () => {
+    const files = Array.from(fileInput.files ?? []);
+
+    if (files.length === 0) {
+      status.textContent = language === "en"
+        ? "Please choose images first."
+        : "पहले इमेज चुनें।";
+      return;
+    }
+
+    releaseConverterUrls();
+    resultsList.replaceChildren();
+    result.hidden = true;
+    runButton.disabled = true;
+    fileInput.disabled = true;
+    formatInput.disabled = true;
+    qualityInput.disabled = true;
+
+    let succeeded = 0;
+    let failed = 0;
+
+    const format = formatInput.value as
+      "image/jpeg" | "image/png" | "image/webp";
+
+    const extension = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+    }[format];
+
+    status.textContent = language === "en"
+      ? `Converting ${files.length} image(s)...`
+      : `${files.length} इमेज कन्वर्ट हो रही हैं...`;
 
     try {
-      const format = formatInput.value as "image/jpeg" | "image/png" | "image/webp";
-      const converted = await processImage(file, {
-        format,
-        quality: Number(qualityInput.value) / 100,
-      });
+      for (let index = 0; index < files.length; index++) {
+        const file = files[index];
 
-      converterObjectUrl = URL.createObjectURL(converted.blob);
+        const card = document.createElement("div");
+        card.className = "tool-card";
+        card.style.marginTop = "12px";
 
-      const extension = {
-        "image/jpeg": "jpg",
-        "image/png": "png",
-        "image/webp": "webp",
-      }[converted.format];
+        const heading = document.createElement("h4");
+        heading.textContent = file.name;
 
-      download.href = converterObjectUrl;
-      download.download = `${file.name.replace(/\.[^.]+$/, "")}-converted.${extension}`;
+        const progress = document.createElement("p");
+        progress.textContent = language === "en"
+          ? `Processing ${index + 1} of ${files.length}...`
+          : `${files.length} में से ${index + 1}वीं इमेज प्रोसेस हो रही है...`;
 
-      details.textContent =
-        `${language === "en" ? "Output" : "आउटपुट"}: ${extension.toUpperCase()} · ` +
-        `${formatBytes(converted.outputBytes)} · ${converted.width} × ${converted.height}`;
+        const details = document.createElement("p");
+
+        card.append(heading, progress, details);
+        resultsList.append(card);
+
+        try {
+          const converted = await processImage(file, {
+            format,
+            quality: Number(qualityInput.value) / 100,
+          });
+
+          const url = URL.createObjectURL(converted.blob);
+          converterObjectUrls.push(url);
+
+          const download = document.createElement("a");
+          download.className = "control-button";
+          download.style.display = "inline-block";
+          download.style.textDecoration = "none";
+          download.href = url;
+          download.download =
+            `${file.name.replace(/\.[^.]+$/, "")}-converted.${extension}`;
+          download.textContent = language === "en"
+            ? "Download converted image"
+            : "कन्वर्ट की गई इमेज डाउनलोड करें";
+
+          details.textContent =
+            `${extension.toUpperCase()} · ${formatBytes(converted.outputBytes)} · ` +
+            `${converted.width} × ${converted.height}`;
+
+          card.append(download);
+          progress.textContent = language === "en"
+            ? "Completed successfully"
+            : "सफलतापूर्वक पूरा हुआ";
+
+          succeeded++;
+        } catch (error) {
+          progress.textContent = language === "en"
+            ? "Conversion failed"
+            : "कन्वर्ज़न विफल हुआ";
+
+          details.textContent = error instanceof Error
+            ? error.message
+            : (language === "en"
+                ? "Could not convert this image."
+                : "इस इमेज को कन्वर्ट नहीं किया जा सका।");
+
+          failed++;
+        }
+      }
 
       result.hidden = false;
+
       status.textContent = language === "en"
-        ? "Conversion completed successfully."
-        : "इमेज कन्वर्ज़न सफलतापूर्वक पूरा हुआ।";
-    } catch (error) {
-      releaseConverterUrl();
-      status.textContent = error instanceof Error
-        ? error.message
-        : (language === "en"
-          ? "Image conversion failed. Please try another image."
-          : "इमेज कन्वर्ज़न विफल हुआ। दूसरी इमेज आज़माएँ।");
+        ? `Finished. ${succeeded} successful, ${failed} failed.`
+        : `पूरा हुआ। ${succeeded} सफल, ${failed} विफल।`;
     } finally {
       runButton.disabled = false;
+      fileInput.disabled = false;
+      formatInput.disabled = false;
+      qualityInput.disabled = formatInput.value === "image/png";
     }
   });
 
   backButton.addEventListener("click", () => {
-    releaseConverterUrl();
+    releaseConverterUrls();
     screen.remove();
     home.hidden = false;
     home.scrollIntoView({ behavior: "auto", block: "start" });
   });
 
   screen.scrollIntoView({ behavior: "auto", block: "start" });
-}
+      }
 
 // M5.5 — Image Resizer
 
