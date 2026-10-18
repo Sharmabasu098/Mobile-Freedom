@@ -1204,7 +1204,7 @@ function openImageConverter(): void {
   });
 
   screen.scrollIntoView({ behavior: "auto", block: "start" });
-      }
+}
 
 // M5.5 — Image Resizer
 
