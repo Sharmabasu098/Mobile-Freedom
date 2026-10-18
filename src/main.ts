@@ -1482,7 +1482,5 @@ function openImageResizer(): void {
     home.scrollIntoView({ behavior: "auto", block: "start" });
   });
 
-  screen.scrollIntoView({ behavior: "auto", block: "start" });
-   }
-  }
-            
+    screen.scrollIntoView({ behavior: "auto", block: "start" });
+}
