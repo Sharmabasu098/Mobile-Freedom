@@ -593,7 +593,8 @@ function openImageCompressor(): void {
         : "कंप्रेस की गई इमेज डाउनलोड करें";
 
     card.append(heading, details, downloadLink);
-    resultsList.append(card);
+    if (resultsList) {
+  resultsList.append(card);
 
     return card;
   }
