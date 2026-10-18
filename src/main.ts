@@ -573,7 +573,7 @@ function openImageCompressor(): void {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
 
-  function createResultCard(fileName: string): HTMLDivElement {
+    function createResultCard(fileName: string): HTMLDivElement {
     const card = document.createElement("div");
     card.className = "tool-card";
     card.style.marginTop = "16px";
@@ -593,11 +593,11 @@ function openImageCompressor(): void {
         : "कंप्रेस की गई इमेज डाउनलोड करें";
 
     card.append(heading, details, downloadLink);
-    if (resultsList) {
-  resultsList.append(card);
+
+    resultsList.append(card);
 
     return card;
-  }
+     }
 
   qualityInput.addEventListener("input", () => {
     qualityValue.textContent = `${qualityInput.value}%`;
