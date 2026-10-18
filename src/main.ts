@@ -594,7 +594,11 @@ function openImageCompressor(): void {
 
     card.append(heading, details, downloadLink);
 
-    resultsList.append(card);
+    if (!resultsList) {
+  throw new Error("Compression results list is missing.");
+}
+
+resultsList.append(card);
 
     return card;
      }
