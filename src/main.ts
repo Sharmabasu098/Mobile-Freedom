@@ -218,29 +218,6 @@ app.innerHTML = `
       </div>
     </section>
 
-        <section class="section" aria-labelledby="tools-heading">
-      <div class="container">
-        <div class="section-heading">
-          <h2 id="tools-heading"></h2>
-          <p id="tools-subtitle"></p>
-        </div>
-
-        <nav class="category-list" aria-label="Tool categories">
-          <button class="category-button" data-category="all"
-            aria-pressed="true" type="button"></button>
-          <button class="category-button" data-category="image"
-            aria-pressed="false" type="button"></button>
-          <button class="category-button" data-category="document"
-            aria-pressed="false" type="button"></button>
-          <button class="category-button" data-category="utility"
-            aria-pressed="false" type="button"></button>
-        </nav>
-
-        <div class="tool-grid" id="tool-grid"></div>
-        <p class="empty-state" id="empty-state" hidden></p>
-      </div>
-    </section>
-
     <section class="section">
       <div class="container">
         <aside class="privacy-banner">
