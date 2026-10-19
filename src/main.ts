@@ -1044,9 +1044,10 @@ function openImageConverter(): void {
   screen.scrollIntoView({ behavior: "auto", block: "start" });
 }
 
-// M5.5 — Image Resizer
 
-let resizerObjectUrl: string | null = null;
+ // M5.5 — Batch Image Resizer
+
+let resizerObjectUrls: string[] = [];
 
 function openImageResizer(): void {
   const home = element<HTMLElement>("home");
@@ -1064,8 +1065,8 @@ function openImageResizer(): void {
 
         <p>
           ${language === "en"
-            ? "Change image dimensions locally in your browser."
-            : "अपने ब्राउज़र में ही इमेज की चौड़ाई और ऊँचाई बदलें।"}
+            ? "Resize multiple images locally in your browser."
+            : "अपने ब्राउज़र में ही एक साथ कई इमेज का आकार बदलें।"}
         </p>
 
         <button id="resizer-back" class="control-button" type="button">
@@ -1074,14 +1075,16 @@ function openImageResizer(): void {
 
         <div style="margin-top:20px">
           <label for="resizer-file">
-            ${language === "en" ? "Choose an image" : "इमेज चुनें"}
+            ${language === "en" ? "Choose images" : "इमेज चुनें"}
           </label>
           <input
             id="resizer-file"
             type="file"
             accept="image/jpeg,image/png,image/webp"
+            multiple
             style="display:block;width:100%;margin-top:10px"
           />
+          <p id="resizer-selection" role="status"></p>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px">
@@ -1119,20 +1122,14 @@ function openImageResizer(): void {
           type="button"
           style="margin-top:18px;background:var(--accent);color:white"
         >
-          ${language === "en" ? "Resize Image" : "इमेज का आकार बदलें"}
+          ${language === "en" ? "Resize All Images" : "सभी इमेज का आकार बदलें"}
         </button>
 
         <p id="resizer-status" role="status" aria-live="polite"></p>
 
         <div id="resizer-result" hidden>
-          <p id="resizer-details"></p>
-          <a
-            id="resizer-download"
-            class="control-button"
-            style="display:inline-block;text-decoration:none"
-          >
-            ${language === "en" ? "Download resized image" : "बदली हुई इमेज डाउनलोड करें"}
-          </a>
+          <h3>${language === "en" ? "Resize Results" : "रिसाइज़ परिणाम"}</h3>
+          <div id="resizer-results-list"></div>
         </div>
       </div>
     </div>
@@ -1153,174 +1150,265 @@ function openImageResizer(): void {
     screen.querySelector<HTMLButtonElement>("#resizer-run");
   const backButton =
     screen.querySelector<HTMLButtonElement>("#resizer-back");
+  const selection =
+    screen.querySelector<HTMLParagraphElement>("#resizer-selection");
   const status =
     screen.querySelector<HTMLParagraphElement>("#resizer-status");
   const result =
     screen.querySelector<HTMLDivElement>("#resizer-result");
-  const details =
-    screen.querySelector<HTMLParagraphElement>("#resizer-details");
-  const download =
-    screen.querySelector<HTMLAnchorElement>("#resizer-download");
+  const resultsList =
+    screen.querySelector<HTMLDivElement>("#resizer-results-list");
 
   if (
     !fileInput || !widthInput || !heightInput || !ratioInput ||
-    !runButton || !backButton || !status || !result ||
-    !details || !download
+    !runButton || !backButton || !selection || !status ||
+    !result || !resultsList
   ) {
     screen.remove();
     home.hidden = false;
     throw new Error("Image Resizer UI initialization failed.");
   }
 
-  function releaseResizerUrl(): void {
-    if (resizerObjectUrl) {
-      URL.revokeObjectURL(resizerObjectUrl);
-      resizerObjectUrl = null;
+  // Revoke every generated image URL when results are cleared.
+  function releaseResizerUrls(): void {
+    for (const url of resizerObjectUrls) {
+      URL.revokeObjectURL(url);
     }
+
+    resizerObjectUrls = [];
   }
 
   function formatResizerBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(2)} KB`;
+    }
+
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
 
+  // The last edited dimension determines the resize direction
+  // when aspect ratio is kept.
+  let resizeBy: "width" | "height" = "width";
+
   fileInput.addEventListener("change", async () => {
-    releaseResizerUrl();
+    releaseResizerUrls();
+    resultsList.replaceChildren();
     result.hidden = true;
     status.textContent = "";
 
-    const file = fileInput.files?.[0];
-    if (!file) return;
+    const files = Array.from(fileInput.files ?? []);
 
+    selection.textContent = files.length
+      ? (language === "en"
+          ? `${files.length} image(s) selected.`
+          : `${files.length} इमेज चुनी गईं।`)
+      : "";
+
+    if (files.length === 0) {
+      widthInput.value = "";
+      heightInput.value = "";
+      return;
+    }
+
+    // Use the first image to initialize the dimension fields.
     try {
-      const bitmap = await createImageBitmap(file);
+      const bitmap = await createImageBitmap(files[0]);
+
       const originalWidth = bitmap.width;
       const originalHeight = bitmap.height;
+
       bitmap.close();
 
       widthInput.value = String(originalWidth);
       heightInput.value = String(originalHeight);
-      widthInput.dataset["originalWidth"] = String(originalWidth);
-      widthInput.dataset["originalHeight"] = String(originalHeight);
 
-      status.textContent =
-        `${language === "en" ? "Original dimensions" : "मूल आकार"}: ` +
-        `${originalWidth} × ${originalHeight}`;
+      resizeBy = "width";
     } catch {
       status.textContent = language === "en"
-        ? "Could not read this image. Please choose a supported image."
-        : "इमेज पढ़ी नहीं जा सकी। कृपया समर्थित इमेज चुनें।";
+        ? "Could not read the first image. Please choose a supported image."
+        : "पहली इमेज पढ़ी नहीं जा सकी। समर्थित इमेज चुनें।";
     }
   });
 
   widthInput.addEventListener("input", () => {
-    if (!ratioInput.checked) return;
-
-    const originalWidth = Number(widthInput.dataset["originalWidth"]);
-    const originalHeight = Number(widthInput.dataset["originalHeight"]);
-    const width = Number(widthInput.value);
-
-    if (originalWidth > 0 && originalHeight > 0 && width > 0) {
-      heightInput.value = String(
-        Math.max(1, Math.round(width * originalHeight / originalWidth)),
-      );
-    }
+    resizeBy = "width";
   });
 
   heightInput.addEventListener("input", () => {
-    if (!ratioInput.checked) return;
-
-    const originalWidth = Number(widthInput.dataset["originalWidth"]);
-    const originalHeight = Number(widthInput.dataset["originalHeight"]);
-    const height = Number(heightInput.value);
-
-    if (originalWidth > 0 && originalHeight > 0 && height > 0) {
-      widthInput.value = String(
-        Math.max(1, Math.round(height * originalWidth / originalHeight)),
-      );
-    }
+    resizeBy = "height";
   });
 
   runButton.addEventListener("click", async () => {
-    const file = fileInput.files?.[0];
-    const width = Number(widthInput.value);
-    const height = Number(heightInput.value);
+    const files = Array.from(fileInput.files ?? []);
 
-    if (!file) {
+    const targetWidth = Number(widthInput.value);
+    const targetHeight = Number(heightInput.value);
+
+    if (files.length === 0) {
       status.textContent = language === "en"
-        ? "Please choose an image first."
-        : "पहले एक इमेज चुनें।";
+        ? "Please choose images first."
+        : "पहले इमेज चुनें।";
       return;
     }
 
-        releaseResizerUrl();
-    result.hidden = true;
-
     if (
-      !Number.isSafeInteger(width) || width < 1 ||
-      !Number.isSafeInteger(height) || height < 1
+      !Number.isSafeInteger(targetWidth) || targetWidth < 1 ||
+      !Number.isSafeInteger(targetHeight) || targetHeight < 1
     ) {
       status.textContent = language === "en"
         ? "Enter valid positive whole numbers for width and height."
         : "चौड़ाई और ऊँचाई के लिए सही सकारात्मक पूर्णांक दर्ज करें।";
       return;
     }
+
+    releaseResizerUrls();
+    resultsList.replaceChildren();
+    result.hidden = true;
+
     runButton.disabled = true;
+    fileInput.disabled = true;
+    widthInput.disabled = true;
+    heightInput.disabled = true;
+    ratioInput.disabled = true;
+
+    let succeeded = 0;
+    let failed = 0;
+
     status.textContent = language === "en"
-      ? "Resizing image locally..."
-      : "ब्राउज़र में इमेज का आकार बदला जा रहा है...";
+      ? `Resizing ${files.length} image(s)...`
+      : `${files.length} इमेज का आकार बदला जा रहा है...`;
 
     try {
-      const resized = await processImage(file, { width, height });
+      for (let index = 0; index < files.length; index++) {
+        const file = files[index];
 
-      resizerObjectUrl = URL.createObjectURL(resized.blob);
+        const card = document.createElement("div");
+        card.className = "tool-card";
+        card.style.marginTop = "12px";
 
-      const extensions: Record<string, string> = {
-        "image/jpeg": "jpg",
-        "image/png": "png",
-        "image/webp": "webp",
-      };
+        const heading = document.createElement("h4");
+        heading.textContent = file.name;
 
-      const extension = extensions[resized.format];
-      if (!extension) {
-        throw new Error("Unsupported output image format.");
+        const progress = document.createElement("p");
+        progress.textContent = language === "en"
+          ? `Processing ${index + 1} of ${files.length}...`
+          : `${files.length} में से ${index + 1}वीं इमेज प्रोसेस हो रही है...`;
+
+        const details = document.createElement("p");
+
+        card.append(heading, progress, details);
+        resultsList.append(card);
+
+        try {
+          // Each image has its own original dimensions.
+          const bitmap = await createImageBitmap(file);
+
+          const originalWidth = bitmap.width;
+          const originalHeight = bitmap.height;
+
+          bitmap.close();
+
+          let width = targetWidth;
+          let height = targetHeight;
+
+          if (ratioInput.checked) {
+            if (resizeBy === "width") {
+              height = Math.max(
+                1,
+                Math.round(targetWidth * originalHeight / originalWidth)
+              );
+            } else {
+              width = Math.max(
+                1,
+                Math.round(targetHeight * originalWidth / originalHeight)
+              );
+            }
+          }
+
+          const resized = await processImage(file, {
+            width,
+            height,
+          });
+
+          const outputUrl = URL.createObjectURL(resized.blob);
+          resizerObjectUrls.push(outputUrl);
+
+          const extensions: Record<string, string> = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/webp": "webp",
+          };
+
+          const extension = extensions[resized.format];
+
+          if (!extension) {
+            URL.revokeObjectURL(outputUrl);
+            resizerObjectUrls = resizerObjectUrls.filter(
+              (url) => url !== outputUrl
+            );
+            throw new Error("Unsupported output image format.");
+          }
+
+          const download = document.createElement("a");
+          download.className = "control-button";
+          download.style.display = "inline-block";
+          download.style.textDecoration = "none";
+          download.href = outputUrl;
+          download.download =
+            `${file.name.replace(/\.[^.]+$/, "")}-resized.${extension}`;
+          download.textContent = language === "en"
+            ? "Download resized image"
+            : "बदली हुई इमेज डाउनलोड करें";
+
+          details.textContent =
+            `${language === "en" ? "Output dimensions" : "आउटपुट आकार"}: ` +
+            `${resized.width} × ${resized.height} · ` +
+            formatResizerBytes(resized.outputBytes);
+
+          card.append(download);
+
+          progress.textContent = language === "en"
+            ? "Completed successfully"
+            : "सफलतापूर्वक पूरा हुआ";
+
+          succeeded++;
+        } catch (error) {
+          progress.textContent = language === "en"
+            ? "Resize failed"
+            : "रिसाइज़ विफल हुआ";
+
+          details.textContent = error instanceof Error
+            ? error.message
+            : (language === "en"
+                ? "Could not resize this image."
+                : "इस इमेज का आकार नहीं बदला जा सका।");
+
+          failed++;
+        }
       }
 
-      download.href = resizerObjectUrl;
-      download.download =
-        `${file.name.replace(/\.[^.]+$/, "")}-resized.${extension}`;
-
-           details.textContent =
-        `${language === "en" ? "Output dimensions" : "आउटपुट आकार"}: ` +
-        `${resized.width} × ${resized.height} · ` +
-        formatResizerBytes(resized.outputBytes);
-
       result.hidden = false;
-      status.textContent = language === "en"
-        ? "Image resized successfully."
-        : "इमेज का आकार सफलतापूर्वक बदल गया।";
-    } catch (error) {
-      releaseResizerUrl();
 
-      status.textContent = error instanceof Error
-        ? error.message
-        : (language === "en"
-          ? "Image resizing failed. Please try another image."
-          : "इमेज का आकार बदलना विफल हुआ। दूसरी इमेज आज़माएँ।");
+      status.textContent = language === "en"
+        ? `Finished. ${succeeded} successful, ${failed} failed.`
+        : `काम पूरा हुआ। ${succeeded} सफल, ${failed} विफल।`;
     } finally {
       runButton.disabled = false;
+      fileInput.disabled = false;
+      widthInput.disabled = false;
+      heightInput.disabled = false;
+      ratioInput.disabled = false;
     }
   });
 
   backButton.addEventListener("click", () => {
-    releaseResizerUrl();
+    releaseResizerUrls();
     screen.remove();
     home.hidden = false;
     home.scrollIntoView({ behavior: "auto", block: "start" });
   });
 
-    screen.scrollIntoView({ behavior: "auto", block: "start" });
+  screen.scrollIntoView({ behavior: "auto", block: "start" });
 }
-
-         
