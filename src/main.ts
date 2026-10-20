@@ -1531,13 +1531,14 @@ function openPdfMerger(): void {
   }
 
   function releasePdfMergerUrl(): void {
-    if (pdfMergerObjectUrl) {
-      URL.revokeObjectURL(pdfMergerObjectUrl);
-      pdfMergerObjectUrl = null;
-    }
+  if (pdfMergerObjectUrl) {
+    URL.revokeObjectURL(pdfMergerObjectUrl);
+    pdfMergerObjectUrl = null;
+  }
 
-    // Clear the old download link.
+  if (downloadLink) {
     downloadLink.removeAttribute("href");
+  }
   }
 
   fileInput.addEventListener("change", () => {
