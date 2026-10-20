@@ -742,6 +742,10 @@ document.addEventListener("click", (event) => {
   if (target.closest("[data-open-resizer]")) {
     openImageResizer();
   }
+
+  if (target.closest("[data-open-pdf-merger]")) {
+  openPdfMerger();
+  }
 });
 
  // M5.3 — Batch Image Format Converter
