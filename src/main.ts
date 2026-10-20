@@ -10,6 +10,7 @@ import {
   compressImage,
   processImage,
 } from "./tools/image/imageEngine";
+import { mergePdfFiles } from "./tools/pdf/pdfMerger";
 
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
@@ -290,6 +291,10 @@ function renderTools(): void {
       </button>`
    : tool.en === "Image Resizer"
       ? `<button class="tool-status compressor-open" type="button" data-open-resizer>
+          ${language === "en" ? "Open tool" : "टूल खोलें"}
+        </button>`
+   : tool.en === "PDF Merger"
+      ? `<button class="tool-status compressor-open" type="button" data-open-pdf-merger>
           ${language === "en" ? "Open tool" : "टूल खोलें"}
         </button>`
     : `<span class="tool-status">
