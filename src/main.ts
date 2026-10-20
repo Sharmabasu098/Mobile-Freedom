@@ -1398,3 +1398,254 @@ function openImageResizer(): void {
 
   screen.scrollIntoView({ behavior: "auto", block: "start" });
 }
+
+// M5.6 — PDF Merger UI Integration
+
+let pdfMergerObjectUrl: string | null = null;
+
+function openPdfMerger(): void {
+  const home = element<HTMLElement>("home");
+
+  // Prevent duplicate PDF Merger screens.
+  document.getElementById("pdf-merger-screen")?.remove();
+
+  const screen = document.createElement("section");
+  screen.id = "pdf-merger-screen";
+  screen.className = "section";
+
+  screen.innerHTML = `
+    <div class="container">
+      <div class="tool-card">
+
+        <h2>
+          ${language === "en" ? "PDF Merger" : "PDF मर्जर"}
+        </h2>
+
+        <p>
+          ${
+            language === "en"
+              ? "Merge multiple PDF files locally in your browser."
+              : "अपने ब्राउज़र में ही कई PDF फाइलों को जोड़ें।"
+          }
+        </p>
+
+        <button
+          id="pdf-merger-back"
+          class="control-button"
+          type="button"
+        >
+          ${language === "en" ? "← Back" : "← वापस जाएँ"}
+        </button>
+
+        <div style="margin-top:20px">
+          <label for="pdf-merger-files">
+            ${
+              language === "en"
+                ? "Choose PDF files (at least 2)"
+                : "PDF फाइलें चुनें (कम से कम 2)"
+            }
+          </label>
+
+          <input
+            id="pdf-merger-files"
+            type="file"
+            accept="application/pdf,.pdf"
+            multiple
+            style="display:block;width:100%;margin-top:10px"
+          />
+
+          <p id="pdf-merger-selection" role="status"></p>
+        </div>
+
+        <button
+          id="pdf-merger-run"
+          class="control-button"
+          type="button"
+          style="margin-top:20px;background:var(--accent);color:white"
+        >
+          ${language === "en" ? "Merge PDF Files" : "PDF फाइलें जोड़ें"}
+        </button>
+
+        <p
+          id="pdf-merger-status"
+          role="status"
+          aria-live="polite"
+        ></p>
+
+        <div id="pdf-merger-result" hidden>
+          <h3>
+            ${language === "en" ? "Merge Result" : "मर्ज परिणाम"}
+          </h3>
+
+          <a
+            id="pdf-merger-download"
+            class="control-button"
+            style="display:inline-block;text-decoration:none"
+            download="merged.pdf"
+          >
+            ${language === "en" ? "Download Merged PDF" : "मर्ज की गई PDF डाउनलोड करें"}
+          </a>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  home.hidden = true;
+  home.after(screen);
+
+  const fileInput =
+    screen.querySelector<HTMLInputElement>("#pdf-merger-files");
+
+  const selection =
+    screen.querySelector<HTMLParagraphElement>("#pdf-merger-selection");
+
+  const runButton =
+    screen.querySelector<HTMLButtonElement>("#pdf-merger-run");
+
+  const backButton =
+    screen.querySelector<HTMLButtonElement>("#pdf-merger-back");
+
+  const status =
+    screen.querySelector<HTMLParagraphElement>("#pdf-merger-status");
+
+  const result =
+    screen.querySelector<HTMLDivElement>("#pdf-merger-result");
+
+  const downloadLink =
+    screen.querySelector<HTMLAnchorElement>("#pdf-merger-download");
+
+  if (
+    !fileInput ||
+    !selection ||
+    !runButton ||
+    !backButton ||
+    !status ||
+    !result ||
+    !downloadLink
+  ) {
+    screen.remove();
+    home.hidden = false;
+
+    throw new Error("PDF Merger UI initialization failed.");
+  }
+
+  function releasePdfMergerUrl(): void {
+    if (pdfMergerObjectUrl) {
+      URL.revokeObjectURL(pdfMergerObjectUrl);
+      pdfMergerObjectUrl = null;
+    }
+
+    downloadLink.removeAttribute("href");
+  }
+
+  fileInput.addEventListener("change", () => {
+    releasePdfMergerUrl();
+
+    result.hidden = true;
+    status.textContent = "";
+
+    const files = Array.from(fileInput.files ?? []);
+
+    selection.textContent =
+      language === "en"
+        ? `${files.length} PDF file(s) selected.`
+        : `${files.length} PDF फाइलें चुनी गईं।`;
+  });
+
+  runButton.addEventListener("click", async () => {
+    const files = Array.from(fileInput.files ?? []);
+
+    if (files.length < 2) {
+      status.textContent =
+        language === "en"
+          ? "Please select at least two PDF files."
+          : "कम से कम दो PDF फाइलें चुनें।";
+
+      return;
+    }
+
+    // Check the selected file types.
+    const invalidFile = files.find(
+      (file) =>
+        file.type !== "application/pdf" &&
+        !file.name.toLowerCase().endsWith(".pdf")
+    );
+
+    if (invalidFile) {
+      status.textContent =
+        language === "en"
+          ? `${invalidFile.name} is not a PDF file.`
+          : `${invalidFile.name} PDF फाइल नहीं है।`;
+
+      return;
+    }
+
+    releasePdfMergerUrl();
+    result.hidden = true;
+
+    runButton.disabled = true;
+    fileInput.disabled = true;
+
+    status.textContent =
+      language === "en"
+        ? "Merging PDF files..."
+        : "PDF फाइलें जोड़ी जा रही हैं...";
+
+    try {
+      // Call the existing PDF merger implementation.
+      const mergedBytes = await mergePdfFiles(files);
+
+      // Create a clean ArrayBuffer for the download.
+      const pdfBuffer = mergedBytes.buffer.slice(
+        mergedBytes.byteOffset,
+        mergedBytes.byteOffset + mergedBytes.byteLength
+      ) as ArrayBuffer;
+
+      const blob = new Blob(
+        [pdfBuffer],
+        { type: "application/pdf" }
+      );
+
+      pdfMergerObjectUrl = URL.createObjectURL(blob);
+
+      downloadLink.href = pdfMergerObjectUrl;
+
+      result.hidden = false;
+
+      status.textContent =
+        language === "en"
+          ? "PDF files merged successfully."
+          : "PDF फाइलें सफलतापूर्वक जुड़ गईं।";
+    } catch (error) {
+      status.textContent =
+        error instanceof Error
+          ? error.message
+          : (
+              language === "en"
+                ? "PDF merging failed."
+                : "PDF मर्ज नहीं हो सकी।"
+            );
+    } finally {
+      runButton.disabled = false;
+      fileInput.disabled = false;
+    }
+  });
+
+  backButton.addEventListener("click", () => {
+    releasePdfMergerUrl();
+
+    screen.remove();
+
+    home.hidden = false;
+    home.scrollIntoView({
+      behavior: "auto",
+      block: "start",
+    });
+  });
+
+  screen.scrollIntoView({
+    behavior: "auto",
+    block: "start",
+  });
+}
