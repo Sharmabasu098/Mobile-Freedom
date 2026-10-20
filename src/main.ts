@@ -1609,9 +1609,11 @@ function openPdfMerger(): void {
 
       pdfMergerObjectUrl = URL.createObjectURL(blob);
 
-      if (pdfMergerObjectUrl && downloadLink) {
-  downloadLink.href = pdfMergerObjectUrl;
-      }
+      if (!downloadLink) {
+  throw new Error("PDF download link is missing.");
+}
+
+downloadLink.href = pdfMergerObjectUrl;
 
       result.hidden = false;
 
