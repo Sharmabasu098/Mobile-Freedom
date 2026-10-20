@@ -1536,6 +1536,7 @@ function openPdfMerger(): void {
       pdfMergerObjectUrl = null;
     }
 
+    // Clear the old download link.
     downloadLink.removeAttribute("href");
   }
 
@@ -1609,11 +1610,12 @@ function openPdfMerger(): void {
 
       pdfMergerObjectUrl = URL.createObjectURL(blob);
 
+      // Ensure the download link exists before setting href.
       if (!downloadLink) {
-  throw new Error("PDF download link is missing.");
-}
+        throw new Error("PDF download link is missing.");
+      }
 
-downloadLink.href = pdfMergerObjectUrl;
+      downloadLink.href = pdfMergerObjectUrl;
 
       result.hidden = false;
 
