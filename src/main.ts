@@ -299,6 +299,14 @@ function renderTools(): void {
       ? `<button class="tool-status compressor-open" type="button" data-open-pdf-merger>
           ${language === "en" ? "Open tool" : "टूल खोलें"}
         </button>`
+  : tool.en === "QR Code Generator"
+     ? `<button
+        class="tool-status compressor-open"
+        type="button"
+        data-open-qr-generator
+      >
+      ${language === "en" ? "Open tool" : "खोलें"}
+    </button>`
   : tool.en === "PDF Splitter"
      ? `<button
         class="tool-status compressor-open"
@@ -759,6 +767,11 @@ document.addEventListener("click", (event) => {
 
   if (target.closest("[data-open-pdf-splitter]")) {
   openPdfSplitter();
+  return;
+  }
+
+  if (target.closest("[data-open-qr-generator]")) {
+  openQrGenerator();
   return;
   }
 });
@@ -1927,6 +1940,220 @@ function openPdfSplitter(): void {
     screen.remove();
 
     home.hidden = false;
+    home.scrollIntoView({
+      behavior: "auto",
+      block: "start",
+    });
+  });
+
+  screen.scrollIntoView({
+    behavior: "auto",
+    block: "start",
+  });
+}
+
+// M7.1 — QR Code Generator UI
+
+function openQrGenerator(): void {
+  const home = element<HTMLElement>("home");
+
+  // Prevent duplicate QR Generator screens.
+  document.getElementById("qr-generator-screen")?.remove();
+
+  const screen = document.createElement("section");
+  screen.id = "qr-generator-screen";
+  screen.className = "section";
+
+  screen.innerHTML = `
+    <div class="container">
+      <div class="tool-card">
+
+        <h2>
+          ${language === "en" ? "QR Code Generator" : "QR कोड जनरेटर"}
+        </h2>
+
+        <p>
+          ${
+            language === "en"
+              ? "Create a QR code from text or a URL locally in your browser."
+              : "अपने ब्राउज़र में टेक्स्ट या URL से QR कोड बनाएँ।"
+          }
+        </p>
+
+        <button
+          id="qr-generator-back"
+          class="control-button"
+          type="button"
+        >
+          ${language === "en" ? "← Back" : "← वापस जाएँ"}
+        </button>
+
+        <div style="margin-top:20px">
+          <label for="qr-generator-input">
+            ${language === "en" ? "Enter text or URL" : "टेक्स्ट या URL लिखें"}
+          </label>
+
+          <textarea
+            id="qr-generator-input"
+            rows="4"
+            maxlength="2000"
+            style="display:block;width:100%;margin-top:10px"
+            placeholder="${language === "en" ? "https://example.com" : "https://example.com"}"
+          ></textarea>
+        </div>
+
+        <button
+          id="qr-generator-run"
+          class="control-button"
+          type="button"
+          style="margin-top:20px;background:var(--accent);color:white"
+        >
+          ${language === "en" ? "Generate QR Code" : "QR कोड बनाएँ"}
+        </button>
+
+        <p id="qr-generator-status" role="status" aria-live="polite"></p>
+
+        <div id="qr-generator-result" hidden style="margin-top:20px">
+          <h3>
+            ${language === "en" ? "Your QR Code" : "आपका QR कोड"}
+          </h3>
+
+          <img
+            id="qr-generator-image"
+            alt="${language === "en" ? "Generated QR Code" : "बनाया गया QR कोड"}"
+            style="display:block;max-width:100%;width:280px;height:auto;margin:15px auto"
+          />
+
+          <a
+            id="qr-generator-download"
+            class="control-button"
+            download="mobile-freedom-qr.png"
+            style="display:block;text-align:center;text-decoration:none"
+          >
+            ${language === "en" ? "Download QR Code" : "QR कोड डाउनलोड करें"}
+          </a>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  home.hidden = true;
+  home.after(screen);
+
+  const input =
+    screen.querySelector<HTMLTextAreaElement>("#qr-generator-input");
+
+  const runButton =
+    screen.querySelector<HTMLButtonElement>("#qr-generator-run");
+
+  const backButton =
+    screen.querySelector<HTMLButtonElement>("#qr-generator-back");
+
+  const status =
+    screen.querySelector<HTMLParagraphElement>("#qr-generator-status");
+
+  const result =
+    screen.querySelector<HTMLDivElement>("#qr-generator-result");
+
+  const qrImage =
+    screen.querySelector<HTMLImageElement>("#qr-generator-image");
+
+  const download =
+    screen.querySelector<HTMLAnchorElement>("#qr-generator-download");
+
+  if (
+    !input ||
+    !runButton ||
+    !backButton ||
+    !status ||
+    !result ||
+    !qrImage ||
+    !download
+  ) {
+    screen.remove();
+    home.hidden = false;
+
+    throw new Error("QR Generator UI initialization failed.");
+  }
+
+  let qrObjectUrl: string | null = null;
+
+  function releaseQrUrl(): void {
+    if (qrObjectUrl) {
+      URL.revokeObjectURL(qrObjectUrl);
+      qrObjectUrl = null;
+    }
+
+    qrImage.removeAttribute("src");
+    download.removeAttribute("href");
+  }
+
+  runButton.addEventListener("click", async () => {
+    const value = input.value.trim();
+
+    if (!value) {
+      status.textContent =
+        language === "en"
+          ? "Please enter text or a URL."
+          : "कृपया टेक्स्ट या URL लिखें।";
+
+      return;
+    }
+
+    releaseQrUrl();
+    result.hidden = true;
+
+    runButton.disabled = true;
+
+    status.textContent =
+      language === "en"
+        ? "Generating QR Code..."
+        : "QR कोड बनाया जा रहा है...";
+
+    try {
+      const dataUrl = await QRCode.toDataURL(value, {
+        errorCorrectionLevel: "M",
+        margin: 2,
+        width: 400,
+      });
+
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+
+      qrObjectUrl = URL.createObjectURL(blob);
+
+      qrImage.src = qrObjectUrl;
+      download.href = qrObjectUrl;
+
+      result.hidden = false;
+
+      status.textContent =
+        language === "en"
+          ? "QR Code generated successfully."
+          : "QR कोड सफलतापूर्वक बन गया।";
+
+    } catch (error) {
+      status.textContent =
+        error instanceof Error
+          ? error.message
+          : (
+              language === "en"
+                ? "QR Code generation failed."
+                : "QR कोड नहीं बन सका।"
+            );
+
+    } finally {
+      runButton.disabled = false;
+    }
+  });
+
+  backButton.addEventListener("click", () => {
+    releaseQrUrl();
+    screen.remove();
+
+    home.hidden = false;
+
     home.scrollIntoView({
       behavior: "auto",
       block: "start",
