@@ -11,6 +11,7 @@ import {
   processImage,
 } from "./tools/image/imageEngine";
 import { mergePdfFiles } from "./tools/pdf/pdfMerger";
+import { splitPdfFile } from "./tools/pdf/pdfSplitter";
 
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
@@ -297,6 +298,14 @@ function renderTools(): void {
       ? `<button class="tool-status compressor-open" type="button" data-open-pdf-merger>
           ${language === "en" ? "Open tool" : "टूल खोलें"}
         </button>`
+  : tool.en === "PDF Splitter"
+     ? `<button
+        class="tool-status compressor-open"
+        type="button"
+        data-open-pdf-splitter
+      >
+      ${language === "en" ? "Open tool" : "टूल खोलें"}
+    </button>`         
     : `<span class="tool-status">
         ${translations[language].planned}
       </span>`
@@ -745,6 +754,11 @@ document.addEventListener("click", (event) => {
 
   if (target.closest("[data-open-pdf-merger]")) {
   openPdfMerger();
+  }
+
+  if (target.closest("[data-open-pdf-splitter]")) {
+  openPdfSplitter();
+  return;
   }
 });
 
@@ -1641,6 +1655,274 @@ function openPdfMerger(): void {
 
   backButton.addEventListener("click", () => {
     releasePdfMergerUrl();
+
+    screen.remove();
+
+    home.hidden = false;
+    home.scrollIntoView({
+      behavior: "auto",
+      block: "start",
+    });
+  });
+
+  screen.scrollIntoView({
+    behavior: "auto",
+    block: "start",
+  });
+}
+
+// M5.7 — PDF Splitter UI Integration
+
+function openPdfSplitter(): void {
+  const home = element<HTMLElement>("home");
+
+  // Prevent duplicate PDF Splitter screens.
+  document.getElementById("pdf-splitter-screen")?.remove();
+
+  const screen = document.createElement("section");
+  screen.id = "pdf-splitter-screen";
+  screen.className = "section";
+
+  screen.innerHTML = `
+    <div class="container">
+      <div class="tool-card">
+
+        <h2>
+          ${language === "en" ? "PDF Splitter" : "PDF स्प्लिटर"}
+        </h2>
+
+        <p>
+          ${
+            language === "en"
+              ? "Split a PDF into separate single-page PDF files locally in your browser."
+              : "अपने ब्राउज़र में ही PDF के हर पेज को अलग PDF फाइल में बाँटें।"
+          }
+        </p>
+
+        <button
+          id="pdf-splitter-back"
+          class="control-button"
+          type="button"
+        >
+          ${language === "en" ? "← Back" : "← वापस जाएँ"}
+        </button>
+
+        <div style="margin-top:20px">
+          <label for="pdf-splitter-file">
+            ${
+              language === "en"
+                ? "Choose a PDF file"
+                : "एक PDF फाइल चुनें"
+            }
+          </label>
+
+          <input
+            id="pdf-splitter-file"
+            type="file"
+            accept="application/pdf,.pdf"
+            style="display:block;width:100%;margin-top:10px"
+          />
+
+          <p id="pdf-splitter-selection" role="status"></p>
+        </div>
+
+        <button
+          id="pdf-splitter-run"
+          class="control-button"
+          type="button"
+          style="margin-top:20px;background:var(--accent);color:white"
+        >
+          ${language === "en" ? "Split PDF" : "PDF बाँटें"}
+        </button>
+
+        <p
+          id="pdf-splitter-status"
+          role="status"
+          aria-live="polite"
+        ></p>
+
+        <div id="pdf-splitter-result" hidden>
+          <h3>
+            ${language === "en" ? "Split Result" : "स्प्लिट परिणाम"}
+          </h3>
+
+          <div id="pdf-splitter-downloads"></div>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  home.hidden = true;
+  home.after(screen);
+
+  const fileInput =
+    screen.querySelector<HTMLInputElement>("#pdf-splitter-file");
+
+  const selection =
+    screen.querySelector<HTMLParagraphElement>("#pdf-splitter-selection");
+
+  const runButton =
+    screen.querySelector<HTMLButtonElement>("#pdf-splitter-run");
+
+  const backButton =
+    screen.querySelector<HTMLButtonElement>("#pdf-splitter-back");
+
+  const status =
+    screen.querySelector<HTMLParagraphElement>("#pdf-splitter-status");
+
+  const result =
+    screen.querySelector<HTMLDivElement>("#pdf-splitter-result");
+
+  const downloads =
+    screen.querySelector<HTMLDivElement>("#pdf-splitter-downloads");
+
+  if (
+    !fileInput ||
+    !selection ||
+    !runButton ||
+    !backButton ||
+    !status ||
+    !result ||
+    !downloads
+  ) {
+    screen.remove();
+    home.hidden = false;
+
+    throw new Error("PDF Splitter UI initialization failed.");
+  }
+
+  // Store generated URLs so they can be released.
+  const splitterObjectUrls: string[] = [];
+
+  function releaseSplitterUrls(): void {
+    splitterObjectUrls.forEach((url) => {
+      URL.revokeObjectURL(url);
+    });
+
+    splitterObjectUrls.length = 0;
+    downloads.innerHTML = "";
+  }
+
+  fileInput.addEventListener("change", () => {
+    releaseSplitterUrls();
+
+    result.hidden = true;
+    status.textContent = "";
+
+    const file = fileInput.files?.[0];
+
+    selection.textContent = file
+      ? file.name
+      : "";
+
+  });
+
+  runButton.addEventListener("click", async () => {
+    const file = fileInput.files?.[0];
+
+    if (!file) {
+      status.textContent =
+        language === "en"
+          ? "Please select a PDF file."
+          : "कृपया एक PDF फाइल चुनें।";
+
+      return;
+    }
+
+    // Check the selected file type.
+    if (
+      file.type !== "application/pdf" &&
+      !file.name.toLowerCase().endsWith(".pdf")
+    ) {
+      status.textContent =
+        language === "en"
+          ? "Please select a valid PDF file."
+          : "कृपया सही PDF फाइल चुनें।";
+
+      return;
+    }
+
+    releaseSplitterUrls();
+    result.hidden = true;
+
+    runButton.disabled = true;
+    fileInput.disabled = true;
+
+    status.textContent =
+      language === "en"
+        ? "Splitting PDF..."
+        : "PDF बाँटी जा रही है...";
+
+    try {
+      // Call the existing PDF Splitter implementation.
+      const splitFiles = await splitPdfFile(file);
+
+      if (splitFiles.length === 0) {
+        throw new Error(
+          language === "en"
+            ? "No pages found in the PDF."
+            : "PDF में कोई पेज नहीं मिला।"
+        );
+      }
+
+      // Create one download link for each page.
+      splitFiles.forEach((pdfBytes, index) => {
+        const pdfBuffer = pdfBytes.buffer.slice(
+          pdfBytes.byteOffset,
+          pdfBytes.byteOffset + pdfBytes.byteLength
+        ) as ArrayBuffer;
+
+        const blob = new Blob(
+          [pdfBuffer],
+          { type: "application/pdf" }
+        );
+
+        const objectUrl = URL.createObjectURL(blob);
+        splitterObjectUrls.push(objectUrl);
+
+        const link = document.createElement("a");
+
+        link.href = objectUrl;
+        link.download = `split-page-${index + 1}.pdf`;
+        link.className = "control-button";
+        link.style.display = "block";
+        link.style.marginTop = "10px";
+        link.style.textDecoration = "none";
+
+        link.textContent =
+          language === "en"
+            ? `Download Page ${index + 1}`
+            : `पेज ${index + 1} डाउनलोड करें`;
+
+        downloads.appendChild(link);
+      });
+
+      result.hidden = false;
+
+      status.textContent =
+        language === "en"
+          ? `PDF split successfully into ${splitFiles.length} page(s).`
+          : `PDF सफलतापूर्वक ${splitFiles.length} पेजों में बाँटी गई।`;
+
+    } catch (error) {
+      status.textContent =
+        error instanceof Error
+          ? error.message
+          : (
+              language === "en"
+                ? "PDF splitting failed."
+                : "PDF नहीं बाँटी जा सकी।"
+            );
+
+    } finally {
+      runButton.disabled = false;
+      fileInput.disabled = false;
+    }
+  });
+
+  backButton.addEventListener("click", () => {
+    releaseSplitterUrls();
 
     screen.remove();
 
