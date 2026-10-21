@@ -1894,12 +1894,7 @@ function openPdfSplitter(): void {
           language === "en"
             ? `Download Page ${index + 1}`
             : `पेज ${index + 1} डाउनलोड करें`;
-
-        if (!downloads) {
-  throw new Error("PDF download container is missing.");
-}
-
-downloads.appendChild(link);
+       downloads.appendChild(link);
       });
 
       result.hidden = false;
