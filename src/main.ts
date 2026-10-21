@@ -1801,7 +1801,7 @@ function openPdfSplitter(): void {
     });
 
     splitterObjectUrls.length = 0;
-    downloads.innerHTML = "";
+    document.getElementById("pdf-splitter-downloads")?.replaceChildren();
   }
 
   fileInput.addEventListener("change", () => {
