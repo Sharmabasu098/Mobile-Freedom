@@ -1895,7 +1895,11 @@ function openPdfSplitter(): void {
             ? `Download Page ${index + 1}`
             : `पेज ${index + 1} डाउनलोड करें`;
 
-        downloads.appendChild(link);
+        if (!downloads) {
+  throw new Error("PDF download container is missing.");
+}
+
+downloads.appendChild(link);
       });
 
       result.hidden = false;
