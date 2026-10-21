@@ -12,6 +12,7 @@ import {
 } from "./tools/image/imageEngine";
 import { mergePdfFiles } from "./tools/pdf/pdfMerger";
 import { splitPdfFile } from "./tools/pdf/pdfSplitter";
+import QRCode from "qrcode";
 
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
