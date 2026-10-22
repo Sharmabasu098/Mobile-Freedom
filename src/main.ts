@@ -2080,18 +2080,19 @@ function openQrGenerator(): void {
   let qrObjectUrl: string | null = null;
 
   function releaseQrUrl(): void {
-    if (qrObjectUrl) {
-      URL.revokeObjectURL(qrObjectUrl);
-      qrObjectUrl = null;
-    }
+  if (qrObjectUrl) {
+    URL.revokeObjectURL(qrObjectUrl);
+    qrObjectUrl = null;
+  }
 
-    if (qrImage) {
-  qrImage.removeAttribute("src");
-}
+  if (qrImage) {
+    qrImage.removeAttribute("src");
+  }
 
-if (download) {
-  download.removeAttribute("href");
-}
+  if (download) {
+    download.removeAttribute("href");
+  }
+  }
 
   runButton.addEventListener("click", async () => {
     const value = input.value.trim();
@@ -2168,5 +2169,4 @@ if (download) {
     behavior: "auto",
     block: "start",
   });
-}
 }
