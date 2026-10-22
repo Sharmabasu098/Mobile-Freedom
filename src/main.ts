@@ -2085,11 +2085,7 @@ function openQrGenerator(): void {
     qrObjectUrl = null;
   }
 
-  if (qrImage) {
     qrImage.removeAttribute("src");
-  }
-
-  if (download) {
     download.removeAttribute("href");
   }
   }
