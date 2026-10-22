@@ -2085,9 +2085,13 @@ function openQrGenerator(): void {
       qrObjectUrl = null;
     }
 
-    qrImage.removeAttribute("src");
-    download.removeAttribute("href");
-  }
+    if (qrImage) {
+  qrImage.removeAttribute("src");
+}
+
+if (download) {
+  download.removeAttribute("href");
+}
 
   runButton.addEventListener("click", async () => {
     const value = input.value.trim();
