@@ -315,9 +315,17 @@ function renderTools(): void {
       >
       ${language === "en" ? "Open tool" : "टूल खोलें"}
     </button>`         
-    : `<span class="tool-status">
-        ${translations[language].planned}
-      </span>`
+    : tool.en === "Password Generator"
+  ? `<button
+      class="tool-status compressor-open"
+      type="button"
+      data-open-password-generator
+    >
+      ${language === "en" ? "Open tool" : "टूल खोलें"}
+    </button>`
+  : `<span class="tool-status">
+      ${translations[language].planned}
+    </span>`
           }
         </article>
       `
@@ -772,6 +780,11 @@ document.addEventListener("click", (event) => {
 
   if (target.closest("[data-open-qr-generator]")) {
   openQrGenerator();
+  return;
+  }
+
+  if (target.closest("[data-open-password-generator]")) {
+  openPasswordGenerator();
   return;
   }
 });
@@ -2166,3 +2179,325 @@ function openQrGenerator(): void {
   });
 }
 
+// M7.2 — Password Generator UI
+
+function openPasswordGenerator(): void {
+  const home = element<HTMLElement>("home");
+
+  // Prevent duplicate Password Generator screens.
+  document.getElementById("password-generator-screen")?.remove();
+
+  const screen = document.createElement("section");
+  screen.id = "password-generator-screen";
+  screen.className = "section";
+
+  screen.innerHTML = `
+    <div class="container">
+      <div class="tool-card">
+
+        <h2>
+          ${
+            language === "en"
+              ? "Password Generator"
+              : "पासवर्ड जनरेटर"
+          }
+        </h2>
+
+        <p>
+          ${
+            language === "en"
+              ? "Generate a strong password locally in your browser."
+              : "अपने ब्राउज़र में सुरक्षित पासवर्ड बनाएँ।"
+          }
+        </p>
+
+        <button
+          id="password-generator-back"
+          class="control-button"
+          type="button"
+        >
+          ${language === "en" ? "← Back" : "← वापस जाएँ"}
+        </button>
+
+        <div style="margin-top:20px">
+          <label for="password-generator-length">
+            ${language === "en" ? "Password Length" : "पासवर्ड की लंबाई"}
+          </label>
+
+          <input
+            id="password-generator-length"
+            type="number"
+            min="8"
+            max="64"
+            value="16"
+            style="display:block;width:100%;margin-top:10px"
+          />
+        </div>
+
+        <div style="margin-top:20px">
+          <label>
+            <input
+              id="password-generator-uppercase"
+              type="checkbox"
+              checked
+            />
+            ${language === "en" ? "Uppercase (A-Z)" : "बड़े अक्षर (A-Z)"}
+          </label>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>
+            <input
+              id="password-generator-lowercase"
+              type="checkbox"
+              checked
+            />
+            ${language === "en" ? "Lowercase (a-z)" : "छोटे अक्षर (a-z)"}
+          </label>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>
+            <input
+              id="password-generator-numbers"
+              type="checkbox"
+              checked
+            />
+            ${language === "en" ? "Numbers (0-9)" : "अंक (0-9)"}
+          </label>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>
+            <input
+              id="password-generator-symbols"
+              type="checkbox"
+              checked
+            />
+            ${language === "en" ? "Symbols (!@#$)" : "विशेष चिन्ह (!@#$)"}
+          </label>
+        </div>
+
+        <button
+          id="password-generator-run"
+          class="control-button"
+          type="button"
+          style="margin-top:20px;background:var(--accent);color:white"
+        >
+          ${language === "en" ? "Generate Password" : "पासवर्ड बनाएँ"}
+        </button>
+
+        <p
+          id="password-generator-status"
+          role="status"
+          aria-live="polite"
+        ></p>
+
+        <div id="password-generator-result" hidden style="margin-top:20px">
+
+          <label for="password-generator-output">
+            ${language === "en" ? "Generated Password" : "बनाया गया पासवर्ड"}
+          </label>
+
+          <input
+            id="password-generator-output"
+            type="text"
+            readonly
+            autocomplete="off"
+            style="display:block;width:100%;margin-top:10px"
+          />
+
+          <button
+            id="password-generator-copy"
+            class="control-button"
+            type="button"
+            style="margin-top:15px"
+          >
+            ${language === "en" ? "Copy Password" : "पासवर्ड कॉपी करें"}
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  home.hidden = true;
+  home.after(screen);
+
+  const lengthInput =
+    screen.querySelector<HTMLInputElement>(
+      "#password-generator-length"
+    );
+
+  const uppercaseInput =
+    screen.querySelector<HTMLInputElement>(
+      "#password-generator-uppercase"
+    );
+
+  const lowercaseInput =
+    screen.querySelector<HTMLInputElement>(
+      "#password-generator-lowercase"
+    );
+
+  const numbersInput =
+    screen.querySelector<HTMLInputElement>(
+      "#password-generator-numbers"
+    );
+
+  const symbolsInput =
+    screen.querySelector<HTMLInputElement>(
+      "#password-generator-symbols"
+    );
+
+  const runButton =
+    screen.querySelector<HTMLButtonElement>(
+      "#password-generator-run"
+    );
+
+  const backButton =
+    screen.querySelector<HTMLButtonElement>(
+      "#password-generator-back"
+    );
+
+  const copyButton =
+    screen.querySelector<HTMLButtonElement>(
+      "#password-generator-copy"
+    );
+
+  const status =
+    screen.querySelector<HTMLParagraphElement>(
+      "#password-generator-status"
+    );
+
+  const result =
+    screen.querySelector<HTMLDivElement>(
+      "#password-generator-result"
+    );
+
+  const output =
+    screen.querySelector<HTMLInputElement>(
+      "#password-generator-output"
+    );
+
+  if (
+    !lengthInput ||
+    !uppercaseInput ||
+    !lowercaseInput ||
+    !numbersInput ||
+    !symbolsInput ||
+    !runButton ||
+    !backButton ||
+    !copyButton ||
+    !status ||
+    !result ||
+    !output
+  ) {
+    screen.remove();
+    home.hidden = false;
+
+    throw new Error(
+      "Password Generator UI initialization failed."
+    );
+  }
+
+  runButton.addEventListener("click", () => {
+    const length = Number(lengthInput.value);
+
+    if (
+      !Number.isInteger(length) ||
+      length < 8 ||
+      length > 64
+    ) {
+      status.textContent =
+        language === "en"
+          ? "Password length must be between 8 and 64."
+          : "पासवर्ड की लंबाई 8 से 64 के बीच रखें।";
+
+      return;
+    }
+
+    let characters = "";
+
+    if (uppercaseInput.checked) {
+      characters += "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    }
+
+    if (lowercaseInput.checked) {
+      characters += "abcdefghijklmnopqrstuvwxyz";
+    }
+
+    if (numbersInput.checked) {
+      characters += "0123456789";
+    }
+
+    if (symbolsInput.checked) {
+      characters += "!@#$%^&*()-_=+[]{}?";
+    }
+
+    if (!characters) {
+      status.textContent =
+        language === "en"
+          ? "Please select at least one character option."
+          : "कम से कम एक character option चुनें।";
+
+      return;
+    }
+
+    const randomValues = new Uint32Array(length);
+    crypto.getRandomValues(randomValues);
+
+    let password = "";
+
+    for (let i = 0; i < length; i++) {
+      const index = randomValues[i] % characters.length;
+      password += characters[index];
+    }
+
+    output.value = password;
+    result.hidden = false;
+
+    status.textContent =
+      language === "en"
+        ? "Password generated successfully."
+        : "पासवर्ड सफलतापूर्वक बन गया।";
+  });
+
+  copyButton.addEventListener("click", async () => {
+    if (!output.value) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(output.value);
+
+      status.textContent =
+        language === "en"
+          ? "Password copied successfully."
+          : "पासवर्ड कॉपी हो गया।";
+    } catch {
+      output.focus();
+      output.select();
+
+      status.textContent =
+        language === "en"
+          ? "Copy was blocked. Select the password and copy it manually."
+          : "कॉपी नहीं हो सका। पासवर्ड चुनकर मैन्युअल कॉपी करें।";
+    }
+  });
+
+  backButton.addEventListener("click", () => {
+    screen.remove();
+    home.hidden = false;
+
+    home.scrollIntoView({
+      behavior: "auto",
+      block: "start",
+    });
+  });
+
+  screen.scrollIntoView({
+    behavior: "auto",
+    block: "start",
+  });
+}
