@@ -2444,15 +2444,26 @@ function openPasswordGenerator(): void {
       return;
     }
 
-    const randomValues = new Uint32Array(length);
-    crypto.getRandomValues(randomValues);
-
     let password = "";
 
-    for (let i = 0; i < length; i++) {
-      const index = randomValues[i] % characters.length;
-      password += characters[index];
-    }
+const randomBuffer = new Uint32Array(1);
+
+const maxValidValue =
+  Math.floor(0x100000000 / characters.length) *
+  characters.length;
+
+for (let i = 0; i < length; i++) {
+  let randomValue: number;
+
+  do {
+    crypto.getRandomValues(randomBuffer);
+    randomValue = randomBuffer[0];
+  } while (randomValue >= maxValidValue);
+
+  const index = randomValue % characters.length;
+
+  password += characters[index];
+}
 
     output.value = password;
     result.hidden = false;
