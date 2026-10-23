@@ -323,6 +323,16 @@ function renderTools(): void {
     >
       ${language === "en" ? "Open tool" : "टूल खोलें"}
     </button>`
+   : tool.en === "Unit Converter"
+  ? `
+    <button
+      class="tool-status compressor-open"
+      type="button"
+      data-open-unit-converter
+    >
+      ${language === "en" ? "Open tool" : "टूल खोलें"}
+    </button>
+  `
   : `<span class="tool-status">
       ${translations[language].planned}
     </span>`
@@ -785,6 +795,11 @@ document.addEventListener("click", (event) => {
 
   if (target.closest("[data-open-password-generator]")) {
   openPasswordGenerator();
+  return;
+  }
+
+  if (target.closest("[data-open-unit-converter]")) {
+  openUnitConverter();
   return;
   }
 });
@@ -2506,6 +2521,252 @@ for (let i = 0; i < length; i++) {
       block: "start",
     });
   });
+
+  screen.scrollIntoView({
+    behavior: "auto",
+    block: "start",
+  });
+}
+
+// M7.3 — Unit Converter UI
+
+function openUnitConverter(): void {
+  const home = element<HTMLElement>("home");
+
+  // Prevent duplicate Unit Converter screens.
+  document.getElementById("unit-converter-screen")?.remove();
+
+  const screen = document.createElement("section");
+  screen.id = "unit-converter-screen";
+  screen.className = "section";
+
+  screen.innerHTML = `
+    <div class="container">
+      <div class="tool-card">
+        <h2>
+          ${language === "en" ? "Unit Converter" : "यूनिट कन्वर्टर"}
+        </h2>
+
+        <p>
+          ${
+            language === "en"
+              ? "Convert common units instantly."
+              : "आसानी से यूनिट बदलें।"
+          }
+        </p>
+
+        <button
+          id="unit-converter-back"
+          class="control-button"
+          type="button"
+        >
+          ${language === "en" ? "← Back" : "← वापस जाएँ"}
+        </button>
+
+        <div style="margin-top:20px">
+          <label for="unit-converter-category">
+            ${language === "en" ? "Category" : "श्रेणी"}
+          </label>
+
+          <select
+            id="unit-converter-category"
+            style="display:block;width:100%;margin-top:10px"
+          >
+            <option value="length">
+              ${language === "en" ? "Length" : "लंबाई"}
+            </option>
+            <option value="weight">
+              ${language === "en" ? "Weight" : "वज़न"}
+            </option>
+            <option value="temperature">
+              ${language === "en" ? "Temperature" : "तापमान"}
+            </option>
+          </select>
+        </div>
+
+        <div style="margin-top:20px">
+          <label for="unit-converter-value">
+            ${language === "en" ? "Value" : "मान"}
+          </label>
+
+          <input
+            id="unit-converter-value"
+            type="number"
+            value="1"
+            step="any"
+            style="display:block;width:100%;margin-top:10px"
+          />
+        </div>
+
+        <div style="margin-top:20px">
+          <label for="unit-converter-from">
+            ${language === "en" ? "From" : "से"}
+          </label>
+
+          <select
+            id="unit-converter-from"
+            style="display:block;width:100%;margin-top:10px"
+          ></select>
+        </div>
+
+        <div style="margin-top:20px">
+          <label for="unit-converter-to">
+            ${language === "en" ? "To" : "में"}
+          </label>
+
+          <select
+            id="unit-converter-to"
+            style="display:block;width:100%;margin-top:10px"
+          ></select>
+        </div>
+
+        <div style="margin-top:20px">
+          <strong>
+            ${language === "en" ? "Result" : "परिणाम"}:
+          </strong>
+
+          <p
+            id="unit-converter-result"
+            aria-live="polite"
+          >1</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const category = screen.querySelector<HTMLSelectElement>(
+    "#unit-converter-category"
+  )!;
+  const valueInput = screen.querySelector<HTMLInputElement>(
+    "#unit-converter-value"
+  )!;
+  const fromSelect = screen.querySelector<HTMLSelectElement>(
+    "#unit-converter-from"
+  )!;
+  const toSelect = screen.querySelector<HTMLSelectElement>(
+    "#unit-converter-to"
+  )!;
+  const result = screen.querySelector<HTMLElement>(
+    "#unit-converter-result"
+  )!;
+
+  type UnitDefinition = {
+    name: string;
+    factor?: number;
+    offset?: number;
+  };
+
+  const units: Record<string, UnitDefinition[]> = {
+    length: [
+      { name: "Meters (m)", factor: 1 },
+      { name: "Kilometers (km)", factor: 1000 },
+      { name: "Centimeters (cm)", factor: 0.01 },
+      { name: "Millimeters (mm)", factor: 0.001 },
+      { name: "Miles (mi)", factor: 1609.344 },
+      { name: "Feet (ft)", factor: 0.3048 },
+      { name: "Inches (in)", factor: 0.0254 },
+    ],
+    weight: [
+      { name: "Kilograms (kg)", factor: 1 },
+      { name: "Grams (g)", factor: 0.001 },
+      { name: "Milligrams (mg)", factor: 0.000001 },
+      { name: "Pounds (lb)", factor: 0.45359237 },
+      { name: "Ounces (oz)", factor: 0.028349523125 },
+    ],
+    temperature: [
+      { name: "Celsius (°C)" },
+      { name: "Fahrenheit (°F)" },
+      { name: "Kelvin (K)" },
+    ],
+  };
+
+  function fillUnits(): void {
+    const selectedUnits = units[category.value];
+
+    fromSelect.innerHTML = "";
+    toSelect.innerHTML = "";
+
+    selectedUnits.forEach((unit, index) => {
+      const fromOption = new Option(unit.name, String(index));
+      const toOption = new Option(unit.name, String(index));
+
+      fromSelect.add(fromOption);
+      toSelect.add(toOption);
+    });
+
+    if (selectedUnits.length > 1) {
+      toSelect.selectedIndex = 1;
+    }
+
+    convert();
+  }
+
+  function convert(): void {
+    const input = Number(valueInput.value);
+    const selectedUnits = units[category.value];
+    const fromUnit = selectedUnits[Number(fromSelect.value)];
+    const toUnit = selectedUnits[Number(toSelect.value)];
+
+    if (
+      valueInput.value.trim() === "" ||
+      !Number.isFinite(input) ||
+      !fromUnit ||
+      !toUnit
+    ) {
+      result.textContent = language === "en"
+        ? "Enter a valid number."
+        : "कृपया सही संख्या दर्ज करें।";
+      return;
+    }
+
+    let converted: number;
+
+    if (category.value === "temperature") {
+      let celsius: number;
+
+      if (fromUnit.name.includes("Fahrenheit")) {
+        celsius = (input - 32) * 5 / 9;
+      } else if (fromUnit.name.includes("Kelvin")) {
+        celsius = input - 273.15;
+      } else {
+        celsius = input;
+      }
+
+      if (toUnit.name.includes("Fahrenheit")) {
+        converted = celsius * 9 / 5 + 32;
+      } else if (toUnit.name.includes("Kelvin")) {
+        converted = celsius + 273.15;
+      } else {
+        converted = celsius;
+      }
+    } else {
+      converted = input * fromUnit.factor! / toUnit.factor!;
+    }
+
+    result.textContent = Number(converted.toPrecision(12)).toString();
+  }
+
+  category.addEventListener("change", fillUnits);
+  valueInput.addEventListener("input", convert);
+  fromSelect.addEventListener("change", convert);
+  toSelect.addEventListener("change", convert);
+
+  screen.querySelector<HTMLButtonElement>(
+    "#unit-converter-back"
+  )!.addEventListener("click", () => {
+    screen.remove();
+    home.hidden = false;
+
+    home.scrollIntoView({
+      behavior: "auto",
+      block: "start",
+    });
+  });
+
+  home.hidden = true;
+  home.after(screen);
+
+  fillUnits();
 
   screen.scrollIntoView({
     behavior: "auto",
