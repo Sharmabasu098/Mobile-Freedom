@@ -2085,8 +2085,8 @@ function openQrGenerator(): void {
       qrObjectUrl = null;
     }
 
-    qrImage.removeAttribute("src");
-    download.removeAttribute("href");
+    document.getElementById("qr-generator-image")?.removeAttribute("src");
+    document.getElementById("qr-generator-download")?.removeAttribute("href");
   }
 
   runButton.addEventListener("click", async () => {
