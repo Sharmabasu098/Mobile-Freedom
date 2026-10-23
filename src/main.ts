@@ -2123,8 +2123,8 @@ function openQrGenerator(): void {
 
       qrObjectUrl = URL.createObjectURL(blob);
 
-      qrImage.src = qrObjectUrl;
-      download.href = qrObjectUrl;
+      document.getElementById("qr-generator-image")?.setAttribute("src", qrObjectUrl);
+      document.getElementById("qr-generator-download")?.setAttribute("href", qrObjectUrl);
 
       result.hidden = false;
 
