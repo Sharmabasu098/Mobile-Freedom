@@ -14,6 +14,12 @@ import { mergePdfFiles } from "./tools/pdf/pdfMerger";
 import { splitPdfFile } from "./tools/pdf/pdfSplitter";
 import QRCode from "qrcode";
 
+import {
+  analyzeFiles,
+  findLargeFiles,
+  calculateTotalSize,
+} from "./tools/storage/fileAnalysis";
+
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
 
@@ -157,6 +163,15 @@ const tools = [
     descriptionHi: "रोज़मर्रा के उपयोगी टेक्स्ट टूल्स।",
     keywords: "text words characters",
   },
+  {
+  icon: "📁",
+  category: "utility",
+  en: "File Analysis",
+  hi: "फाइल विश्लेषण",
+  descriptionEn: "Analyze file sizes and find large files.",
+  descriptionHi: "फाइल का आकार देखें और बड़ी फाइलें खोजें।",
+  keywords: "storage file analysis large files size",
+},
 ] as const;
 
 let language: Language = "en";
@@ -339,6 +354,16 @@ function renderTools(): void {
       class="tool-status compressor-open"
       type="button"
       data-open-text-utilities
+    >
+      ${language === "en" ? "Open tool" : "टूल खोलें"}
+    </button>
+  `
+  : tool.en === "File Analysis"
+  ? `
+    <button
+      class="tool-status compressor-open"
+      type="button"
+      data-open-file-analysis
     >
       ${language === "en" ? "Open tool" : "टूल खोलें"}
     </button>
@@ -817,6 +842,11 @@ document.addEventListener("click", (event) => {
     openTextUtilities();
     return;
     }
+
+  if (target.closest("[data-open-file-analysis]")) {
+  openFileAnalysis();
+  return;
+  }
 });
 
  // M5.3 — Batch Image Format Converter
@@ -2992,6 +3022,389 @@ function openTextUtilities(): void {
   });
 
   updateCounts();
+
+  screen.scrollIntoView({
+    behavior: "auto",
+    block: "start",
+  });
+}
+
+// M8.1 — File Analysis UI Integration
+
+function openFileAnalysis(): void {
+  const home = element<HTMLElement>("home");
+
+  // Prevent duplicate File Analysis screens.
+  document.getElementById("file-analysis-screen")?.remove();
+
+  const screen = document.createElement("section");
+  screen.id = "file-analysis-screen";
+  screen.className = "section";
+
+  screen.innerHTML = `
+    <div class="container">
+      <div class="tool-card">
+
+        <h2>
+          ${
+            language === "en"
+              ? "File Analysis"
+              : "फाइल विश्लेषण"
+          }
+        </h2>
+
+        <p>
+          ${
+            language === "en"
+              ? "Analyze file sizes locally in your browser. Files are not uploaded or deleted."
+              : "अपने ब्राउज़र में फाइलों का आकार देखें। फाइलें अपलोड या डिलीट नहीं होतीं।"
+          }
+        </p>
+
+        <button
+          id="file-analysis-back"
+          class="control-button"
+          type="button"
+        >
+          ${language === "en" ? "← Back" : "← वापस जाएँ"}
+        </button>
+
+        <div style="margin-top:22px;">
+          <label for="file-analysis-input">
+            <strong>
+              ${
+                language === "en"
+                  ? "Choose files"
+                  : "फाइलें चुनें"
+              }
+            </strong>
+          </label>
+
+          <input
+            id="file-analysis-input"
+            type="file"
+            multiple
+            style="display:block;width:100%;margin-top:12px;"
+          />
+
+          <p
+            id="file-analysis-selection"
+            role="status"
+            aria-live="polite"
+          ></p>
+        </div>
+
+        <div style="margin-top:22px;">
+          <label for="file-analysis-threshold">
+            <strong>
+              ${
+                language === "en"
+                  ? "Large file threshold (MB)"
+                  : "बड़ी फाइल की सीमा (MB)"
+              }
+            </strong>
+          </label>
+
+          <input
+            id="file-analysis-threshold"
+            type="number"
+            min="0"
+            value="100"
+            style="display:block;width:100%;margin-top:12px;"
+          />
+
+          <p style="color:var(--muted);">
+            ${
+              language === "en"
+                ? "Files at or above this size will be marked as large."
+                : "इस आकार या इससे बड़ी फाइलों को बड़ी फाइल के रूप में दिखाया जाएगा।"
+            }
+          </p>
+        </div>
+
+        <button
+          id="file-analysis-run"
+          class="control-button"
+          type="button"
+          style="margin-top:18px;background:var(--accent);color:white;"
+        >
+          ${
+            language === "en"
+              ? "Analyze Files"
+              : "फाइलों का विश्लेषण करें"
+          }
+        </button>
+
+        <p
+          id="file-analysis-status"
+          role="status"
+          aria-live="polite"
+        ></p>
+
+        <div id="file-analysis-results" hidden>
+          <h3>
+            ${
+              language === "en"
+                ? "Analysis Results"
+                : "विश्लेषण के परिणाम"
+            }
+          </h3>
+
+          <p id="file-analysis-total"></p>
+
+          <h4>
+            ${
+              language === "en"
+                ? "Selected files"
+                : "चुनी गई फाइलें"
+            }
+          </h4>
+
+          <div id="file-analysis-list"></div>
+
+          <h4 style="margin-top:22px;">
+            ${
+              language === "en"
+                ? "Large files"
+                : "बड़ी फाइलें"
+            }
+          </h4>
+
+          <div id="file-analysis-large-list"></div>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  home.hidden = true;
+  home.after(screen);
+
+  const backButton =
+    screen.querySelector<HTMLButtonElement>(
+      "#file-analysis-back"
+    );
+
+  const fileInput =
+    screen.querySelector<HTMLInputElement>(
+      "#file-analysis-input"
+    );
+
+  const thresholdInput =
+    screen.querySelector<HTMLInputElement>(
+      "#file-analysis-threshold"
+    );
+
+  const runButton =
+    screen.querySelector<HTMLButtonElement>(
+      "#file-analysis-run"
+    );
+
+  const selectionStatus =
+    screen.querySelector<HTMLParagraphElement>(
+      "#file-analysis-selection"
+    );
+
+  const status =
+    screen.querySelector<HTMLParagraphElement>(
+      "#file-analysis-status"
+    );
+
+  const results =
+    screen.querySelector<HTMLDivElement>(
+      "#file-analysis-results"
+    );
+
+  const total =
+    screen.querySelector<HTMLParagraphElement>(
+      "#file-analysis-total"
+    );
+
+  const fileList =
+    screen.querySelector<HTMLDivElement>(
+      "#file-analysis-list"
+    );
+
+  const largeFileList =
+    screen.querySelector<HTMLDivElement>(
+      "#file-analysis-large-list"
+    );
+
+  if (
+    !backButton ||
+    !fileInput ||
+    !thresholdInput ||
+    !runButton ||
+    !selectionStatus ||
+    !status ||
+    !results ||
+    !total ||
+    !fileList ||
+    !largeFileList
+  ) {
+    screen.remove();
+    home.hidden = false;
+
+    throw new Error(
+      "File Analysis UI initialization failed."
+    );
+  }
+
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(2)} KB`;
+    }
+
+    if (bytes < 1024 * 1024 * 1024) {
+      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
+    return `${(
+      bytes / (1024 * 1024 * 1024)
+    ).toFixed(2)} GB`;
+  }
+
+  function createFileCard(
+    fileName: string,
+    detailsText: string
+  ): HTMLDivElement {
+    const card = document.createElement("div");
+    card.className = "tool-card";
+    card.style.marginTop = "14px";
+
+    const heading = document.createElement("h4");
+    heading.textContent = fileName;
+
+    const details = document.createElement("p");
+    details.textContent = detailsText;
+
+    card.append(heading, details);
+
+    return card;
+  }
+
+  fileInput.addEventListener("change", () => {
+    results.hidden = true;
+    fileList.replaceChildren();
+    largeFileList.replaceChildren();
+    status.textContent = "";
+
+    const files = Array.from(fileInput.files ?? []);
+
+    selectionStatus.textContent =
+      language === "en"
+        ? `${files.length} file(s) selected.`
+        : `${files.length} फाइलें चुनी गईं।`;
+  });
+
+  runButton.addEventListener("click", () => {
+    const files = Array.from(fileInput.files ?? []);
+
+    if (files.length === 0) {
+      status.textContent =
+        language === "en"
+          ? "Please choose at least one file."
+          : "कृपया पहले कम से कम एक फाइल चुनें।";
+
+      results.hidden = true;
+      return;
+    }
+
+    const thresholdMB = Number(thresholdInput.value);
+
+    if (
+      !Number.isFinite(thresholdMB) ||
+      thresholdMB < 0
+    ) {
+      status.textContent =
+        language === "en"
+          ? "Please enter a valid file size threshold."
+          : "कृपया फाइल आकार की सही सीमा दर्ज करें।";
+
+      results.hidden = true;
+      return;
+    }
+
+    try {
+      const analyzedFiles = analyzeFiles(files);
+
+      const largeFiles = findLargeFiles(files, {
+        largeFileThreshold:
+          thresholdMB * 1024 * 1024,
+      });
+
+      const totalSize = calculateTotalSize(files);
+
+      fileList.replaceChildren();
+      largeFileList.replaceChildren();
+
+      total.textContent =
+        language === "en"
+          ? `Total files: ${files.length} | Total size: ${formatFileSize(totalSize)}`
+          : `कुल फाइलें: ${files.length} | कुल आकार: ${formatFileSize(totalSize)}`;
+
+      analyzedFiles.forEach((file) => {
+        const details =
+          language === "en"
+            ? `Size: ${formatFileSize(file.size)} | Type: ${file.type} | Extension: ${file.extension || "none"}`
+            : `आकार: ${formatFileSize(file.size)} | प्रकार: ${file.type} | एक्सटेंशन: ${file.extension || "नहीं"}`;
+
+        fileList.append(
+          createFileCard(file.name, details)
+        );
+      });
+
+      if (largeFiles.length === 0) {
+        const message = document.createElement("p");
+
+        message.textContent =
+          language === "en"
+            ? "No large files found at this threshold."
+            : "इस सीमा पर कोई बड़ी फाइल नहीं मिली।";
+
+        largeFileList.append(message);
+      } else {
+        largeFiles.forEach((file) => {
+          const details =
+            language === "en"
+              ? `Large file | Size: ${formatFileSize(file.size)}`
+              : `बड़ी फाइल | आकार: ${formatFileSize(file.size)}`;
+
+          largeFileList.append(
+            createFileCard(file.name, details)
+          );
+        });
+      }
+
+      results.hidden = false;
+
+      status.textContent =
+        language === "en"
+          ? "File analysis completed successfully."
+          : "फाइल विश्लेषण सफलतापूर्वक पूरा हुआ।";
+    } catch {
+      results.hidden = true;
+
+      status.textContent =
+        language === "en"
+          ? "Could not analyze the selected files."
+          : "चुनी गई फाइलों का विश्लेषण नहीं हो सका।";
+    }
+  });
+
+  backButton.addEventListener("click", () => {
+    screen.remove();
+    home.hidden = false;
+
+    home.scrollIntoView({
+      behavior: "auto",
+      block: "start",
+    });
+  });
 
   screen.scrollIntoView({
     behavior: "auto",
