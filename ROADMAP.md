@@ -275,7 +275,7 @@ The following records reflect the repository status at the time of this roadmap 
 - M1 acceptance review: NOT STARTED
 - M2 architecture review: NOT STARTED
 - M3 engineering foundation verification: NOT STARTED
-- Website implementation: NOT STARTED
+- Website implementation: IN PROGRESS (M8.1 File Analysis Engine + UI Integration verified PASS; overall M8 remains IN PROGRESS pending remaining M8 acceptance criteria)
 - Android implementation: NOT STARTED
 - Public release: NOT STARTED
 
