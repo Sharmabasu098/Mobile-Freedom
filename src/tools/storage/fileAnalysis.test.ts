@@ -94,20 +94,22 @@ describe("M8.1 File Analysis — multiple files", () => {
 
 describe("M8.1 File Analysis — large files", () => {
   it("finds files at or above the default 100 MB threshold", () => {
-    const files = [
-      makeFile("small.txt", "small"),
-      makeFile("large.bin", "x".repeat(100)),
-    ];
+  const smallFile = makeFile("small.txt", "small");
 
-    const results = findLargeFiles(files, {
-      largeFileThreshold: 100,
-    });
+  const largeFile = new File(
+    [new Uint8Array(100 * 1024 * 1024)],
+    "large.bin",
+    { type: "application/octet-stream" },
+  );
 
-    expect(results.map((file) => file.name)).toEqual([
-      "large.bin",
-    ]);
-  });
+  const files = [smallFile, largeFile];
 
+  const results = findLargeFiles(files);
+
+  expect(results.map((file) => file.name)).toEqual([
+    "large.bin",
+  ]);
+});
   it("finds files at a custom threshold", () => {
     const files = [
       makeFile("small.txt", "1234"),
@@ -122,6 +124,20 @@ describe("M8.1 File Analysis — large files", () => {
       "large.txt",
     ]);
   });
+  it("includes a file exactly equal to the threshold", () => {
+  const files = [
+    makeFile("exact.txt", "12345"),
+    makeFile("below.txt", "1234"),
+  ];
+
+  const results = findLargeFiles(files, {
+    largeFileThreshold: 5,
+  });
+
+  expect(results.map((file) => file.name)).toEqual([
+    "exact.txt",
+  ]);
+});
 
   it("returns an empty array when no file meets the threshold", () => {
     const files = [
