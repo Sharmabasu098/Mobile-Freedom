@@ -333,6 +333,16 @@ function renderTools(): void {
       ${language === "en" ? "Open tool" : "टूल खोलें"}
     </button>
   `
+    : tool.en === "Text Utilities"
+  ? `
+    <button
+      class="tool-status compressor-open"
+      type="button"
+      data-open-text-utilities
+    >
+      ${language === "en" ? "Open tool" : "टूल खोलें"}
+    </button>
+  `
   : `<span class="tool-status">
       ${translations[language].planned}
     </span>`
@@ -802,6 +812,11 @@ document.addEventListener("click", (event) => {
   openUnitConverter();
   return;
   }
+
+    if (target.closest("[data-open-text-utilities]")) {
+    openTextUtilities();
+    return;
+    }
 });
 
  // M5.3 — Batch Image Format Converter
@@ -2767,6 +2782,216 @@ function openUnitConverter(): void {
   home.after(screen);
 
   fillUnits();
+
+  screen.scrollIntoView({
+    behavior: "auto",
+    block: "start",
+  });
+}
+
+// M7.3 — Text Utilities
+
+function openTextUtilities(): void {
+  const home = element<HTMLElement>("home");
+
+  document.getElementById("text-utilities-screen")?.remove();
+
+  const screen = document.createElement("section");
+  screen.id = "text-utilities-screen";
+  screen.className = "section";
+
+  screen.innerHTML = `
+    <div class="container">
+      <div class="tool-card">
+        <h2>
+          ${language === "en" ? "Text Utilities" : "टेक्स्ट टूल्स"}
+        </h2>
+
+        <p>
+          ${
+            language === "en"
+              ? "Useful tools for everyday text."
+              : "रोज़मर्रा के टेक्स्ट के उपयोगी टूल।"
+          }
+        </p>
+
+        <button
+          id="text-utilities-back"
+          class="control-button"
+          type="button"
+        >
+          ${language === "en" ? "← Back" : "← वापस जाएँ"}
+        </button>
+
+        <div style="margin-top:20px">
+          <label for="text-utilities-input">
+            ${language === "en" ? "Enter your text" : "अपना टेक्स्ट लिखें"}
+          </label>
+
+          <textarea
+            id="text-utilities-input"
+            rows="8"
+            style="display:block;width:100%;margin-top:10px"
+            placeholder="${
+              language === "en"
+                ? "Type or paste your text here..."
+                : "यहाँ अपना टेक्स्ट लिखें..."
+            }"
+          ></textarea>
+        </div>
+
+        <div style="display:grid;gap:10px;margin-top:20px">
+          <button id="text-uppercase" class="control-button" type="button">
+            ${language === "en" ? "UPPERCASE" : "बड़े अक्षर"}
+          </button>
+
+          <button id="text-lowercase" class="control-button" type="button">
+            ${language === "en" ? "lowercase" : "छोटे अक्षर"}
+          </button>
+
+          <button id="text-titlecase" class="control-button" type="button">
+            ${language === "en" ? "Title Case" : "हर शब्द का पहला अक्षर बड़ा"}
+          </button>
+
+          <button id="text-remove-spaces" class="control-button" type="button">
+            ${
+              language === "en"
+                ? "Remove Extra Spaces"
+                : "अतिरिक्त स्पेस हटाएँ"
+            }
+          </button>
+        </div>
+
+        <div style="margin-top:20px">
+          <strong>
+            ${language === "en" ? "Character Count" : "अक्षरों की संख्या"}:
+          </strong>
+          <p id="text-character-count">0</p>
+
+          <strong>
+            ${
+              language === "en"
+                ? "Characters without spaces"
+                : "स्पेस के बिना अक्षर"
+            }:
+          </strong>
+          <p id="text-no-space-count">0</p>
+
+          <strong>
+            ${language === "en" ? "Word Count" : "शब्दों की संख्या"}:
+          </strong>
+          <p id="text-word-count">0</p>
+        </div>
+
+        <button
+          id="text-copy"
+          class="control-button"
+          type="button"
+          style="margin-top:20px"
+        >
+          ${language === "en" ? "Copy Text" : "टेक्स्ट कॉपी करें"}
+        </button>
+
+        <p id="text-utilities-status" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  `;
+
+  home.hidden = true;
+  home.after(screen);
+
+  const input = screen.querySelector<HTMLTextAreaElement>(
+    "#text-utilities-input"
+  )!;
+
+  const status = screen.querySelector<HTMLElement>(
+    "#text-utilities-status"
+  )!;
+
+  function updateCounts(): void {
+    const text = input.value;
+
+    const words = text.trim()
+      ? text.trim().split(/\s+/).length
+      : 0;
+
+    screen.querySelector("#text-character-count")!.textContent =
+      String(text.length);
+
+    screen.querySelector("#text-no-space-count")!.textContent =
+      String(text.replace(/\s/g, "").length);
+
+    screen.querySelector("#text-word-count")!.textContent =
+      String(words);
+  }
+
+  input.addEventListener("input", updateCounts);
+
+  screen.querySelector("#text-uppercase")!.addEventListener("click", () => {
+    input.value = input.value.toUpperCase();
+    updateCounts();
+  });
+
+  screen.querySelector("#text-lowercase")!.addEventListener("click", () => {
+    input.value = input.value.toLowerCase();
+    updateCounts();
+  });
+
+  screen.querySelector("#text-titlecase")!.addEventListener("click", () => {
+    input.value = input.value.toLowerCase().replace(
+      /\b[a-z]/g,
+      (letter) => letter.toUpperCase()
+    );
+    updateCounts();
+  });
+
+  screen.querySelector("#text-remove-spaces")!.addEventListener("click", () => {
+    input.value = input.value
+      .split("\n")
+      .map((line) => line.trim().replace(/[ \t]+/g, " "))
+      .join("\n");
+
+    updateCounts();
+  });
+
+  screen.querySelector("#text-copy")!.addEventListener("click", async () => {
+    if (!input.value) {
+      status.textContent =
+        language === "en"
+          ? "Enter some text first."
+          : "पहले कुछ टेक्स्ट लिखें।";
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(input.value);
+
+      status.textContent =
+        language === "en"
+          ? "Text copied successfully."
+          : "टेक्स्ट सफलतापूर्वक कॉपी हो गया।";
+    } catch {
+      input.focus();
+      input.select();
+
+      status.textContent =
+        language === "en"
+          ? "Copy was blocked. Select the text and copy it manually."
+          : "कॉपी नहीं हो सका। टेक्स्ट चुनकर मैन्युअल कॉपी करें।";
+    }
+  });
+
+  screen.querySelector("#text-utilities-back")!.addEventListener("click", () => {
+    screen.remove();
+    home.hidden = false;
+
+    home.scrollIntoView({
+      behavior: "auto",
+      block: "start",
+    });
+  });
+
+  updateCounts();
 
   screen.scrollIntoView({
     behavior: "auto",
