@@ -60,3 +60,18 @@ describe("M8.5 Batch File Analysis", () => {
     );
   });
 });
+
+it("processes 1000 files in batches and preserves order", () => {
+const files = Array.from({ length: 1000 }, (_, index) =>
+makeFile("file-${index}.txt", "content-${index}"),
+);
+
+const results = analyzeFilesInBatches(files, 50);
+
+expect(results).toHaveLength(1000);
+expect(results[0].name).toBe("file-0.txt");
+expect(results[49].name).toBe("file-49.txt");
+expect(results[50].name).toBe("file-50.txt");
+expect(results[999].name).toBe("file-999.txt");
+  });
+});
