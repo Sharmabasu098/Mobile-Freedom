@@ -66,7 +66,7 @@ expect(() => analyzeFilesInBatches([], 1.5)).toThrow(
 describe("M8.6 Batch Performance Tests", () => {
 it("processes 1000 files in batches and preserves order", () => {
 const files = Array.from({ length: 1000 }, (_, index) =>
-makeFile("file-${index}.txt", "content-${index}"),
+  makeFile(`file-${index}.txt`, `content-${index}`),
 );
 
 const results = analyzeFilesInBatches(files, 50);
