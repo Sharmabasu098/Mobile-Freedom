@@ -83,4 +83,35 @@ expect(originalFiles).toContain(second);
 expect(result[0].files).toHaveLength(2);
 
 });
+it("continues processing files when one file cannot be hashed", async () => {
+  const oversized = makeFile("large.bin", "large");
+
+  Object.defineProperty(oversized, "size", {
+    value: 50 * 1024 * 1024 + 1,
+  });
+
+  const first = makeFile("first.txt", "same-content");
+  const second = makeFile("second.txt", "same-content");
+
+  const hashErrors: Array<{
+    file: File;
+    error: unknown;
+  }> = [];
+
+  const result = await findExactDuplicates(
+    [oversized, first, second],
+    (file, error) => {
+      hashErrors.push({ file, error });
+    },
+  );
+
+  expect(hashErrors).toHaveLength(1);
+  expect(hashErrors[0].file).toBe(oversized);
+  expect(hashErrors[0].error).toBeInstanceOf(Error);
+
+  expect(result).toHaveLength(1);
+  expect(result[0].files).toContain(first);
+  expect(result[0].files).toContain(second);
+  expect(result[0].files).not.toContain(oversized);
+});
 });
