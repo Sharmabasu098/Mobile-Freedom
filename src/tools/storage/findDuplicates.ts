@@ -1,45 +1,61 @@
 import { calculateFileHash } from "./fileHash";
 
 export interface DuplicateFileGroup {
-hash: string;
-files: File[];
-totalSize: number;
+  hash: string;
+  files: File[];
+  totalSize: number;
 }
+
+export type DuplicateHashErrorHandler = (
+  file: File,
+  error: unknown,
+) => void;
 
 /**
-
-* Groups files with identical SHA-256 hashes.
-* Files are processed locally; nothing is uploaded or deleted.
-  */
-  export async function findExactDuplicates(
+ * Groups files with identical SHA-256 hashes.
+ *
+ * Files are processed locally. Nothing is uploaded or deleted.
+ * If hashing one file fails, processing continues with the others.
+ */
+export async function findExactDuplicates(
   files: File[],
-  ): Promise<DuplicateFileGroup[]> {
+  onHashError?: DuplicateHashErrorHandler,
+): Promise<DuplicateFileGroup[]> {
   if (files.length === 0) {
-  return [];
+    return [];
   }
 
-const groups = new Map<string, File[]>();
+  const groups = new Map<string, File[]>();
 
-for (const file of files) {
-const hash = await calculateFileHash(file);
-const existing = groups.get(hash);
+  for (const file of files) {
+    let hash: string;
 
-if (existing) {
-  existing.push(file);
-} else {
-  groups.set(hash, [file]);
-}
+    try {
+      hash = await calculateFileHash(file);
+    } catch (error) {
+      if (onHashError) {
+        onHashError(file, error);
+      }
+      continue;
+    }
 
-}
+    const existing = groups.get(hash);
 
-return Array.from(groups.entries())
-.filter(([, groupedFiles]) => groupedFiles.length > 1)
-.map(([hash, groupedFiles]) => ({
-hash,
-files: groupedFiles,
-totalSize: groupedFiles.reduce(
-(total, file) => total + file.size,
-0,
-),
-}));
+    if (existing) {
+      existing.push(file);
+    } else {
+      groups.set(hash, [file]);
+    }
   }
+
+  return Array.from(groups.entries())
+    .filter(([, groupedFiles]) => groupedFiles.length > 1)
+    .map(([hash, groupedFiles]) => ({
+      hash,
+      files: groupedFiles,
+      totalSize: groupedFiles.reduce(
+        (total, file) => total + file.size,
+        0,
+      ),
+    }));
+}
