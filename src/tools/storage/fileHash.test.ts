@@ -51,4 +51,19 @@ const hash = await calculateFileHash(file);
 expect(hash).toMatch(/^[a-f0-9]{64}$/);
 
 });
+
+  it("returns the same hash regardless of file name and MIME type", async () => {
+    const first = new File(["same-content"], "first.txt", {
+      type: "text/plain",
+    });
+
+    const second = new File(["same-content"], "second.bin", {
+      type: "application/octet-stream",
+    });
+
+    const firstHash = await calculateFileHash(first);
+    const secondHash = await calculateFileHash(second);
+
+    expect(firstHash).toBe(secondHash);
+  });
 });
