@@ -3137,6 +3137,48 @@ function openFileAnalysis(): void {
           }
         </button>
 
+        <button
+          id="file-duplicates-run"
+          class="control-button"
+          type="button"
+          style="margin-top:12px;"
+        >
+          ${
+            language === "en"
+              ? "Find Exact Duplicates"
+              : "एक जैसी फाइलें खोजें"
+          }
+        </button>
+
+        <p
+          id="file-duplicates-status"
+          role="status"
+          aria-live="polite"
+        ></p>
+
+        <div id="file-duplicates-results" hidden>
+          <h3>
+            ${
+              language === "en"
+                ? "Duplicate Detection Results"
+                : "डुप्लिकेट जाँच के परिणाम"
+            }
+          </h3>
+
+          <p id="file-duplicates-summary"></p>
+          <div id="file-duplicates-list"></div>
+
+          <h4>
+            ${
+              language === "en"
+                ? "Files that could not be checked"
+                : "जिन फाइलों की जाँच नहीं हो सकी"
+            }
+          </h4>
+
+          <div id="file-duplicates-errors"></div>
+        </div>
+
         <p
           id="file-analysis-status"
           role="status"
@@ -3202,6 +3244,36 @@ function openFileAnalysis(): void {
       "#file-analysis-run"
     );
 
+    const duplicateButton =
+    screen.querySelector<HTMLButtonElement>(
+      "#file-duplicates-run"
+    );
+
+  const duplicateStatus =
+    screen.querySelector<HTMLParagraphElement>(
+      "#file-duplicates-status"
+    );
+
+  const duplicateResults =
+    screen.querySelector<HTMLDivElement>(
+      "#file-duplicates-results"
+    );
+
+  const duplicateSummary =
+    screen.querySelector<HTMLParagraphElement>(
+      "#file-duplicates-summary"
+    );
+
+  const duplicateList =
+    screen.querySelector<HTMLDivElement>(
+      "#file-duplicates-list"
+    );
+
+  const duplicateErrors =
+    screen.querySelector<HTMLDivElement>(
+      "#file-duplicates-errors"
+    );
+
   const selectionStatus =
     screen.querySelector<HTMLParagraphElement>(
       "#file-analysis-selection"
@@ -3237,6 +3309,12 @@ function openFileAnalysis(): void {
     !fileInput ||
     !thresholdInput ||
     !runButton ||
+    !duplicateButton ||
+    !duplicateStatus ||
+    !duplicateResults ||
+    !duplicateSummary ||
+    !duplicateList ||
+    !duplicateErrors ||
     !selectionStatus ||
     !status ||
     !results ||
@@ -3395,6 +3473,138 @@ function openFileAnalysis(): void {
         language === "en"
           ? "Could not analyze the selected files."
           : "चुनी गई फाइलों का विश्लेषण नहीं हो सका।";
+    }
+  });
+
+    duplicateButton.addEventListener("click", async () => {
+    const files = Array.from(fileInput.files ?? []);
+
+    duplicateResults.hidden = true;
+    duplicateList.replaceChildren();
+    duplicateErrors.replaceChildren();
+    duplicateSummary.textContent = "";
+    duplicateStatus.textContent = "";
+
+    if (files.length === 0) {
+      duplicateStatus.textContent =
+        language === "en"
+          ? "Please choose at least one file first."
+          : "कृपया पहले कम से कम एक फाइल चुनें।";
+
+      return;
+    }
+
+    duplicateButton.disabled = true;
+
+    duplicateStatus.textContent =
+      language === "en"
+        ? "Checking files for exact duplicates..."
+        : "एक जैसी फाइलें खोजी जा रही हैं...";
+
+    const failedFiles: Array<{
+      file: File;
+      error: unknown;
+    }> = [];
+
+    try {
+      const groups = await findExactDuplicates(
+        files,
+        (file, error) => {
+          failedFiles.push({ file, error });
+        },
+      );
+
+      if (groups.length === 0) {
+        const message = document.createElement("p");
+
+        message.textContent =
+          language === "en"
+            ? "No exact duplicates were found among the files that could be checked."
+            : "जिन फाइलों की जाँच हो सकी, उनमें एक जैसी फाइलें नहीं मिलीं।";
+
+        duplicateList.append(message);
+      } else {
+        groups.forEach((group, index) => {
+          const card = document.createElement("div");
+          card.className = "tool-card";
+          card.style.marginTop = "14px";
+
+          const heading = document.createElement("h4");
+
+          heading.textContent =
+            language === "en"
+              ? `Duplicate group ${index + 1}`
+              : `डुप्लिकेट समूह ${index + 1}`;
+
+          const size = document.createElement("p");
+
+          size.textContent =
+            language === "en"
+              ? `Combined size: ${formatFileSize(group.totalSize)}`
+              : `कुल आकार: ${formatFileSize(group.totalSize)}`;
+
+          const list = document.createElement("ul");
+
+          group.files.forEach((file) => {
+            const item = document.createElement("li");
+            item.textContent =
+              `${file.name} (${formatFileSize(file.size)})`;
+
+            list.append(item);
+          });
+
+          card.append(heading, size, list);
+          duplicateList.append(card);
+        });
+      }
+
+      duplicateSummary.textContent =
+        language === "en"
+          ? `Selected: ${files.length} | Duplicate groups: ${groups.length} | Files not checked: ${failedFiles.length}`
+          : `चुनी गई फाइलें: ${files.length} | डुप्लिकेट समूह: ${groups.length} | जाँच न हो सकी: ${failedFiles.length}`;
+
+      if (failedFiles.length > 0) {
+        failedFiles.forEach(({ file, error }) => {
+          const card = document.createElement("div");
+          card.className = "tool-card";
+          card.style.marginTop = "12px";
+
+          const heading = document.createElement("h4");
+          heading.textContent = file.name;
+
+          const message = document.createElement("p");
+
+          const reason =
+            error instanceof Error
+              ? error.message
+              : language === "en"
+                ? "Unknown hashing error."
+                : "हैशिंग में अज्ञात त्रुटि।";
+
+          message.textContent = reason;
+
+          card.append(heading, message);
+          duplicateErrors.append(card);
+        });
+      }
+
+      duplicateResults.hidden = false;
+
+      duplicateStatus.textContent =
+        language === "en"
+          ? failedFiles.length > 0
+            ? "Duplicate check finished with some files skipped."
+            : "Duplicate check completed successfully."
+          : failedFiles.length > 0
+            ? "डुप्लिकेट जाँच पूरी हुई, लेकिन कुछ फाइलें जाँची नहीं जा सकीं।"
+            : "डुप्लिकेट जाँच सफलतापूर्वक पूरी हुई।";
+    } catch {
+      duplicateStatus.textContent =
+        language === "en"
+          ? "Duplicate detection could not be completed."
+          : "डुप्लिकेट जाँच पूरी नहीं हो सकी।";
+    } finally {
+      duplicateButton.disabled = false;
     }
   });
 
