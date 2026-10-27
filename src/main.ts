@@ -20,6 +20,8 @@ import {
   calculateTotalSize,
 } from "./tools/storage/fileAnalysis";
 
+import { findExactDuplicates } from "./tools/storage/findDuplicates";
+
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
 
