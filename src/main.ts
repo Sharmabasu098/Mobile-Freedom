@@ -2010,180 +2010,6 @@ function openPdfSplitter(): void {
     }
   });
 
-  duplicateButton.addEventListener("click", async () => {
-    const files = Array.from(fileInput.files ?? []);
-
-    duplicateResults.hidden = true;
-    duplicateList.replaceChildren();
-    duplicateErrors.replaceChildren();
-    duplicateSummary.textContent = "";
-    duplicateStatus.textContent = "";
-
-    if (files.length === 0) {
-      duplicateStatus.textContent =
-        language === "en"
-          ? "Please choose at least one file first."
-          : "कृपया पहले कम से कम एक फाइल चुनें।";
-
-      return;
-    }
-
-    const mediaFiles = filterMediaFiles(files);
-
-    const unsupportedFiles = files.filter(
-      (file) => !mediaFiles.includes(file),
-    );
-
-    duplicateButton.disabled = true;
-
-    duplicateStatus.textContent =
-      language === "en"
-        ? "Checking photos and videos for exact duplicates..."
-        : "फोटो और वीडियो में एक जैसी फाइलें खोजी जा रही हैं...";
-
-    const failedFiles: Array<{
-      file: File;
-      error: unknown;
-    }> = [];
-
-    try {
-      const groups = await findExactDuplicates(
-        mediaFiles,
-        (file, error) => {
-          failedFiles.push({ file, error });
-        },
-      );
-
-      if (mediaFiles.length === 0) {
-        const message = document.createElement("p");
-
-        message.textContent =
-          language === "en"
-            ? "No supported photos or videos were selected."
-            : "कोई समर्थित फोटो या वीडियो नहीं चुना गया।";
-
-        duplicateList.append(message);
-      } else if (groups.length === 0) {
-        const message = document.createElement("p");
-
-        message.textContent =
-          language === "en"
-            ? "No exact duplicates were found among the media files that could be checked."
-            : "जिन मीडिया फाइलों की जाँच हो सकी, उनमें एक जैसी फाइलें नहीं मिलीं।";
-
-        duplicateList.append(message);
-      } else {
-        groups.forEach((group, index) => {
-          const card = document.createElement("div");
-          card.className = "tool-card";
-          card.style.marginTop = "14px";
-
-          const heading = document.createElement("h4");
-
-          heading.textContent =
-            language === "en"
-              ? `Duplicate group ${index + 1}`
-              : `डुप्लिकेट समूह ${index + 1}`;
-
-          const size = document.createElement("p");
-
-          size.textContent =
-            language === "en"
-              ? `Combined size: ${formatFileSize(group.totalSize)}`
-              : `कुल आकार: ${formatFileSize(group.totalSize)}`;
-
-          const list = document.createElement("ul");
-
-          group.files.forEach((file) => {
-            const item = document.createElement("li");
-
-            item.textContent =
-              `${file.name} (${formatFileSize(file.size)})`;
-
-            list.append(item);
-          });
-
-          card.append(heading, size, list);
-          duplicateList.append(card);
-        });
-      }
-
-      duplicateSummary.textContent =
-        language === "en"
-          ? `Selected: ${files.length} | Media files: ${mediaFiles.length} | Unsupported: ${unsupportedFiles.length} | Duplicate groups: ${groups.length} | Hashing failures: ${failedFiles.length}`
-          : `चुनी गई फाइलें: ${files.length} | मीडिया फाइलें: ${mediaFiles.length} | असमर्थित: ${unsupportedFiles.length} | डुप्लिकेट समूह: ${groups.length} | हैशिंग विफलताएँ: ${failedFiles.length}`;
-
-      if (unsupportedFiles.length > 0) {
-        const heading = document.createElement("h4");
-
-        heading.textContent =
-          language === "en"
-            ? "Unsupported files (not checked)"
-            : "असमर्थित फाइलें (जाँच नहीं हुई)";
-
-        const list = document.createElement("ul");
-
-        unsupportedFiles.forEach((file) => {
-          const item = document.createElement("li");
-
-          item.textContent =
-            `${file.name} (${formatFileSize(file.size)})`;
-
-          list.append(item);
-        });
-
-        duplicateErrors.append(heading, list);
-      }
-
-      if (failedFiles.length > 0) {
-        failedFiles.forEach(({ file, error }) => {
-          const card = document.createElement("div");
-          card.className = "tool-card";
-          card.style.marginTop = "12px";
-
-          const heading = document.createElement("h4");
-          heading.textContent = file.name;
-
-          const message = document.createElement("p");
-
-          const reason =
-            error instanceof Error
-              ? error.message
-              : language === "en"
-                ? "Unknown hashing error."
-                : "हैशिंग में अज्ञात त्रुटि।";
-
-          message.textContent = reason;
-
-          card.append(heading, message);
-          duplicateErrors.append(card);
-        });
-      }
-
-      duplicateResults.hidden = false;
-
-      duplicateStatus.textContent =
-        language === "en"
-          ? failedFiles.length > 0
-            ? "Media duplicate check finished with some hashing failures."
-            : unsupportedFiles.length > 0
-              ? "Media duplicate check completed. Unsupported files were skipped."
-              : "Media duplicate check completed successfully."
-          : failedFiles.length > 0
-            ? "मीडिया डुप्लिकेट जाँच पूरी हुई, लेकिन कुछ फाइलों की हैशिंग विफल हुई।"
-            : unsupportedFiles.length > 0
-              ? "मीडिया डुप्लिकेट जाँच पूरी हुई। असमर्थित फाइलें छोड़ दी गईं।"
-              : "मीडिया डुप्लिकेट जाँच सफलतापूर्वक पूरी हुई।";
-    } catch {
-      duplicateStatus.textContent =
-        language === "en"
-          ? "Media duplicate detection could not be completed."
-          : "मीडिया डुप्लिकेट जाँच पूरी नहीं हो सकी।";
-    } finally {
-      duplicateButton.disabled = false;
-    }
-  });
-
   backButton.addEventListener("click", () => {
     releaseSplitterUrls();
 
@@ -3778,6 +3604,180 @@ function openFileAnalysis(): void {
         language === "en"
           ? "Duplicate detection could not be completed."
           : "डुप्लिकेट जाँच पूरी नहीं हो सकी।";
+    } finally {
+      duplicateButton.disabled = false;
+    }
+  });
+
+  duplicateButton.addEventListener("click", async () => {
+    const files = Array.from(fileInput.files ?? []);
+
+    duplicateResults.hidden = true;
+    duplicateList.replaceChildren();
+    duplicateErrors.replaceChildren();
+    duplicateSummary.textContent = "";
+    duplicateStatus.textContent = "";
+
+    if (files.length === 0) {
+      duplicateStatus.textContent =
+        language === "en"
+          ? "Please choose at least one file first."
+          : "कृपया पहले कम से कम एक फाइल चुनें।";
+
+      return;
+    }
+
+    const mediaFiles = filterMediaFiles(files);
+
+    const unsupportedFiles = files.filter(
+      (file) => !mediaFiles.includes(file),
+    );
+
+    duplicateButton.disabled = true;
+
+    duplicateStatus.textContent =
+      language === "en"
+        ? "Checking photos and videos for exact duplicates..."
+        : "फोटो और वीडियो में एक जैसी फाइलें खोजी जा रही हैं...";
+
+    const failedFiles: Array<{
+      file: File;
+      error: unknown;
+    }> = [];
+
+    try {
+      const groups = await findExactDuplicates(
+        mediaFiles,
+        (file, error) => {
+          failedFiles.push({ file, error });
+        },
+      );
+
+      if (mediaFiles.length === 0) {
+        const message = document.createElement("p");
+
+        message.textContent =
+          language === "en"
+            ? "No supported photos or videos were selected."
+            : "कोई समर्थित फोटो या वीडियो नहीं चुना गया।";
+
+        duplicateList.append(message);
+      } else if (groups.length === 0) {
+        const message = document.createElement("p");
+
+        message.textContent =
+          language === "en"
+            ? "No exact duplicates were found among the media files that could be checked."
+            : "जिन मीडिया फाइलों की जाँच हो सकी, उनमें एक जैसी फाइलें नहीं मिलीं।";
+
+        duplicateList.append(message);
+      } else {
+        groups.forEach((group, index) => {
+          const card = document.createElement("div");
+          card.className = "tool-card";
+          card.style.marginTop = "14px";
+
+          const heading = document.createElement("h4");
+
+          heading.textContent =
+            language === "en"
+              ? `Duplicate group ${index + 1}`
+              : `डुप्लिकेट समूह ${index + 1}`;
+
+          const size = document.createElement("p");
+
+          size.textContent =
+            language === "en"
+              ? `Combined size: ${formatFileSize(group.totalSize)}`
+              : `कुल आकार: ${formatFileSize(group.totalSize)}`;
+
+          const list = document.createElement("ul");
+
+          group.files.forEach((file) => {
+            const item = document.createElement("li");
+
+            item.textContent =
+              `${file.name} (${formatFileSize(file.size)})`;
+
+            list.append(item);
+          });
+
+          card.append(heading, size, list);
+          duplicateList.append(card);
+        });
+      }
+
+      duplicateSummary.textContent =
+        language === "en"
+          ? `Selected: ${files.length} | Media files: ${mediaFiles.length} | Unsupported: ${unsupportedFiles.length} | Duplicate groups: ${groups.length} | Hashing failures: ${failedFiles.length}`
+          : `चुनी गई फाइलें: ${files.length} | मीडिया फाइलें: ${mediaFiles.length} | असमर्थित: ${unsupportedFiles.length} | डुप्लिकेट समूह: ${groups.length} | हैशिंग विफलताएँ: ${failedFiles.length}`;
+
+      if (unsupportedFiles.length > 0) {
+        const heading = document.createElement("h4");
+
+        heading.textContent =
+          language === "en"
+            ? "Unsupported files (not checked)"
+            : "असमर्थित फाइलें (जाँच नहीं हुई)";
+
+        const list = document.createElement("ul");
+
+        unsupportedFiles.forEach((file) => {
+          const item = document.createElement("li");
+
+          item.textContent =
+            `${file.name} (${formatFileSize(file.size)})`;
+
+          list.append(item);
+        });
+
+        duplicateErrors.append(heading, list);
+      }
+
+      if (failedFiles.length > 0) {
+        failedFiles.forEach(({ file, error }) => {
+          const card = document.createElement("div");
+          card.className = "tool-card";
+          card.style.marginTop = "12px";
+
+          const heading = document.createElement("h4");
+          heading.textContent = file.name;
+
+          const message = document.createElement("p");
+
+          const reason =
+            error instanceof Error
+              ? error.message
+              : language === "en"
+                ? "Unknown hashing error."
+                : "हैशिंग में अज्ञात त्रुटि।";
+
+          message.textContent = reason;
+
+          card.append(heading, message);
+          duplicateErrors.append(card);
+        });
+      }
+
+      duplicateResults.hidden = false;
+
+      duplicateStatus.textContent =
+        language === "en"
+          ? failedFiles.length > 0
+            ? "Media duplicate check finished with some hashing failures."
+            : unsupportedFiles.length > 0
+              ? "Media duplicate check completed. Unsupported files were skipped."
+              : "Media duplicate check completed successfully."
+          : failedFiles.length > 0
+            ? "मीडिया डुप्लिकेट जाँच पूरी हुई, लेकिन कुछ फाइलों की हैशिंग विफल हुई।"
+            : unsupportedFiles.length > 0
+              ? "मीडिया डुप्लिकेट जाँच पूरी हुई। असमर्थित फाइलें छोड़ दी गईं।"
+              : "मीडिया डुप्लिकेट जाँच सफलतापूर्वक पूरी हुई।";
+    } catch {
+      duplicateStatus.textContent =
+        language === "en"
+          ? "Media duplicate detection could not be completed."
+          : "मीडिया डुप्लिकेट जाँच पूरी नहीं हो सकी।";
     } finally {
       duplicateButton.disabled = false;
     }
