@@ -21,7 +21,6 @@ import {
 } from "./tools/storage/fileAnalysis";
 
 import { findExactDuplicates } from "./tools/storage/findDuplicates";
-import { filterMediaFiles } from "./tools/storage/mediaFiles";
 
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
