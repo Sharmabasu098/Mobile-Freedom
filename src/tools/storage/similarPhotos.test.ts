@@ -389,34 +389,31 @@ describe("findSimilarPhotos", () => {
     expect(result[0].similarityPercent).toBe(100);
   });
 
-  it("does not report a pair when hashes exceed the threshold", async () => {
-    mockImageDecoding();
-
+    it("does not report a pair when hashes exceed the threshold", async () => {
     const first = createImageFile("photo-one.png");
     const second = createImageFile("photo-two.png");
 
+    let imageCount = 0;
+
     vi.stubGlobal(
       "createImageBitmap",
-      vi.fn(async (file: File) => ({
+      vi.fn(async () => ({
         width: 100,
         height: 100,
         close: vi.fn(),
-        source: file,
       })),
     );
 
     const context = {
       drawImage: vi.fn(),
 
-      getImageData: vi.fn(
-        (x: number, y: number, width: number) => {
-          const imageData = createPixelData(
-            width === 9 && y === 0,
-          );
+      getImageData: vi.fn(() => {
+        imageCount += 1;
 
-          return { data: imageData };
-        },
-      ),
+        return {
+          data: createPixelData(imageCount === 2),
+        };
+      }),
     };
 
     const canvas = {
@@ -435,8 +432,8 @@ describe("findSimilarPhotos", () => {
       0,
     );
 
-    // The result depends on the mocked pixel data.
-    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(0);
+    expect(imageCount).toBe(2);
   });
 
   it("does not modify selected files", async () => {
