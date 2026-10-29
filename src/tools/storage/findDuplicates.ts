@@ -4,6 +4,7 @@ export interface DuplicateFileGroup {
   hash: string;
   files: File[];
   totalSize: number;
+  potentialSavings: number;
 }
 
 export type DuplicateHashErrorHandler = (
@@ -48,14 +49,22 @@ export async function findExactDuplicates(
     }
   }
 
-  return Array.from(groups.entries())
+    return Array.from(groups.entries())
     .filter(([, groupedFiles]) => groupedFiles.length > 1)
-    .map(([hash, groupedFiles]) => ({
-      hash,
-      files: groupedFiles,
-      totalSize: groupedFiles.reduce(
+    .map(([hash, groupedFiles]) => {
+      const totalSize = groupedFiles.reduce(
         (total, file) => total + file.size,
         0,
-      ),
-    }));
-}
+      );
+
+      const largestFileSize = Math.max(
+        ...groupedFiles.map((file) => file.size),
+      );
+
+      return {
+        hash,
+        files: groupedFiles,
+        totalSize,
+        potentialSavings: totalSize - largestFileSize,
+      };
+    });
