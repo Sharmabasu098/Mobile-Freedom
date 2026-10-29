@@ -68,3 +68,4 @@ export async function findExactDuplicates(
         potentialSavings: totalSize - largestFileSize,
       };
     });
+}
