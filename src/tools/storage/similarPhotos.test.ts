@@ -69,12 +69,15 @@ function mockImageDecoding(): void {
     })),
   };
 
+  const canvas = document.createElement("canvas");
+  const canvasPrototype = Object.getPrototypeOf(canvas);
+
   vi.spyOn(
-    HTMLCanvasElement.prototype,
+    canvasPrototype,
     "getContext",
   ).mockImplementation(
     (() => context) as unknown as
-      typeof HTMLCanvasElement.prototype.getContext,
+      typeof canvas.getContext,
   );
 }
 
