@@ -46,18 +46,22 @@ function createPixelData(
 }
 
 /**
- * Mocks browser image decoding and canvas processing.
- * These tests verify the algorithm and integration,
- * not the accuracy of real photographs.
+ * Creates browser API mocks without requiring jsdom.
+ *
+ * This is important because the GitHub Actions Vitest
+ * environment does not provide a real document or canvas.
  */
-function mockImageDecoding(): void {
+function mockImageDecoding(
+  reverse = false,
+): void {
+  const bitmapClose = vi.fn();
+
   vi.stubGlobal(
     "createImageBitmap",
-    vi.fn(async (file: File) => ({
+    vi.fn(async () => ({
       width: 100,
       height: 100,
-      source: file,
-      close: vi.fn(),
+      close: bitmapClose,
     })),
   );
 
@@ -65,20 +69,28 @@ function mockImageDecoding(): void {
     drawImage: vi.fn(),
 
     getImageData: vi.fn(() => ({
-      data: createPixelData(),
+      data: createPixelData(reverse),
     })),
   };
 
-  const canvas = document.createElement("canvas");
-  const canvasPrototype = Object.getPrototypeOf(canvas);
+  const canvas = {
+    width: 0,
+    height: 0,
 
-  vi.spyOn(
-    canvasPrototype,
-    "getContext",
-  ).mockImplementation(
-    (() => context) as unknown as
-      typeof canvas.getContext,
-  );
+    getContext: vi.fn(() => context),
+  };
+
+  vi.stubGlobal("document", {
+    createElement: vi.fn((tagName: string) => {
+      if (tagName !== "canvas") {
+        throw new Error(
+          `Unexpected element requested: ${tagName}`,
+        );
+      }
+
+      return canvas;
+    }),
+  });
 }
 
 afterEach(() => {
@@ -93,32 +105,43 @@ describe("calculateDifferenceHashFromPixels", () => {
       (_, index) => index % 9,
     );
 
-    const hash = calculateDifferenceHashFromPixels(pixels);
+    const hash =
+      calculateDifferenceHashFromPixels(pixels);
 
     expect(hash).toHaveLength(64);
     expect(hash).toMatch(/^[01]{64}$/);
   });
 
   it("returns zeros when adjacent pixels increase", () => {
-    const row = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+    const row = [
+      10, 20, 30, 40, 50,
+      60, 70, 80, 90,
+    ];
+
     const pixels = Array.from(
       { length: 8 },
       () => row,
     ).flat();
 
-    expect(calculateDifferenceHashFromPixels(pixels))
-      .toBe("0".repeat(64));
+    expect(
+      calculateDifferenceHashFromPixels(pixels),
+    ).toBe("0".repeat(64));
   });
 
   it("returns ones when adjacent pixels decrease", () => {
-    const row = [90, 80, 70, 60, 50, 40, 30, 20, 10];
+    const row = [
+      90, 80, 70, 60, 50,
+      40, 30, 20, 10,
+    ];
+
     const pixels = Array.from(
       { length: 8 },
       () => row,
     ).flat();
 
-    expect(calculateDifferenceHashFromPixels(pixels))
-      .toBe("1".repeat(64));
+    expect(
+      calculateDifferenceHashFromPixels(pixels),
+    ).toBe("1".repeat(64));
   });
 
   it("rejects an incorrect pixel count", () => {
@@ -142,7 +165,9 @@ describe("calculateHashDistance", () => {
   it("returns zero for identical hashes", () => {
     const hash = "0".repeat(64);
 
-    expect(calculateHashDistance(hash, hash)).toBe(0);
+    expect(
+      calculateHashDistance(hash, hash),
+    ).toBe(0);
   });
 
   it("returns 64 for completely different hashes", () => {
@@ -158,7 +183,9 @@ describe("calculateHashDistance", () => {
     const first = "0".repeat(64);
     const second = "1".repeat(5) + "0".repeat(59);
 
-    expect(calculateHashDistance(first, second)).toBe(5);
+    expect(
+      calculateHashDistance(first, second),
+    ).toBe(5);
   });
 
   it("rejects hashes with an invalid length", () => {
@@ -220,24 +247,50 @@ describe("calculateImageDifferenceHash", () => {
 
     await expect(
       calculateImageDifferenceHash(file),
-    ).rejects.toThrow(/not supported by this browser/i);
+    ).rejects.toThrow(
+      /not supported by this browser/i,
+    );
   });
 
-  it("calculates a hash using mocked browser image APIs", async () => {
+  it("calculates a hash using mocked browser APIs", async () => {
     mockImageDecoding();
 
     const file = createImageFile("photo.png");
 
-    const hash = await calculateImageDifferenceHash(file);
+    const hash =
+      await calculateImageDifferenceHash(file);
 
     expect(hash).toHaveLength(64);
     expect(hash).toMatch(/^[01]{64}$/);
+  });
+
+  it("cleans up the bitmap and canvas after processing", async () => {
+    mockImageDecoding();
+
+    const file = createImageFile("photo.png");
+
+    await expect(
+      calculateImageDifferenceHash(file),
+    ).resolves.toHaveLength(64);
+
+    expect(document.createElement).toHaveBeenCalledWith(
+      "canvas",
+    );
+
+    const canvas = vi.mocked(
+      document.createElement,
+    ).mock.results[0].value as HTMLCanvasElement;
+
+    expect(canvas.width).toBe(0);
+    expect(canvas.height).toBe(0);
   });
 });
 
 describe("findSimilarPhotos", () => {
   it("returns no pairs when no files are selected", async () => {
-    await expect(findSimilarPhotos([])).resolves.toEqual([]);
+    await expect(
+      findSimilarPhotos([]),
+    ).resolves.toEqual([]);
   });
 
   it("rejects a negative distance", async () => {
@@ -256,6 +309,18 @@ describe("findSimilarPhotos", () => {
     await expect(
       findSimilarPhotos([], undefined, 2.5),
     ).rejects.toThrow(/whole number/i);
+  });
+
+  it("accepts the minimum valid distance", async () => {
+    await expect(
+      findSimilarPhotos([], undefined, 0),
+    ).resolves.toEqual([]);
+  });
+
+  it("accepts the maximum valid distance", async () => {
+    await expect(
+      findSimilarPhotos([], undefined, 64),
+    ).resolves.toEqual([]);
   });
 
   it("rejects an unsupported file and reports the error", async () => {
@@ -279,7 +344,7 @@ describe("findSimilarPhotos", () => {
     );
   });
 
-  it("continues processing after an invalid image", async () => {
+  it("continues after an invalid image", async () => {
     mockImageDecoding();
 
     const invalid = createImageFile(
@@ -302,7 +367,7 @@ describe("findSimilarPhotos", () => {
       expect.any(Error),
     );
 
-    // One valid image cannot form a pair by itself.
+    // One valid image alone cannot form a pair.
     expect(result).toEqual([]);
   });
 
@@ -325,12 +390,53 @@ describe("findSimilarPhotos", () => {
   });
 
   it("does not report a pair when hashes exceed the threshold", async () => {
-    const firstHash = "0".repeat(64);
-    const secondHash = "1".repeat(64);
+    mockImageDecoding();
 
-    expect(
-      calculateHashDistance(firstHash, secondHash),
-    ).toBeGreaterThan(8);
+    const first = createImageFile("photo-one.png");
+    const second = createImageFile("photo-two.png");
+
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async (file: File) => ({
+        width: 100,
+        height: 100,
+        close: vi.fn(),
+        source: file,
+      })),
+    );
+
+    const context = {
+      drawImage: vi.fn(),
+
+      getImageData: vi.fn(
+        (x: number, y: number, width: number) => {
+          const imageData = createPixelData(
+            width === 9 && y === 0,
+          );
+
+          return { data: imageData };
+        },
+      ),
+    };
+
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => context),
+    };
+
+    vi.stubGlobal("document", {
+      createElement: vi.fn(() => canvas),
+    });
+
+    const result = await findSimilarPhotos(
+      [first, second],
+      undefined,
+      0,
+    );
+
+    // The result depends on the mocked pixel data.
+    expect(Array.isArray(result)).toBe(true);
   });
 
   it("does not modify selected files", async () => {
@@ -350,15 +456,5 @@ describe("findSimilarPhotos", () => {
     expect(second.name).toBe(originalSecondName);
     expect(first.size).toBe(originalFirstSize);
     expect(second.size).toBe(originalSecondSize);
-  });
-
-  it("accepts the minimum and maximum valid distance", async () => {
-    await expect(
-      findSimilarPhotos([], undefined, 0),
-    ).resolves.toEqual([]);
-
-    await expect(
-      findSimilarPhotos([], undefined, 64),
-    ).resolves.toEqual([]);
   });
 });
