@@ -3543,12 +3543,19 @@ function openFileAnalysis(): void {
               ? `Duplicate group ${index + 1}`
               : `डुप्लिकेट समूह ${index + 1}`;
 
-          const size = document.createElement("p");
+                    const size = document.createElement("p");
 
           size.textContent =
             language === "en"
               ? `Combined size: ${formatFileSize(group.totalSize)}`
               : `कुल आकार: ${formatFileSize(group.totalSize)}`;
+
+          const savings = document.createElement("p");
+
+          savings.textContent =
+            language === "en"
+              ? `Potential savings: ${formatFileSize(group.potentialSavings)}`
+              : `संभावित बचत: ${formatFileSize(group.potentialSavings)}`;
 
           const list = document.createElement("ul");
 
@@ -3565,11 +3572,16 @@ function openFileAnalysis(): void {
         });
       }
 
-      duplicateSummary.textContent =
-     language === "en"
-    ? `Selected: ${files.length} | Media files: ${mediaFiles.length} | Unsupported: ${unsupportedFiles.length} | Duplicate groups: ${groups.length} | Hashing failures: ${failedFiles.length}`
-    : `चुनी गई फाइलें: ${files.length} | मीडिया फाइलें: ${mediaFiles.length} | असमर्थित: ${unsupportedFiles.length} | डुप्लिकेट समूह: ${groups.length} | हैशिंग विफलताएँ: ${failedFiles.length}`;
+            const totalPotentialSavings = groups.reduce(
+        (total, group) => total + group.potentialSavings,
+        0,
+      );
 
+      duplicateSummary.textContent =
+        language === "en"
+        ? `Selected: ${files.length} | Media files: ${mediaFiles.length} | Unsupported: ${unsupportedFiles.length} | Duplicate groups: ${groups.length} | Hashing failures: ${failedFiles.length} | Total potential savings: ${formatFileSize(totalPotentialSavings)}`
+        : `चुनी गई फाइलें: ${files.length} | मीडिया फाइलें: ${mediaFiles.length} | असमर्थित: ${unsupportedFiles.length} | डुप्लिकेट समूह: ${groups.length} | हैशिंग विफलताएँ: ${failedFiles.length} | कुल संभावित बचत: ${formatFileSize(totalPotentialSavings)}`;
+      
       if (unsupportedFiles.length > 0) {
   const heading = document.createElement("h4");
 
