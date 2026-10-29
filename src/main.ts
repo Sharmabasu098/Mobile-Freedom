@@ -21,6 +21,7 @@ import {
 } from "./tools/storage/fileAnalysis";
 
 import { findExactDuplicates } from "./tools/storage/findDuplicates";
+import { filterMediaFiles } from "./tools/storage/mediaFiles";
 
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
@@ -3494,6 +3495,12 @@ function openFileAnalysis(): void {
       return;
     }
 
+      const mediaFiles = filterMediaFiles(files);
+
+      const unsupportedFiles = files.filter(
+      (file) => !mediaFiles.includes(file),
+     );
+
     duplicateButton.disabled = true;
 
     duplicateStatus.textContent =
@@ -3508,11 +3515,11 @@ function openFileAnalysis(): void {
 
     try {
       const groups = await findExactDuplicates(
-        files,
-        (file, error) => {
-          failedFiles.push({ file, error });
-        },
-      );
+      mediaFiles,
+       (file, error) => {
+        failedFiles.push({ file, error });
+         },
+       );
 
       if (groups.length === 0) {
         const message = document.createElement("p");
@@ -3559,10 +3566,31 @@ function openFileAnalysis(): void {
       }
 
       duplicateSummary.textContent =
-        language === "en"
-          ? `Selected: ${files.length} | Duplicate groups: ${groups.length} | Files not checked: ${failedFiles.length}`
-          : `चुनी गई फाइलें: ${files.length} | डुप्लिकेट समूह: ${groups.length} | जाँच न हो सकी: ${failedFiles.length}`;
+     language === "en"
+    ? `Selected: ${files.length} | Media files: ${mediaFiles.length} | Unsupported: ${unsupportedFiles.length} | Duplicate groups: ${groups.length} | Hashing failures: ${failedFiles.length}`
+    : `चुनी गई फाइलें: ${files.length} | मीडिया फाइलें: ${mediaFiles.length} | असमर्थित: ${unsupportedFiles.length} | डुप्लिकेट समूह: ${groups.length} | हैशिंग विफलताएँ: ${failedFiles.length}`;
 
+      if (unsupportedFiles.length > 0) {
+  const heading = document.createElement("h4");
+
+  heading.textContent =
+    language === "en"
+      ? "Unsupported files (not checked)"
+      : "असमर्थित फाइलें (जाँच नहीं हुई)";
+
+  const list = document.createElement("ul");
+
+  unsupportedFiles.forEach((file) => {
+    const item = document.createElement("li");
+
+    item.textContent = file.name;
+
+    list.append(item);
+  });
+
+  duplicateErrors.append(heading, list);
+      }
+      
       if (failedFiles.length > 0) {
         failedFiles.forEach(({ file, error }) => {
           const card = document.createElement("div");
