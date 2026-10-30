@@ -21,6 +21,7 @@ import {
 } from "./tools/storage/fileAnalysis";
 
 import { findExactDuplicates } from "./tools/storage/findDuplicates";
+import { findSimilarPhotos } from "./tools/storage/similarPhotos";
 import { filterMediaFiles } from "./tools/storage/mediaFiles";
 
 type Language = "en" | "hi";
@@ -3157,6 +3158,57 @@ function openFileAnalysis(): void {
           aria-live="polite"
         ></p>
 
+        <button
+  id="file-similar-run"
+  class="control-button"
+  type="button"
+  style="margin-top:12px;"
+>
+  ${
+    language === "en"
+      ? "Find Similar Photos"
+      : "मिलती-जुलती तस्वीरें खोजें"
+  }
+</button>
+
+<p
+  id="file-similar-status"
+  role="status"
+  aria-live="polite"
+></p>
+
+<div id="file-similar-results" hidden>
+  <h3>
+    ${
+      language === "en"
+        ? "Similar Photo Results"
+        : "मिलती-जुलती तस्वीरों के परिणाम"
+    }
+  </h3>
+
+  <p id="file-similar-summary"></p>
+
+  <p style="color:var(--muted);">
+    ${
+      language === "en"
+        ? "Similarity is an estimate, not proof that photos are identical. No files are changed or deleted."
+        : "समानता केवल अनुमान है। कोई फाइल बदली या डिलीट नहीं होती।"
+    }
+  </p>
+
+  <div id="file-similar-list"></div>
+
+  <h4>
+    ${
+      language === "en"
+        ? "Photos that could not be checked"
+        : "जिन तस्वीरों की जाँच नहीं हो सकी"
+    }
+  </h4>
+
+  <div id="file-similar-errors"></div>
+</div>
+
         <div id="file-duplicates-results" hidden>
           <h3>
             ${
@@ -3275,6 +3327,36 @@ function openFileAnalysis(): void {
       "#file-duplicates-errors"
     );
 
+    const similarButton =
+    screen.querySelector<HTMLButtonElement>(
+      "#file-similar-run"
+    );
+
+  const similarStatus =
+    screen.querySelector<HTMLParagraphElement>(
+      "#file-similar-status"
+    );
+
+  const similarResults =
+    screen.querySelector<HTMLDivElement>(
+      "#file-similar-results"
+    );
+
+  const similarSummary =
+    screen.querySelector<HTMLParagraphElement>(
+      "#file-similar-summary"
+    );
+
+  const similarList =
+    screen.querySelector<HTMLDivElement>(
+      "#file-similar-list"
+    );
+
+  const similarErrors =
+    screen.querySelector<HTMLDivElement>(
+      "#file-similar-errors"
+    );
+
   const selectionStatus =
     screen.querySelector<HTMLParagraphElement>(
       "#file-analysis-selection"
@@ -3316,6 +3398,12 @@ function openFileAnalysis(): void {
     !duplicateSummary ||
     !duplicateList ||
     !duplicateErrors ||
+    !similarButton ||
+    !similarStatus ||
+    !similarResults ||
+    !similarSummary ||
+    !similarList ||
+    !similarErrors ||
     !selectionStatus ||
     !status ||
     !results ||
@@ -3645,6 +3733,162 @@ function openFileAnalysis(): void {
           : "डुप्लिकेट जाँच पूरी नहीं हो सकी।";
     } finally {
       duplicateButton.disabled = false;
+    }
+  });
+
+    similarButton.addEventListener("click", async () => {
+    const files = Array.from(fileInput.files ?? []);
+
+    similarResults.hidden = true;
+    similarList.replaceChildren();
+    similarErrors.replaceChildren();
+    similarSummary.textContent = "";
+    similarStatus.textContent = "";
+
+    if (files.length === 0) {
+      similarStatus.textContent =
+        language === "en"
+          ? "Please choose at least one image first."
+          : "कृपया पहले कम से कम एक तस्वीर चुनें।";
+
+      return;
+    }
+
+    const imageFiles = files.filter((file) =>
+      file.type.toLowerCase().startsWith("image/")
+    );
+
+    const nonImageCount = files.length - imageFiles.length;
+
+    if (imageFiles.length === 0) {
+      similarStatus.textContent =
+        language === "en"
+          ? "No image files were selected."
+          : "कोई तस्वीर चयनित नहीं की गई।";
+
+      return;
+    }
+
+    similarButton.disabled = true;
+
+    similarStatus.textContent =
+      language === "en"
+        ? "Checking for visually similar photos..."
+        : "मिलती-जुलती तस्वीरें खोजी जा रही हैं...";
+
+    const failedFiles: Array<{
+      file: File;
+      error: unknown;
+    }> = [];
+
+    try {
+      const pairs = await findSimilarPhotos(
+        imageFiles,
+        (file, error) => {
+          failedFiles.push({ file, error });
+        },
+      );
+
+      if (pairs.length === 0) {
+        const message = document.createElement("p");
+
+        message.textContent =
+          language === "en"
+            ? "No visually similar photo pairs were found."
+            : "कोई मिलती-जुलती तस्वीरों की जोड़ी नहीं मिली।";
+
+        similarList.append(message);
+      } else {
+        pairs.forEach((pair, index) => {
+          const card = document.createElement("div");
+          card.className = "tool-card";
+          card.style.marginTop = "12px";
+
+          const heading = document.createElement("h4");
+
+          heading.textContent =
+            language === "en"
+              ? `Similar photo pair ${index + 1}`
+              : `मिलती-जुलती तस्वीरों की जोड़ी ${index + 1}`;
+
+          const details = document.createElement("p");
+
+          details.textContent =
+            language === "en"
+              ? `Estimated similarity: ${pair.similarityPercent}% | Difference: ${pair.distance}`
+              : `अनुमानित समानता: ${pair.similarityPercent}% | अंतर: ${pair.distance}`;
+
+          const list = document.createElement("ul");
+
+          [pair.first, pair.second].forEach((file) => {
+            const item = document.createElement("li");
+
+            item.textContent =
+              `${file.name} (${formatFileSize(file.size)})`;
+
+            list.append(item);
+          });
+
+          card.append(heading, details, list);
+          similarList.append(card);
+        });
+      }
+
+      similarSummary.textContent =
+        language === "en"
+          ? `Selected: ${files.length} | Images checked: ${imageFiles.length} | Non-image files skipped: ${nonImageCount} | Similar pairs: ${pairs.length} | Failed images: ${failedFiles.length}`
+          : `चुनी गई फाइलें: ${files.length} | जाँची गई तस्वीरें: ${imageFiles.length} | गैर-तस्वीर फाइलें छोड़ी गईं: ${nonImageCount} | मिलती-जुलती जोड़ियाँ: ${pairs.length} | विफल तस्वीरें: ${failedFiles.length}`;
+
+      if (failedFiles.length > 0) {
+        const heading = document.createElement("h4");
+
+        heading.textContent =
+          language === "en"
+            ? "Photos that could not be checked"
+            : "जिन तस्वीरों की जाँच नहीं हो सकी";
+
+        similarErrors.append(heading);
+
+        failedFiles.forEach(({ file, error }) => {
+          const card = document.createElement("div");
+          card.className = "tool-card";
+
+          const name = document.createElement("h4");
+          name.textContent = file.name;
+
+          const message = document.createElement("p");
+
+          message.textContent =
+            error instanceof Error
+              ? error.message
+              : language === "en"
+                ? "Unknown image processing error."
+                : "तस्वीर की जाँच में अज्ञात त्रुटि।";
+
+          card.append(name, message);
+          similarErrors.append(card);
+        });
+      }
+
+      similarResults.hidden = false;
+
+      similarStatus.textContent =
+        language === "en"
+          ? failedFiles.length > 0
+            ? "Similar photo check completed with some images skipped."
+            : "Similar photo check completed successfully."
+          : failedFiles.length > 0
+            ? "मिलती-जुलती तस्वीरों की जाँच पूरी हुई, लेकिन कुछ तस्वीरें छूट गईं।"
+            : "मिलती-जुलती तस्वीरों की जाँच सफलतापूर्वक पूरी हुई।";
+
+    } catch {
+      similarStatus.textContent =
+        language === "en"
+          ? "Similar photo detection could not be completed."
+          : "मिलती-जुलती तस्वीरों की जाँच पूरी नहीं हो सकी।";
+
+    } finally {
+      similarButton.disabled = false;
     }
   });
 
