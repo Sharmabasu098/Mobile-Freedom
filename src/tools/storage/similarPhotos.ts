@@ -303,36 +303,29 @@ function compareHashSets(
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
   if (smallerArea / largerArea < 0.08) return undefined;
 
-  // Compare each whole-image hash against the other image's region
-  // descriptors. Require two distinct matching region hashes in BOTH
-  // directions; one coincidental patch is not enough evidence.
-  const matchingRegions = (wholeHash: string, regions: string[]) => {
-    let count = 0;
-    let best = 65;
+  // Crop matching is intentionally directional: the smaller image's
+  // whole-image hash must match multiple independently sampled windows
+  // in the larger image. Requiring the reverse direction would reject
+  // genuine crops because the crop cannot contain the full original.
+  const smaller = first.width * first.height <= second.width * second.height
+    ? first
+    : second;
+  const larger = smaller === first ? second : first;
 
-    for (const regionHash of regions.slice(1)) {
-      const distance = calculateHashDistance(wholeHash, regionHash);
-      best = Math.min(best, distance);
+  let matchingWindowPositions = 0;
+  let bestDistance = 65;
 
-      // Count independently sampled window positions, not unique hash
-      // strings: different valid regions can legitimately share a dHash.
-      if (distance <= Math.max(maxDistance, CROP_HASH_DISTANCE)) {
-        count += 1;
-      }
+  for (const regionHash of larger.hashes.slice(1)) {
+    const distance = calculateHashDistance(smaller.hashes[0], regionHash);
+    bestDistance = Math.min(bestDistance, distance);
+
+    if (distance <= Math.max(maxDistance, CROP_HASH_DISTANCE)) {
+      matchingWindowPositions += 1;
     }
+  }
 
-    return { count, distance: best };
-  };
-
-  const firstAgainstSecond = matchingRegions(first.hashes[0], second.hashes);
-  const secondAgainstFirst = matchingRegions(second.hashes[0], first.hashes);
-  const distance = Math.min(
-    firstAgainstSecond.distance,
-    secondAgainstFirst.distance,
-  );
-
-  return firstAgainstSecond.count >= 2 && secondAgainstFirst.count >= 2
-    ? { distance, matches: Math.min(firstAgainstSecond.count, secondAgainstFirst.count) }
+  return matchingWindowPositions >= 2
+    ? { distance: bestDistance, matches: matchingWindowPositions }
     : undefined;
 }
 
