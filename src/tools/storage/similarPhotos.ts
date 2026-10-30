@@ -11,8 +11,9 @@ export const DEFAULT_SIMILARITY_DISTANCE = 8;
 
 const HASH_WIDTH = 9;
 const HASH_HEIGHT = 8;
-const REGION_SCALES = [0.4, 0.5, 0.6, 0.65, 0.7, 0.75, 0.8, 0.9] as const;
-const REGION_GRID_STEPS = 8;
+const REGION_SCALES = [0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9] as const;
+const REGION_GRID_STEPS = 12;
+const CROP_HASH_DISTANCE = 12;
 const MIN_INDEPENDENT_MATCHES = 2;
 
 const SUPPORTED_SIMILARITY_TYPES = new Set([
@@ -318,7 +319,9 @@ function compareHashSets(
     bestRegionDistance(second.hashes[0], first.hashes),
   );
 
-  return distance <= maxDistance ? { distance, matches: 1 } : undefined;
+  return distance <= Math.max(maxDistance, CROP_HASH_DISTANCE)
+    ? { distance, matches: 1 }
+    : undefined;
 }
 
 export async function findSimilarPhotos(
