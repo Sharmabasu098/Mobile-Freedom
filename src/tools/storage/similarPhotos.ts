@@ -182,11 +182,11 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
       );
     }
 
-    const hashes = new Set<string>();
+    const hashes: string[] = [];
 
     // Whole-image baseline remains part of the descriptor set.
     context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
-    hashes.add(readHash(context));
+    hashes.push(readHash(context));
 
     // Sliding multi-scale windows let a crop match a region of its source.
     for (const scale of REGION_SCALES) {
@@ -213,12 +213,12 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
             HASH_HEIGHT,
           );
 
-          hashes.add(readHash(context));
+          hashes.push(readHash(context));
         }
       }
     }
 
-    return { file, hashes: Array.from(hashes) };
+    return { file, hashes };
   } finally {
     bitmap.close();
 
