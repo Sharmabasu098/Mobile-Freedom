@@ -110,20 +110,28 @@ function resizeRaster(source: Raster, width: number, height: number): Raster {
   return { width, height, pixels };
 }
 
-function rasterToThumbnail(raster: Raster): Uint8ClampedArray {
+function rasterToThumbnail(
+  raster: Raster,
+  sourceX = 0,
+  sourceY = 0,
+  sourceWidth = raster.width,
+  sourceHeight = raster.height,
+): Uint8ClampedArray {
   const output = new Uint8ClampedArray(9 * 8 * 4);
 
   for (let y = 0; y < 8; y += 1) {
     for (let x = 0; x < 9; x += 1) {
-      const sourceX = Math.min(
-        raster.width - 1,
-        Math.floor(x * raster.width / 9),
+      const localX = Math.min(
+        sourceWidth - 1,
+        Math.floor(x * sourceWidth / 9),
       );
-      const sourceY = Math.min(
-        raster.height - 1,
-        Math.floor(y * raster.height / 8),
+      const localY = Math.min(
+        sourceHeight - 1,
+        Math.floor(y * sourceHeight / 8),
       );
-      const from = (sourceY * raster.width + sourceX) * 4;
+      const from = (
+        (sourceY + localY) * raster.width + sourceX + localX
+      ) * 4;
       const to = (y * 9 + x) * 4;
       output.set(raster.pixels.subarray(from, from + 4), to);
     }
@@ -162,6 +170,7 @@ function createFixtures(): Record<string, Raster> {
 function mockImageDecoding(): void {
   const fixtures = createFixtures();
   let activeRaster: Raster | undefined;
+  let activeRegion = { x: 0, y: 0, width: 0, height: 0 };
 
   vi.stubGlobal(
     "createImageBitmap",
@@ -181,14 +190,39 @@ function mockImageDecoding(): void {
   );
 
   const context = {
-    drawImage: vi.fn((bitmap: { raster: Raster }) => {
+    drawImage: vi.fn((...args: unknown[]) => {
+      const bitmap = args[0] as { raster: Raster };
       activeRaster = bitmap.raster;
+
+      if (args.length === 9) {
+        activeRegion = {
+          x: Number(args[1]),
+          y: Number(args[2]),
+          width: Number(args[3]),
+          height: Number(args[4]),
+        };
+      } else {
+        activeRegion = {
+          x: 0,
+          y: 0,
+          width: activeRaster.width,
+          height: activeRaster.height,
+        };
+      }
     }),
     getImageData: vi.fn(() => {
       if (!activeRaster) {
         throw new Error("drawImage must run before getImageData");
       }
-      return { data: rasterToThumbnail(activeRaster) };
+      return {
+        data: rasterToThumbnail(
+          activeRaster,
+          activeRegion.x,
+          activeRegion.y,
+          activeRegion.width,
+          activeRegion.height,
+        ),
+      };
     }),
   };
 
