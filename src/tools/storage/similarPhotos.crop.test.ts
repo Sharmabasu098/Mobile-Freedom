@@ -154,7 +154,7 @@ function createFixtures(): Record<string, Raster> {
     "03_crop_50_percent.png": halfCrop,
     "04_crop_left_edge.png": leftCrop,
     "05_crop_right_edge.png": rightCrop,
-    "06_resized_crop.png": resizeRaster(centralCrop, 120, 90),
+    "06_resized_crop.png": resizeRaster(centralCrop, 144, 108),
     "07_compressed_crop.jpg": centralCrop,
     "08_brightness_crop.png": cropRaster(original, 12, 9, 72, 54, 0.78),
     "09_unrelated_scene.png": createScene(0x91a7b2c3),
