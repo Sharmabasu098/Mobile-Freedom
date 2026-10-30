@@ -303,30 +303,29 @@ function compareHashSets(
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
   if (smallerArea / largerArea < 0.08) return undefined;
 
-  // Crop matching is intentionally directional: the smaller image's
-  // whole-image hash must match multiple independently sampled windows
-  // in the larger image. Requiring the reverse direction would reject
-  // genuine crops because the crop cannot contain the full original.
+  // Crop matching is directional: the smaller image's whole-image
+  // descriptor is compared with windows sampled from the larger image.
+  // A single strong match is more reliable than requiring two overlapping
+  // windows: adjacent windows are correlated and may have different dHashes
+  // even when they represent the same genuine crop. Keep the caller's
+  // threshold (8 by default) instead of widening it for crop candidates.
   const smaller = first.width * first.height <= second.width * second.height
     ? first
     : second;
   const larger = smaller === first ? second : first;
 
-  let matchingWindowPositions = 0;
   let bestDistance = 65;
 
   for (const regionHash of larger.hashes.slice(1)) {
     const distance = calculateHashDistance(smaller.hashes[0], regionHash);
     bestDistance = Math.min(bestDistance, distance);
 
-    if (distance <= Math.max(maxDistance, CROP_HASH_DISTANCE)) {
-      matchingWindowPositions += 1;
+    if (distance <= maxDistance) {
+      return { distance, matches: 1 };
     }
   }
 
-  return matchingWindowPositions >= 2
-    ? { distance: bestDistance, matches: matchingWindowPositions }
-    : undefined;
+  return undefined;
 }
 
 export async function findSimilarPhotos(
