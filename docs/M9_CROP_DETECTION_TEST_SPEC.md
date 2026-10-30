@@ -3,7 +3,7 @@
 **Project:** Mobile Freedom — The Essential Mobile Toolkit  
 **Milestone:** M9 — Duplicate Photo & Video Analyzer  
 **Branch:** `m9-crop-detection-tests`  
-**Status:** Test specification prepared; implementation and execution pending.
+**Status:** Pixel-geometry fixtures corrected in the crop regression tests; crop-aware implementation and CI execution pending.
 
 ## Purpose
 
@@ -11,7 +11,7 @@ Define reproducible tests for detecting candidate photos derived from an origina
 
 ## Synthetic fixture set
 
-Use the generated files in `M9_Crop_Detection_Synthetic_Test_Images.zip`:
+The automated crop regression tests now generate deterministic in-memory rasters and derive each crop by copying a real rectangle from the same source pixel buffer. The downloadable ZIP remains a separate manual test set.
 
 - `01_original_scene.png` — reference image.
 - `02_crop_25_percent.png` — moderate crop.
@@ -19,7 +19,7 @@ Use the generated files in `M9_Crop_Detection_Synthetic_Test_Images.zip`:
 - `04_crop_left_edge.png` — left-biased crop.
 - `05_crop_right_edge.png` — right-biased crop.
 - `06_resized_crop.png` — resized crop.
-- `07_compressed_crop.jpg` — JPEG-compressed crop.
+- `07_compressed_crop.jpg` — JPEG-compressed crop (manual fixture; automated test currently checks the JPEG MIME path with a geometry-preserving raster mock, not actual JPEG encoder artifacts).
 - `08_brightness_crop.png` — brightened crop.
 - `09_unrelated_scene.png` — negative control.
 - `10_tiny_detail_crop.png` — very small detail crop / conservative edge case.
@@ -67,4 +67,4 @@ The current `similarPhotos.ts` implementation creates one 64-bit dHash from a 9 
 
 ## Next implementation stage
 
-Implement a crop-aware candidate comparison behind the existing local-processing boundary, then convert these cases into automated tests using deterministic synthetic pixel/canvas fixtures. Preserve the current API or document any necessary API change before integration.
+Implement a crop-aware candidate comparison behind the existing local-processing boundary, then expand automated fixtures to include real browser decoding/encoding coverage for JPEG compression. The current Vitest mock validates source/crop pixel geometry and resize/brightness transformations, but does not simulate JPEG quantization. Preserve the current API or document any necessary API change before integration.
