@@ -307,19 +307,21 @@ function compareHashSets(
   // descriptors. Require two distinct matching region hashes in BOTH
   // directions; one coincidental patch is not enough evidence.
   const matchingRegions = (wholeHash: string, regions: string[]) => {
-    const matched = new Set<string>();
+    let count = 0;
     let best = 65;
 
     for (const regionHash of regions.slice(1)) {
       const distance = calculateHashDistance(wholeHash, regionHash);
       best = Math.min(best, distance);
 
+      // Count independently sampled window positions, not unique hash
+      // strings: different valid regions can legitimately share a dHash.
       if (distance <= Math.max(maxDistance, CROP_HASH_DISTANCE)) {
-        matched.add(regionHash);
+        count += 1;
       }
     }
 
-    return { count: matched.size, distance: best };
+    return { count, distance: best };
   };
 
   const firstAgainstSecond = matchingRegions(first.hashes[0], second.hashes);
