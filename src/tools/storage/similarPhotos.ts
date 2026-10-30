@@ -40,6 +40,8 @@ export type SimilarPhotoErrorHandler = (
 
 interface ImageHashSet {
   file: File;
+  width: number;
+  height: number;
   hashes: string[];
 }
 
@@ -218,7 +220,7 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
       }
     }
 
-    return { file, hashes };
+    return { file, width: bitmap.width, height: bitmap.height, hashes };
   } finally {
     bitmap.close();
 
@@ -284,57 +286,35 @@ export async function calculateImageDifferenceHash(
  * a heuristic and is not proof of identity.
  */
 function compareHashSets(
-  first: string[],
-  second: string[],
+  first: ImageHashSet,
+  second: ImageHashSet,
   maxDistance: number,
 ): CropMatch | undefined {
-  // Preserve exact/whole-image perceptual matches even when a flat or
-  // low-texture image produces only one unique region descriptor.
-  if (first[0] === second[0]) {
+  if (first.hashes[0] === second.hashes[0]) {
     return { distance: 0, matches: 1 };
   }
 
-  const matchedFirst = new Set<number>();
-  const matchedSecond = new Set<number>();
-  const distances: number[] = [];
+  // Tiny details are not enough evidence of a shared photograph.
+  const smallerArea = Math.min(first.width * first.height, second.width * second.height);
+  const largerArea = Math.max(first.width * first.height, second.width * second.height);
+  if (smallerArea / largerArea < 0.08) return undefined;
 
-  for (let firstIndex = 0; firstIndex < first.length; firstIndex += 1) {
-    let bestDistance = maxDistance + 1;
-    let bestSecondIndex = -1;
-
-    for (let secondIndex = 0; secondIndex < second.length; secondIndex += 1) {
-      const distance = calculateHashDistance(
-        first[firstIndex],
-        second[secondIndex],
-      );
-
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestSecondIndex = secondIndex;
-      }
+  // Compare each whole-image hash against the other image's multi-scale
+  // region hashes. Either input may be the cropped version.
+  const bestRegionDistance = (wholeHash: string, regions: string[]) => {
+    let best = 65;
+    for (const regionHash of regions) {
+      best = Math.min(best, calculateHashDistance(wholeHash, regionHash));
     }
-
-    if (bestDistance <= maxDistance && bestSecondIndex >= 0) {
-      matchedFirst.add(firstIndex);
-      matchedSecond.add(bestSecondIndex);
-      distances.push(bestDistance);
-    }
-  }
-
-  if (
-    matchedFirst.size < MIN_INDEPENDENT_MATCHES ||
-    matchedSecond.size < MIN_INDEPENDENT_MATCHES
-  ) {
-    return undefined;
-  }
-
-  return {
-    distance: Math.round(
-      distances.reduce((total, distance) => total + distance, 0) /
-      distances.length,
-    ),
-    matches: Math.min(matchedFirst.size, matchedSecond.size),
+    return best;
   };
+
+  const distance = Math.min(
+    bestRegionDistance(first.hashes[0], second.hashes),
+    bestRegionDistance(second.hashes[0], first.hashes),
+  );
+
+  return distance <= maxDistance ? { distance, matches: 1 } : undefined;
 }
 
 export async function findSimilarPhotos(
@@ -373,8 +353,8 @@ export async function findSimilarPhotos(
       const first = hashedFiles[firstIndex];
       const second = hashedFiles[secondIndex];
       const match = compareHashSets(
-        first.hashes,
-        second.hashes,
+        first,
+        second,
         maxDistance,
       );
 
