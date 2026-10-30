@@ -303,23 +303,34 @@ function compareHashSets(
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
   if (smallerArea / largerArea < 0.08) return undefined;
 
-  // Compare each whole-image hash against the other image's multi-scale
-  // region hashes. Either input may be the cropped version.
-  const bestRegionDistance = (wholeHash: string, regions: string[]) => {
+  // Compare each whole-image hash against the other image's region
+  // descriptors. Require two distinct matching region hashes in BOTH
+  // directions; one coincidental patch is not enough evidence.
+  const matchingRegions = (wholeHash: string, regions: string[]) => {
+    const matched = new Set<string>();
     let best = 65;
-    for (const regionHash of regions) {
-      best = Math.min(best, calculateHashDistance(wholeHash, regionHash));
+
+    for (const regionHash of regions.slice(1)) {
+      const distance = calculateHashDistance(wholeHash, regionHash);
+      best = Math.min(best, distance);
+
+      if (distance <= Math.max(maxDistance, CROP_HASH_DISTANCE)) {
+        matched.add(regionHash);
+      }
     }
-    return best;
+
+    return { count: matched.size, distance: best };
   };
 
+  const firstAgainstSecond = matchingRegions(first.hashes[0], second.hashes);
+  const secondAgainstFirst = matchingRegions(second.hashes[0], first.hashes);
   const distance = Math.min(
-    bestRegionDistance(first.hashes[0], second.hashes),
-    bestRegionDistance(second.hashes[0], first.hashes),
+    firstAgainstSecond.distance,
+    secondAgainstFirst.distance,
   );
 
-  return distance <= Math.max(maxDistance, CROP_HASH_DISTANCE)
-    ? { distance, matches: 1 }
+  return firstAgainstSecond.count >= 2 && secondAgainstFirst.count >= 2
+    ? { distance, matches: Math.min(firstAgainstSecond.count, secondAgainstFirst.count) }
     : undefined;
 }
 
