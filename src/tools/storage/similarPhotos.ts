@@ -11,8 +11,8 @@ export const DEFAULT_SIMILARITY_DISTANCE = 8;
 
 const HASH_WIDTH = 9;
 const HASH_HEIGHT = 8;
-const REGION_SCALES = [0.5, 0.65, 0.8] as const;
-const REGION_POSITIONS = [0, 0.5, 1] as const;
+const REGION_SCALES = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9] as const;
+const REGION_GRID_STEPS = 4;
 const MIN_INDEPENDENT_MATCHES = 2;
 
 const SUPPORTED_SIMILARITY_TYPES = new Set([
@@ -190,32 +190,36 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
     context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
     hashes.push(readHash(context));
 
-    // Sliding multi-scale windows let a crop match a region of its source.
-    for (const scale of REGION_SCALES) {
-      const regionWidth = Math.max(1, Math.round(bitmap.width * scale));
-      const regionHeight = Math.max(1, Math.round(bitmap.height * scale));
-      const maxX = bitmap.width - regionWidth;
-      const maxY = bitmap.height - regionHeight;
+    // Dense multi-scale windows cover centered and off-center crops.
+    // Use independent horizontal/vertical scales so portrait, landscape,
+    // and edge-biased crops are represented without a huge canvas.
+    for (const widthScale of REGION_SCALES) {
+      for (const heightScale of REGION_SCALES) {
+        const regionWidth = Math.max(1, Math.round(bitmap.width * widthScale));
+        const regionHeight = Math.max(1, Math.round(bitmap.height * heightScale));
+        const maxX = bitmap.width - regionWidth;
+        const maxY = bitmap.height - regionHeight;
 
-      for (const yPosition of REGION_POSITIONS) {
-        const sourceY = Math.round(maxY * yPosition);
+        for (let yStep = 0; yStep <= REGION_GRID_STEPS; yStep += 1) {
+          const sourceY = Math.round(maxY * yStep / REGION_GRID_STEPS);
 
-        for (const xPosition of REGION_POSITIONS) {
-          const sourceX = Math.round(maxX * xPosition);
+          for (let xStep = 0; xStep <= REGION_GRID_STEPS; xStep += 1) {
+            const sourceX = Math.round(maxX * xStep / REGION_GRID_STEPS);
 
-          context.drawImage(
-            bitmap,
-            sourceX,
-            sourceY,
-            regionWidth,
-            regionHeight,
-            0,
-            0,
-            HASH_WIDTH,
-            HASH_HEIGHT,
-          );
+            context.drawImage(
+              bitmap,
+              sourceX,
+              sourceY,
+              regionWidth,
+              regionHeight,
+              0,
+              0,
+              HASH_WIDTH,
+              HASH_HEIGHT,
+            );
 
-          hashes.push(readHash(context));
+            hashes.push(readHash(context));
+          }
         }
       }
     }
