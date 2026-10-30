@@ -288,6 +288,12 @@ function compareHashSets(
   second: string[],
   maxDistance: number,
 ): CropMatch | undefined {
+  // Preserve exact/whole-image perceptual matches even when a flat or
+  // low-texture image produces only one unique region descriptor.
+  if (first[0] === second[0]) {
+    return { distance: 0, matches: 1 };
+  }
+
   const matchedFirst = new Set<number>();
   const matchedSecond = new Set<number>();
   const distances: number[] = [];
