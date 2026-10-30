@@ -3,7 +3,7 @@
 **Project:** Mobile Freedom — The Essential Mobile Toolkit  
 **Milestone:** M9 — Duplicate Photo & Video Analyzer  
 **Branch:** `m9-crop-detection-tests`  
-**Status:** Pixel-geometry fixtures corrected in the crop regression tests; crop-aware implementation and CI execution pending.
+**Status:** Multi-scale region hashing implemented; positive crop regression cases are enforced as normal tests. CI verification pending.
 
 ## Purpose
 
@@ -67,4 +67,4 @@ The current `similarPhotos.ts` implementation creates one 64-bit dHash from a 9 
 
 ## Next implementation stage
 
-Implement a crop-aware candidate comparison behind the existing local-processing boundary, then expand automated fixtures to include real browser decoding/encoding coverage for JPEG compression. The current Vitest mock validates source/crop pixel geometry and resize/brightness transformations, but does not simulate JPEG quantization. Preserve the current API or document any necessary API change before integration.
+Validate the multi-scale matcher against every positive crop case and the negative controls in CI. Then add browser-level JPEG encode/decode coverage; the current Vitest mock validates pixel geometry and JPEG MIME handling but does not simulate JPEG quantization. The current Vitest mock validates source/crop pixel geometry and resize/brightness transformations, but does not simulate JPEG quantization. Preserve the current API or document any necessary API change before integration.
