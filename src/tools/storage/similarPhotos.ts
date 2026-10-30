@@ -1,18 +1,19 @@
 /**
  * Mobile Freedom — M9 Similar Photo Detection
  *
- * Estimates visual similarity using difference hashing (dHash).
- * Image processing happens locally in the browser.
- * Files are never uploaded or deleted by this module.
+ * Estimates visual similarity using local perceptual hashing.
+ * Images are decoded and analyzed locally in the browser.
+ * Files are never uploaded, modified, or deleted by this module.
  */
 
-export const MAX_SIMILARITY_FILE_SIZE_BYTES =
-  20 * 1024 * 1024;
-
+export const MAX_SIMILARITY_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 export const DEFAULT_SIMILARITY_DISTANCE = 8;
 
 const HASH_WIDTH = 9;
 const HASH_HEIGHT = 8;
+const REGION_SCALES = [0.5, 0.65, 0.8] as const;
+const REGION_POSITIONS = [0, 0.5, 1] as const;
+const MIN_INDEPENDENT_MATCHES = 2;
 
 const SUPPORTED_SIMILARITY_TYPES = new Set([
   "image/jpeg",
@@ -37,12 +38,16 @@ export type SimilarPhotoErrorHandler = (
   error: unknown,
 ) => void;
 
-/**
- * Calculates a 64-bit difference hash from grayscale pixels.
- *
- * The input must contain 9 × 8 = 72 grayscale pixel values.
- * Each row compares adjacent pixels, producing 64 bits.
- */
+interface ImageHashSet {
+  file: File;
+  hashes: string[];
+}
+
+interface CropMatch {
+  distance: number;
+  matches: number;
+}
+
 export function calculateDifferenceHashFromPixels(
   pixels: ArrayLike<number>,
   width = HASH_WIDTH,
@@ -62,19 +67,15 @@ export function calculateDifferenceHashFromPixels(
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width - 1; x += 1) {
-      const left = pixels[y * width + x];
-      const right = pixels[y * width + x + 1];
-
-      hash += left > right ? "1" : "0";
+      hash += pixels[y * width + x] > pixels[y * width + x + 1]
+        ? "1"
+        : "0";
     }
   }
 
   return hash;
 }
 
-/**
- * Calculates the number of differing bits between two hashes.
- */
 export function calculateHashDistance(
   firstHash: string,
   secondHash: string,
@@ -101,15 +102,35 @@ export function calculateHashDistance(
   return distance;
 }
 
-/**
- * Converts an image file to a perceptual hash.
- *
- * The image is decoded and reduced to a tiny 9 × 8 canvas.
- * Only local browser APIs are used.
- */
-export async function calculateImageDifferenceHash(
-  file: File,
-): Promise<string> {
+function readHash(
+  context: CanvasRenderingContext2D,
+): string {
+  const imageData = context.getImageData(
+    0,
+    0,
+    HASH_WIDTH,
+    HASH_HEIGHT,
+  );
+  const grayscale: number[] = [];
+
+  for (let index = 0; index < imageData.data.length; index += 4) {
+    grayscale.push(
+      Math.round(
+        0.299 * imageData.data[index] +
+        0.587 * imageData.data[index + 1] +
+        0.114 * imageData.data[index + 2],
+      ),
+    );
+  }
+
+  return calculateDifferenceHashFromPixels(
+    grayscale,
+    HASH_WIDTH,
+    HASH_HEIGHT,
+  );
+}
+
+function validateImageFile(file: File): void {
   if (file.size <= 0) {
     throw new Error("The selected image is empty.");
   }
@@ -125,11 +146,18 @@ export async function calculateImageDifferenceHash(
       "Unsupported image format. Choose a JPEG, PNG, or WebP image.",
     );
   }
+}
+
+/**
+ * Produces a bounded descriptor set: one whole-image dHash plus
+ * overlapping region hashes at three scales and three positions
+ * per axis. Each region is sampled directly from the decoded bitmap.
+ */
+async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
+  validateImageFile(file);
 
   if (typeof createImageBitmap !== "function") {
-    throw new Error(
-      "Image decoding is not supported by this browser.",
-    );
+    throw new Error("Image decoding is not supported by this browser.");
   }
 
   const bitmap = await createImageBitmap(file);
@@ -154,46 +182,43 @@ export async function calculateImageDifferenceHash(
       );
     }
 
-    context.drawImage(
-      bitmap,
-      0,
-      0,
-      HASH_WIDTH,
-      HASH_HEIGHT,
-    );
+    const hashes = new Set<string>();
 
-    const imageData = context.getImageData(
-      0,
-      0,
-      HASH_WIDTH,
-      HASH_HEIGHT,
-    );
+    // Whole-image baseline remains part of the descriptor set.
+    context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
+    hashes.add(readHash(context));
 
-    const grayscale: number[] = [];
+    // Sliding multi-scale windows let a crop match a region of its source.
+    for (const scale of REGION_SCALES) {
+      const regionWidth = Math.max(1, Math.round(bitmap.width * scale));
+      const regionHeight = Math.max(1, Math.round(bitmap.height * scale));
+      const maxX = bitmap.width - regionWidth;
+      const maxY = bitmap.height - regionHeight;
 
-    for (
-      let index = 0;
-      index < imageData.data.length;
-      index += 4
-    ) {
-      const red = imageData.data[index];
-      const green = imageData.data[index + 1];
-      const blue = imageData.data[index + 2];
+      for (const yPosition of REGION_POSITIONS) {
+        const sourceY = Math.round(maxY * yPosition);
 
-      grayscale.push(
-        Math.round(
-          0.299 * red +
-            0.587 * green +
-            0.114 * blue,
-        ),
-      );
+        for (const xPosition of REGION_POSITIONS) {
+          const sourceX = Math.round(maxX * xPosition);
+
+          context.drawImage(
+            bitmap,
+            sourceX,
+            sourceY,
+            regionWidth,
+            regionHeight,
+            0,
+            0,
+            HASH_WIDTH,
+            HASH_HEIGHT,
+          );
+
+          hashes.add(readHash(context));
+        }
+      }
     }
 
-    return calculateDifferenceHashFromPixels(
-      grayscale,
-      HASH_WIDTH,
-      HASH_HEIGHT,
-    );
+    return { file, hashes: Array.from(hashes) };
   } finally {
     bitmap.close();
 
@@ -205,14 +230,107 @@ export async function calculateImageDifferenceHash(
 }
 
 /**
- * Finds candidate pairs of visually similar photos.
- *
- * A lower Hamming distance means the perceptual hashes are
- * more similar. This is an estimate, not proof of identity.
- *
- * If a file cannot be processed, its error is reported and
- * processing continues with the remaining files.
+ * Public single-image API retained for existing callers.
+ * Returns the whole-image dHash, preserving its established behavior.
  */
+export async function calculateImageDifferenceHash(
+  file: File,
+): Promise<string> {
+  validateImageFile(file);
+
+  if (typeof createImageBitmap !== "function") {
+    throw new Error("Image decoding is not supported by this browser.");
+  }
+
+  const bitmap = await createImageBitmap(file);
+  let canvas: HTMLCanvasElement | undefined;
+
+  try {
+    if (bitmap.width <= 0 || bitmap.height <= 0) {
+      throw new Error("The image has invalid dimensions.");
+    }
+
+    canvas = document.createElement("canvas");
+    canvas.width = HASH_WIDTH;
+    canvas.height = HASH_HEIGHT;
+
+    const context = canvas.getContext("2d", {
+      willReadFrequently: true,
+    });
+
+    if (!context) {
+      throw new Error(
+        "Image similarity checking is not supported by this browser.",
+      );
+    }
+
+    context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
+    return readHash(context);
+  } finally {
+    bitmap.close();
+
+    if (canvas) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+  }
+}
+
+/**
+ * Finds similar-photo candidates using bidirectional region matching.
+ *
+ * A match must be supported by at least two distinct descriptors in
+ * each direction. This reduces accidental one-patch matches. It remains
+ * a heuristic and is not proof of identity.
+ */
+function compareHashSets(
+  first: string[],
+  second: string[],
+  maxDistance: number,
+): CropMatch | undefined {
+  const matchedFirst = new Set<number>();
+  const matchedSecond = new Set<number>();
+  const distances: number[] = [];
+
+  for (let firstIndex = 0; firstIndex < first.length; firstIndex += 1) {
+    let bestDistance = maxDistance + 1;
+    let bestSecondIndex = -1;
+
+    for (let secondIndex = 0; secondIndex < second.length; secondIndex += 1) {
+      const distance = calculateHashDistance(
+        first[firstIndex],
+        second[secondIndex],
+      );
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestSecondIndex = secondIndex;
+      }
+    }
+
+    if (bestDistance <= maxDistance && bestSecondIndex >= 0) {
+      matchedFirst.add(firstIndex);
+      matchedSecond.add(bestSecondIndex);
+      distances.push(bestDistance);
+    }
+  }
+
+  if (
+    matchedFirst.size < MIN_INDEPENDENT_MATCHES ||
+    matchedSecond.size < MIN_INDEPENDENT_MATCHES
+  ) {
+    return undefined;
+  }
+
+  return {
+    distance: Math.round(
+      distances.reduce((total, distance) => total + distance, 0) /
+      distances.length,
+    ),
+    matches: Math.min(matchedFirst.size, matchedSecond.size),
+  };
+}
+
 export async function findSimilarPhotos(
   files: File[],
   onError?: SimilarPhotoErrorHandler,
@@ -228,19 +346,11 @@ export async function findSimilarPhotos(
     );
   }
 
-  const hashedFiles: Array<{
-    file: File;
-    hash: string;
-  }> = [];
+  const hashedFiles: ImageHashSet[] = [];
 
   for (const file of files) {
     try {
-      const hash = await calculateImageDifferenceHash(file);
-
-      hashedFiles.push({
-        file,
-        hash,
-      });
+      hashedFiles.push(await calculateImageHashSet(file));
     } catch (error) {
       onError?.(file, error);
     }
@@ -248,11 +358,7 @@ export async function findSimilarPhotos(
 
   const pairs: SimilarPhotoPair[] = [];
 
-  for (
-    let firstIndex = 0;
-    firstIndex < hashedFiles.length;
-    firstIndex += 1
-  ) {
+  for (let firstIndex = 0; firstIndex < hashedFiles.length; firstIndex += 1) {
     for (
       let secondIndex = firstIndex + 1;
       secondIndex < hashedFiles.length;
@@ -260,19 +366,19 @@ export async function findSimilarPhotos(
     ) {
       const first = hashedFiles[firstIndex];
       const second = hashedFiles[secondIndex];
-
-      const distance = calculateHashDistance(
-        first.hash,
-        second.hash,
+      const match = compareHashSets(
+        first.hashes,
+        second.hashes,
+        maxDistance,
       );
 
-      if (distance <= maxDistance) {
+      if (match) {
         pairs.push({
           first: first.file,
           second: second.file,
-          distance,
+          distance: match.distance,
           similarityPercent: Math.round(
-            ((64 - distance) / 64) * 100,
+            ((64 - match.distance) / 64) * 100,
           ),
         });
       }
