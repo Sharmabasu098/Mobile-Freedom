@@ -299,7 +299,7 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(result).toHaveLength(1);
   });
 
-  it.fails("detects a JPEG-labelled genuine crop fixture", async () => {
+  it.fails("processes a genuine crop supplied with JPEG MIME type", async () => {
     mockImageDecoding();
     const result = await findSimilarPhotos([
       createImageFile("01_original_scene.png"),
