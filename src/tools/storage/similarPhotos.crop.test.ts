@@ -286,9 +286,8 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(result).toHaveLength(0);
   });
 
-  // These expected failures document the current global-dHash limitation.
-  // Once crop-aware matching is implemented, replace it.fails with it.
-  it.fails("detects the original against a genuine 25% crop", async () => {
+  // Positive crop regression cases: these must pass before M9 can advance.
+  it("detects the original against a genuine 25% crop", async () => {
     mockImageDecoding();
     const result = await findSimilarPhotos([
       createImageFile("01_original_scene.png"),
@@ -297,7 +296,7 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(result).toHaveLength(1);
   });
 
-  it.fails("detects the original against a genuine 50% crop", async () => {
+  it("detects the original against a genuine 50% crop", async () => {
     mockImageDecoding();
     const result = await findSimilarPhotos([
       createImageFile("01_original_scene.png"),
@@ -306,7 +305,7 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(result).toHaveLength(1);
   });
 
-  it.fails("detects a genuine left-edge crop", async () => {
+  it("detects a genuine left-edge crop", async () => {
     mockImageDecoding();
     const result = await findSimilarPhotos([
       createImageFile("01_original_scene.png"),
@@ -315,7 +314,7 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(result).toHaveLength(1);
   });
 
-  it.fails("detects a genuine right-edge crop", async () => {
+  it("detects a genuine right-edge crop", async () => {
     mockImageDecoding();
     const result = await findSimilarPhotos([
       createImageFile("01_original_scene.png"),
@@ -324,7 +323,7 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(result).toHaveLength(1);
   });
 
-  it.fails("detects a resized genuine crop", async () => {
+  it("detects a resized genuine crop", async () => {
     mockImageDecoding();
     const result = await findSimilarPhotos([
       createImageFile("01_original_scene.png"),
@@ -333,7 +332,7 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(result).toHaveLength(1);
   });
 
-  it.fails("processes a genuine crop supplied with JPEG MIME type", async () => {
+  it("processes a genuine crop supplied with JPEG MIME type", async () => {
     mockImageDecoding();
     const result = await findSimilarPhotos([
       createImageFile("01_original_scene.png"),
@@ -342,7 +341,7 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(result).toHaveLength(1);
   });
 
-  it.fails("detects a brightness-adjusted genuine crop", async () => {
+  it("detects a brightness-adjusted genuine crop", async () => {
     mockImageDecoding();
     const result = await findSimilarPhotos([
       createImageFile("01_original_scene.png"),
