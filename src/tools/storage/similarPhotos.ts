@@ -300,10 +300,6 @@ function compareHashSets(
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
   if (smallerArea / largerArea < 0.08) return undefined;
 
-  if (first.hashes[0] === second.hashes[0]) {
-    return { distance: 0, matches: 1 };
-  }
-
   // Count spatially separate region hits rather than unique hash values.
   // Different windows can legitimately share the same dHash (especially
   // in textured or low-contrast images), so Set<string> under-counts valid
@@ -325,11 +321,10 @@ function compareHashSets(
       }
     }
 
-    // A genuine crop can align with exactly one sampled window in its parent.
-    // Requiring two hits rejects valid crops when the deterministic grid has
-    // only one window at the crop's exact scale and position. The match is
-    // still constrained by the 64-bit distance threshold and minimum area ratio.
-    if (matchedRegions < 1) return undefined;
+    // One matching patch is not enough: unrelated photos can share a global
+    // dHash or an accidental local pattern. Require at least two spatial
+    // windows to agree before accepting a crop candidate.
+    if (matchedRegions < 2) return undefined;
 
     return { distance: bestDistance, matches: matchedRegions };
   };
