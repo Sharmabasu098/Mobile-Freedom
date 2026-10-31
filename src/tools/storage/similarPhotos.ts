@@ -303,29 +303,33 @@ function compareHashSets(
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
   if (smallerArea / largerArea < 0.08) return undefined;
 
-  // Crop matching is directional: the smaller image's whole-image
-  // descriptor is compared with windows sampled from the larger image.
-  // A single strong match is more reliable than requiring two overlapping
-  // windows: adjacent windows are correlated and may have different dHashes
-  // even when they represent the same genuine crop. Keep the caller's
-  // threshold (8 by default) instead of widening it for crop candidates.
-  const smaller = first.width * first.height <= second.width * second.height
-    ? first
-    : second;
-  const larger = smaller === first ? second : first;
+  // Either file may have larger pixel dimensions after a crop was
+  // upscaled. Test both directions and accept only a strict whole-image
+  // hash match against a sampled region of the other image.
+  const directionalMatch = (
+    wholeImageHash: string,
+    regionHashes: string[],
+  ): CropMatch | undefined => {
+    for (const regionHash of regionHashes.slice(1)) {
+      const distance = calculateHashDistance(wholeImageHash, regionHash);
 
-  let bestDistance = 65;
-
-  for (const regionHash of larger.hashes.slice(1)) {
-    const distance = calculateHashDistance(smaller.hashes[0], regionHash);
-    bestDistance = Math.min(bestDistance, distance);
-
-    if (distance <= maxDistance) {
-      return { distance, matches: 1 };
+      if (distance <= maxDistance) {
+        return { distance, matches: 1 };
+      }
     }
-  }
 
-  return undefined;
+    return undefined;
+  };
+
+  const firstInSecond = directionalMatch(first.hashes[0], second.hashes);
+  const secondInFirst = directionalMatch(second.hashes[0], first.hashes);
+
+  if (!firstInSecond) return secondInFirst;
+  if (!secondInFirst) return firstInSecond;
+
+  return firstInSecond.distance <= secondInFirst.distance
+    ? firstInSecond
+    : secondInFirst;
 }
 
 export async function findSimilarPhotos(
