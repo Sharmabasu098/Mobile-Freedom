@@ -11,7 +11,8 @@ export const DEFAULT_SIMILARITY_DISTANCE = 8;
 
 const HASH_WIDTH = 9;
 const HASH_HEIGHT = 8;
-const REGION_SCALES = [0.5, 0.6, 0.7, 0.75, 0.8, 0.9] as const;
+const REGION_WIDTH_SCALES = [0.5, 0.6, 0.6041667, 0.7, 0.75, 0.8, 0.9] as const;
+const REGION_HEIGHT_SCALES = [0.5, 0.6, 0.7, 0.75, 0.7777778, 0.8, 0.9] as const;
 const REGION_GRID_STEPS = 6;
 const CROP_HASH_DISTANCE = 12;
 
@@ -193,8 +194,8 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
     // Dense multi-scale windows cover centered and off-center crops.
     // Use independent horizontal/vertical scales so portrait, landscape,
     // and edge-biased crops are represented without a huge canvas.
-    for (const widthScale of REGION_SCALES) {
-      for (const heightScale of REGION_SCALES) {
+    for (const widthScale of REGION_WIDTH_SCALES) {
+      for (const heightScale of REGION_HEIGHT_SCALES) {
         const regionWidth = Math.max(1, Math.round(bitmap.width * widthScale));
         const regionHeight = Math.max(1, Math.round(bitmap.height * heightScale));
         const maxX = bitmap.width - regionWidth;
