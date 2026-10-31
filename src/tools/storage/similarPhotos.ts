@@ -332,15 +332,17 @@ function compareHashSets(
   const firstInSecond = directionalMatch(first.hashes[0], second.hashes);
   const secondInFirst = directionalMatch(second.hashes[0], first.hashes);
 
-  // A genuine crop is expected to match inside the larger image, but
-  // the larger image cannot be expected to fit inside the crop. Therefore
-  // compare the smaller image's whole-frame hash against sampled regions
-  // of the larger image only. This avoids an impossible reciprocal test.
-  if (first.width * first.height <= second.width * second.height) {
-    return firstInSecond;
-  }
+  // Cropping and resizing can make the cropped file's pixel dimensions
+  // larger than the original even though it contains a smaller field of
+  // view. Therefore do not infer crop direction from pixel area alone.
+  // Accept region evidence in either direction, but never accept a
+  // whole-image hash match by itself.
+  if (!firstInSecond) return secondInFirst;
+  if (!secondInFirst) return firstInSecond;
 
-  return secondInFirst;
+  return firstInSecond.distance <= secondInFirst.distance
+    ? firstInSecond
+    : secondInFirst;
 }
 
 export async function findSimilarPhotos(
