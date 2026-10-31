@@ -303,27 +303,30 @@ function compareHashSets(
     return { distance: 0, matches: 1 };
   }
 
-  // Require at least two different region descriptors to support a crop
-  // candidate. A single matching patch is too weak and causes false positives.
+  // Count spatially separate region hits rather than unique hash values.
+  // Different windows can legitimately share the same dHash (especially
+  // in textured or low-contrast images), so Set<string> under-counts valid
+  // crop evidence. The two directions still prevent a single isolated
+  // accidental patch from being sufficient.
   const directionalMatch = (
     wholeImageHash: string,
     regionHashes: string[],
   ): CropMatch | undefined => {
-    const matchedHashes = new Set<string>();
+    let matchedRegions = 0;
     let bestDistance = 64;
 
     for (const regionHash of regionHashes.slice(1)) {
       const distance = calculateHashDistance(wholeImageHash, regionHash);
 
       if (distance <= maxDistance) {
-        matchedHashes.add(regionHash);
+        matchedRegions += 1;
         bestDistance = Math.min(bestDistance, distance);
       }
     }
 
-    if (matchedHashes.size < 2) return undefined;
+    if (matchedRegions < 2) return undefined;
 
-    return { distance: bestDistance, matches: matchedHashes.size };
+    return { distance: bestDistance, matches: matchedRegions };
   };
 
   const firstInSecond = directionalMatch(first.hashes[0], second.hashes);
