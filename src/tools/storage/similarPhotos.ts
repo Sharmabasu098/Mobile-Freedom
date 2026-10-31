@@ -321,9 +321,10 @@ function compareHashSets(
       }
     }
 
-    // One accidental local pattern is not sufficient evidence. Require
-    // agreement from at least two sampled windows before accepting a crop.
-    if (matchedRegions < 2) return undefined;
+    // A single region can be valid crop evidence, but it must be
+    // corroborated by the reverse direction below. A whole-image hash
+    // match alone is never accepted because only sampled regions count.
+    if (matchedRegions < 1) return undefined;
 
     return { distance: bestDistance, matches: matchedRegions };
   };
@@ -331,8 +332,10 @@ function compareHashSets(
   const firstInSecond = directionalMatch(first.hashes[0], second.hashes);
   const secondInFirst = directionalMatch(second.hashes[0], first.hashes);
 
-  if (!firstInSecond) return secondInFirst;
-  if (!secondInFirst) return firstInSecond;
+  // Require reciprocal evidence: at least one sampled region from each
+  // image must match the other image's whole-image hash. This permits
+  // genuine crops while rejecting one-sided accidental patch matches.
+  if (!firstInSecond || !secondInFirst) return undefined;
 
   return firstInSecond.distance <= secondInFirst.distance
     ? firstInSecond
