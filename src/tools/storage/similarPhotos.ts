@@ -324,7 +324,11 @@ function compareHashSets(
       }
     }
 
-    if (matchedRegions < 2) return undefined;
+    // A genuine crop can align with exactly one sampled window in its parent.
+    // Requiring two hits rejects valid crops when the deterministic grid has
+    // only one window at the crop's exact scale and position. The match is
+    // still constrained by the 64-bit distance threshold and minimum area ratio.
+    if (matchedRegions < 1) return undefined;
 
     return { distance: bestDistance, matches: matchedRegions };
   };
