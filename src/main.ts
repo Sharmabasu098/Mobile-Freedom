@@ -3655,7 +3655,7 @@ function openFileAnalysis(): void {
             list.append(item);
           });
 
-          card.append(heading, size, list);
+          card.append(heading, size, savings, list);
           duplicateList.append(card);
         });
       }

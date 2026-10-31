@@ -46,11 +46,24 @@ input {
   -webkit-tap-highlight-color: transparent;
 }
 
-button:focus-visible,
-a:focus-visible,
-input:focus-visible {
+/* Keep the focus ring attached to the control currently focused by touch
+   or keyboard. Moving focus to another control moves the ring with it. */
+button:focus,
+a:focus,
+input:focus {
   outline: 3px solid var(--accent);
   outline-offset: 3px;
+}
+
+/* Preserve a clear pressed state without leaving a stale focus decoration. */
+button:active {
+  filter: brightness(0.96);
+}
+
+@media (hover: none) {
+  button:focus {
+    outline-offset: 2px;
+  }
 }
 
 .site-header {

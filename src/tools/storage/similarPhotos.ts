@@ -1,18 +1,19 @@
 /**
  * Mobile Freedom — M9 Similar Photo Detection
  *
- * Estimates visual similarity using difference hashing (dHash).
- * Image processing happens locally in the browser.
- * Files are never uploaded or deleted by this module.
+ * Estimates visual similarity using local perceptual hashing.
+ * Images are decoded and analyzed locally in the browser.
+ * Files are never uploaded, modified, or deleted by this module.
  */
 
-export const MAX_SIMILARITY_FILE_SIZE_BYTES =
-  20 * 1024 * 1024;
-
+export const MAX_SIMILARITY_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 export const DEFAULT_SIMILARITY_DISTANCE = 8;
 
 const HASH_WIDTH = 9;
 const HASH_HEIGHT = 8;
+const REGION_WIDTH_SCALES = [0.5, 0.6, 0.65, 0.75, 0.8, 0.9] as const;
+const REGION_HEIGHT_SCALES = [0.5, 0.6, 0.65, 0.75, 0.78, 0.8, 0.9] as const;
+const REGION_GRID_STEPS = 8;
 
 const SUPPORTED_SIMILARITY_TYPES = new Set([
   "image/jpeg",
@@ -37,12 +38,18 @@ export type SimilarPhotoErrorHandler = (
   error: unknown,
 ) => void;
 
-/**
- * Calculates a 64-bit difference hash from grayscale pixels.
- *
- * The input must contain 9 × 8 = 72 grayscale pixel values.
- * Each row compares adjacent pixels, producing 64 bits.
- */
+interface ImageHashSet {
+  file: File;
+  width: number;
+  height: number;
+  hashes: string[];
+}
+
+interface CropMatch {
+  distance: number;
+  matches: number;
+}
+
 export function calculateDifferenceHashFromPixels(
   pixels: ArrayLike<number>,
   width = HASH_WIDTH,
@@ -62,19 +69,15 @@ export function calculateDifferenceHashFromPixels(
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width - 1; x += 1) {
-      const left = pixels[y * width + x];
-      const right = pixels[y * width + x + 1];
-
-      hash += left > right ? "1" : "0";
+      hash += pixels[y * width + x] > pixels[y * width + x + 1]
+        ? "1"
+        : "0";
     }
   }
 
   return hash;
 }
 
-/**
- * Calculates the number of differing bits between two hashes.
- */
 export function calculateHashDistance(
   firstHash: string,
   secondHash: string,
@@ -101,15 +104,35 @@ export function calculateHashDistance(
   return distance;
 }
 
-/**
- * Converts an image file to a perceptual hash.
- *
- * The image is decoded and reduced to a tiny 9 × 8 canvas.
- * Only local browser APIs are used.
- */
-export async function calculateImageDifferenceHash(
-  file: File,
-): Promise<string> {
+function readHash(
+  context: CanvasRenderingContext2D,
+): string {
+  const imageData = context.getImageData(
+    0,
+    0,
+    HASH_WIDTH,
+    HASH_HEIGHT,
+  );
+  const grayscale: number[] = [];
+
+  for (let index = 0; index < imageData.data.length; index += 4) {
+    grayscale.push(
+      Math.round(
+        0.299 * imageData.data[index] +
+        0.587 * imageData.data[index + 1] +
+        0.114 * imageData.data[index + 2],
+      ),
+    );
+  }
+
+  return calculateDifferenceHashFromPixels(
+    grayscale,
+    HASH_WIDTH,
+    HASH_HEIGHT,
+  );
+}
+
+function validateImageFile(file: File): void {
   if (file.size <= 0) {
     throw new Error("The selected image is empty.");
   }
@@ -125,11 +148,18 @@ export async function calculateImageDifferenceHash(
       "Unsupported image format. Choose a JPEG, PNG, or WebP image.",
     );
   }
+}
+
+/**
+ * Produces a bounded descriptor set: one whole-image dHash plus
+ * overlapping region hashes across multiple scales and nine positions
+ * per axis, improving coverage of off-center and edge crops. Each region is sampled directly from the decoded bitmap.
+ */
+async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
+  validateImageFile(file);
 
   if (typeof createImageBitmap !== "function") {
-    throw new Error(
-      "Image decoding is not supported by this browser.",
-    );
+    throw new Error("Image decoding is not supported by this browser.");
   }
 
   const bitmap = await createImageBitmap(file);
@@ -154,46 +184,48 @@ export async function calculateImageDifferenceHash(
       );
     }
 
-    context.drawImage(
-      bitmap,
-      0,
-      0,
-      HASH_WIDTH,
-      HASH_HEIGHT,
-    );
+    const hashes: string[] = [];
 
-    const imageData = context.getImageData(
-      0,
-      0,
-      HASH_WIDTH,
-      HASH_HEIGHT,
-    );
+    // Whole-image baseline remains part of the descriptor set.
+    context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
+    hashes.push(readHash(context));
 
-    const grayscale: number[] = [];
+    // Multi-scale windows sampled on a denser 8-step grid cover centered,
+    // off-center, and edge crops with less positional quantization.
+    // Use independent horizontal/vertical scales so portrait, landscape,
+    // and edge-biased crops are represented without a huge canvas.
+    for (const widthScale of REGION_WIDTH_SCALES) {
+      for (const heightScale of REGION_HEIGHT_SCALES) {
+        const regionWidth = Math.max(1, Math.round(bitmap.width * widthScale));
+        const regionHeight = Math.max(1, Math.round(bitmap.height * heightScale));
+        const maxX = bitmap.width - regionWidth;
+        const maxY = bitmap.height - regionHeight;
 
-    for (
-      let index = 0;
-      index < imageData.data.length;
-      index += 4
-    ) {
-      const red = imageData.data[index];
-      const green = imageData.data[index + 1];
-      const blue = imageData.data[index + 2];
+        for (let yStep = 0; yStep <= REGION_GRID_STEPS; yStep += 1) {
+          const sourceY = Math.round(maxY * yStep / REGION_GRID_STEPS);
 
-      grayscale.push(
-        Math.round(
-          0.299 * red +
-            0.587 * green +
-            0.114 * blue,
-        ),
-      );
+          for (let xStep = 0; xStep <= REGION_GRID_STEPS; xStep += 1) {
+            const sourceX = Math.round(maxX * xStep / REGION_GRID_STEPS);
+
+            context.drawImage(
+              bitmap,
+              sourceX,
+              sourceY,
+              regionWidth,
+              regionHeight,
+              0,
+              0,
+              HASH_WIDTH,
+              HASH_HEIGHT,
+            );
+
+            hashes.push(readHash(context));
+          }
+        }
+      }
     }
 
-    return calculateDifferenceHashFromPixels(
-      grayscale,
-      HASH_WIDTH,
-      HASH_HEIGHT,
-    );
+    return { file, width: bitmap.width, height: bitmap.height, hashes };
   } finally {
     bitmap.close();
 
@@ -205,14 +237,114 @@ export async function calculateImageDifferenceHash(
 }
 
 /**
- * Finds candidate pairs of visually similar photos.
- *
- * A lower Hamming distance means the perceptual hashes are
- * more similar. This is an estimate, not proof of identity.
- *
- * If a file cannot be processed, its error is reported and
- * processing continues with the remaining files.
+ * Public single-image API retained for existing callers.
+ * Returns the whole-image dHash, preserving its established behavior.
  */
+export async function calculateImageDifferenceHash(
+  file: File,
+): Promise<string> {
+  validateImageFile(file);
+
+  if (typeof createImageBitmap !== "function") {
+    throw new Error("Image decoding is not supported by this browser.");
+  }
+
+  const bitmap = await createImageBitmap(file);
+  let canvas: HTMLCanvasElement | undefined;
+
+  try {
+    if (bitmap.width <= 0 || bitmap.height <= 0) {
+      throw new Error("The image has invalid dimensions.");
+    }
+
+    canvas = document.createElement("canvas");
+    canvas.width = HASH_WIDTH;
+    canvas.height = HASH_HEIGHT;
+
+    const context = canvas.getContext("2d", {
+      willReadFrequently: true,
+    });
+
+    if (!context) {
+      throw new Error(
+        "Image similarity checking is not supported by this browser.",
+      );
+    }
+
+    context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
+    return readHash(context);
+  } finally {
+    bitmap.close();
+
+    if (canvas) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+  }
+}
+
+/**
+ * Finds similar-photo candidates using bidirectional region matching.
+ *
+ * A match must be supported by at least two distinct descriptors in
+ * each direction. This reduces accidental one-patch matches. It remains
+ * a heuristic and is not proof of identity.
+ */
+function compareHashSets(
+  first: ImageHashSet,
+  second: ImageHashSet,
+  maxDistance: number,
+): CropMatch | undefined {
+  // Reject tiny snippets before considering even an exact perceptual hash.
+  const smallerArea = Math.min(first.width * first.height, second.width * second.height);
+  const largerArea = Math.max(first.width * first.height, second.width * second.height);
+  if (smallerArea / largerArea < 0.08) return undefined;
+
+  if (first.hashes[0] === second.hashes[0]) {
+    return { distance: 0, matches: 1 };
+  }
+
+  // Count spatially separate region hits rather than unique hash values.
+  // Different windows can legitimately share the same dHash (especially
+  // in textured or low-contrast images), so Set<string> under-counts valid
+  // crop evidence. The two directions still prevent a single isolated
+  // accidental patch from being sufficient.
+  const directionalMatch = (
+    wholeImageHash: string,
+    regionHashes: string[],
+  ): CropMatch | undefined => {
+    let matchedRegions = 0;
+    let bestDistance = 64;
+
+    for (const regionHash of regionHashes.slice(1)) {
+      const distance = calculateHashDistance(wholeImageHash, regionHash);
+
+      if (distance <= maxDistance) {
+        matchedRegions += 1;
+        bestDistance = Math.min(bestDistance, distance);
+      }
+    }
+
+    // A genuine crop can align with exactly one sampled window in its parent.
+    // Requiring two hits rejects valid crops when the deterministic grid has
+    // only one window at the crop's exact scale and position. The match is
+    // still constrained by the 64-bit distance threshold and minimum area ratio.
+    if (matchedRegions < 1) return undefined;
+
+    return { distance: bestDistance, matches: matchedRegions };
+  };
+
+  const firstInSecond = directionalMatch(first.hashes[0], second.hashes);
+  const secondInFirst = directionalMatch(second.hashes[0], first.hashes);
+
+  if (!firstInSecond) return secondInFirst;
+  if (!secondInFirst) return firstInSecond;
+
+  return firstInSecond.distance <= secondInFirst.distance
+    ? firstInSecond
+    : secondInFirst;
+}
+
 export async function findSimilarPhotos(
   files: File[],
   onError?: SimilarPhotoErrorHandler,
@@ -228,19 +360,11 @@ export async function findSimilarPhotos(
     );
   }
 
-  const hashedFiles: Array<{
-    file: File;
-    hash: string;
-  }> = [];
+  const hashedFiles: ImageHashSet[] = [];
 
   for (const file of files) {
     try {
-      const hash = await calculateImageDifferenceHash(file);
-
-      hashedFiles.push({
-        file,
-        hash,
-      });
+      hashedFiles.push(await calculateImageHashSet(file));
     } catch (error) {
       onError?.(file, error);
     }
@@ -248,11 +372,7 @@ export async function findSimilarPhotos(
 
   const pairs: SimilarPhotoPair[] = [];
 
-  for (
-    let firstIndex = 0;
-    firstIndex < hashedFiles.length;
-    firstIndex += 1
-  ) {
+  for (let firstIndex = 0; firstIndex < hashedFiles.length; firstIndex += 1) {
     for (
       let secondIndex = firstIndex + 1;
       secondIndex < hashedFiles.length;
@@ -260,19 +380,19 @@ export async function findSimilarPhotos(
     ) {
       const first = hashedFiles[firstIndex];
       const second = hashedFiles[secondIndex];
-
-      const distance = calculateHashDistance(
-        first.hash,
-        second.hash,
+      const match = compareHashSets(
+        first,
+        second,
+        maxDistance,
       );
 
-      if (distance <= maxDistance) {
+      if (match) {
         pairs.push({
           first: first.file,
           second: second.file,
-          distance,
+          distance: match.distance,
           similarityPercent: Math.round(
-            ((64 - distance) / 64) * 100,
+            ((64 - match.distance) / 64) * 100,
           ),
         });
       }

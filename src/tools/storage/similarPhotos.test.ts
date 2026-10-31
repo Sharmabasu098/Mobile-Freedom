@@ -393,27 +393,26 @@ describe("findSimilarPhotos", () => {
     const first = createImageFile("photo-one.png");
     const second = createImageFile("photo-two.png");
 
-    let imageCount = 0;
+    let activeReverse = false;
 
     vi.stubGlobal(
       "createImageBitmap",
-      vi.fn(async () => ({
+      vi.fn(async (file: File) => ({
         width: 100,
         height: 100,
+        reverse: file.name === "photo-two.png",
         close: vi.fn(),
       })),
     );
 
     const context = {
-      drawImage: vi.fn(),
-
-      getImageData: vi.fn(() => {
-        imageCount += 1;
-
-        return {
-          data: createPixelData(imageCount === 2),
-        };
+      drawImage: vi.fn((bitmap: { reverse: boolean }) => {
+        activeReverse = bitmap.reverse;
       }),
+
+      getImageData: vi.fn(() => ({
+        data: createPixelData(activeReverse),
+      })),
     };
 
     const canvas = {
@@ -433,7 +432,7 @@ describe("findSimilarPhotos", () => {
     );
 
     expect(result).toHaveLength(0);
-    expect(imageCount).toBe(2);
+    expect(context.getImageData).toHaveBeenCalled();
   });
 
   it("does not modify selected files", async () => {
