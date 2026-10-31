@@ -11,8 +11,8 @@ export const DEFAULT_SIMILARITY_DISTANCE = 8;
 
 const HASH_WIDTH = 9;
 const HASH_HEIGHT = 8;
-const REGION_WIDTH_SCALES = [0.5, 0.6, 0.75, 0.9] as const;
-const REGION_HEIGHT_SCALES = [0.5, 0.6, 0.75, 0.9] as const;
+const REGION_WIDTH_SCALES = [0.5, 0.6, 0.65, 0.75, 0.8, 0.9] as const;
+const REGION_HEIGHT_SCALES = [0.5, 0.6, 0.65, 0.75, 0.8, 0.9] as const;
 const REGION_GRID_STEPS = 4;
 
 const SUPPORTED_SIMILARITY_TYPES = new Set([
