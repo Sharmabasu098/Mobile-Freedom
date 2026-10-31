@@ -7,12 +7,12 @@
  */
 
 export const MAX_SIMILARITY_FILE_SIZE_BYTES = 20 * 1024 * 1024;
-export const DEFAULT_SIMILARITY_DISTANCE = 8;
+export const DEFAULT_SIMILARITY_DISTANCE = 4;
 
 const HASH_WIDTH = 9;
 const HASH_HEIGHT = 8;
-const REGION_WIDTH_SCALES = [0.5, 0.6, 0.65, 0.75, 0.8, 0.9] as const;
-const REGION_HEIGHT_SCALES = [0.5, 0.6, 0.65, 0.75, 0.78, 0.8, 0.9] as const;
+const REGION_WIDTH_SCALES = [0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.75, 0.8, 0.9, 0.95] as const;
+const REGION_HEIGHT_SCALES = [0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.75, 0.78, 0.8, 0.9, 0.95] as const;
 const REGION_GRID_STEPS = 8;
 
 const SUPPORTED_SIMILARITY_TYPES = new Set([
@@ -300,10 +300,6 @@ function compareHashSets(
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
   if (smallerArea / largerArea < 0.08) return undefined;
 
-  if (first.hashes[0] === second.hashes[0]) {
-    return { distance: 0, matches: 1 };
-  }
-
   // Count spatially separate region hits rather than unique hash values.
   // Different windows can legitimately share the same dHash (especially
   // in textured or low-contrast images), so Set<string> under-counts valid
@@ -325,10 +321,9 @@ function compareHashSets(
       }
     }
 
-    // A genuine crop can align with exactly one sampled window in its parent.
-    // Requiring two hits rejects valid crops when the deterministic grid has
-    // only one window at the crop's exact scale and position. The match is
-    // still constrained by the 64-bit distance threshold and minimum area ratio.
+    // A single region can be valid crop evidence, but it must be
+    // corroborated by the reverse direction below. A whole-image hash
+    // match alone is never accepted because only sampled regions count.
     if (matchedRegions < 1) return undefined;
 
     return { distance: bestDistance, matches: matchedRegions };
@@ -337,6 +332,11 @@ function compareHashSets(
   const firstInSecond = directionalMatch(first.hashes[0], second.hashes);
   const secondInFirst = directionalMatch(second.hashes[0], first.hashes);
 
+  // Cropping and resizing can make the cropped file's pixel dimensions
+  // larger than the original even though it contains a smaller field of
+  // view. Therefore do not infer crop direction from pixel area alone.
+  // Accept region evidence in either direction, but never accept a
+  // whole-image hash match by itself.
   if (!firstInSecond) return secondInFirst;
   if (!secondInFirst) return firstInSecond;
 
