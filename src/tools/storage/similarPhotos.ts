@@ -11,9 +11,9 @@ export const DEFAULT_SIMILARITY_DISTANCE = 8;
 
 const HASH_WIDTH = 9;
 const HASH_HEIGHT = 8;
-const REGION_WIDTH_SCALES = [0.5, 0.6, 0.6041667, 0.7, 0.75, 0.8, 0.9] as const;
-const REGION_HEIGHT_SCALES = [0.5, 0.6, 0.7, 0.75, 0.7777778, 0.8, 0.9] as const;
-const REGION_GRID_STEPS = 6;
+const REGION_WIDTH_SCALES = [0.5, 0.6, 0.75, 0.9] as const;
+const REGION_HEIGHT_SCALES = [0.5, 0.6, 0.75, 0.9] as const;
+const REGION_GRID_STEPS = 4;
 
 const SUPPORTED_SIMILARITY_TYPES = new Set([
   "image/jpeg",
@@ -294,31 +294,36 @@ function compareHashSets(
   second: ImageHashSet,
   maxDistance: number,
 ): CropMatch | undefined {
-  if (first.hashes[0] === second.hashes[0]) {
-    return { distance: 0, matches: 1 };
-  }
-
-  // Tiny details are not enough evidence of a shared photograph.
+  // Reject tiny snippets before considering even an exact perceptual hash.
   const smallerArea = Math.min(first.width * first.height, second.width * second.height);
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
   if (smallerArea / largerArea < 0.08) return undefined;
 
-  // Either file may have larger pixel dimensions after a crop was
-  // upscaled. Test both directions and accept only a strict whole-image
-  // hash match against a sampled region of the other image.
+  if (first.hashes[0] === second.hashes[0]) {
+    return { distance: 0, matches: 1 };
+  }
+
+  // Require at least two different region descriptors to support a crop
+  // candidate. A single matching patch is too weak and causes false positives.
   const directionalMatch = (
     wholeImageHash: string,
     regionHashes: string[],
   ): CropMatch | undefined => {
+    const matchedHashes = new Set<string>();
+    let bestDistance = 64;
+
     for (const regionHash of regionHashes.slice(1)) {
       const distance = calculateHashDistance(wholeImageHash, regionHash);
 
       if (distance <= maxDistance) {
-        return { distance, matches: 1 };
+        matchedHashes.add(regionHash);
+        bestDistance = Math.min(bestDistance, distance);
       }
     }
 
-    return undefined;
+    if (matchedHashes.size < 2) return undefined;
+
+    return { distance: bestDistance, matches: matchedHashes.size };
   };
 
   const firstInSecond = directionalMatch(first.hashes[0], second.hashes);
