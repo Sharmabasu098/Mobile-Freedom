@@ -7,7 +7,7 @@
  */
 
 export const MAX_SIMILARITY_FILE_SIZE_BYTES = 20 * 1024 * 1024;
-export const DEFAULT_SIMILARITY_DISTANCE = 8;
+export const DEFAULT_SIMILARITY_DISTANCE = 4;
 
 const HASH_WIDTH = 9;
 const HASH_HEIGHT = 8;
