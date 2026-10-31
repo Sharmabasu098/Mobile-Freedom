@@ -13,7 +13,7 @@ const HASH_WIDTH = 9;
 const HASH_HEIGHT = 8;
 const REGION_WIDTH_SCALES = [0.5, 0.6, 0.65, 0.75, 0.8, 0.9] as const;
 const REGION_HEIGHT_SCALES = [0.5, 0.6, 0.65, 0.75, 0.78, 0.8, 0.9] as const;
-const REGION_GRID_STEPS = 4;
+const REGION_GRID_STEPS = 8;
 
 const SUPPORTED_SIMILARITY_TYPES = new Set([
   "image/jpeg",
@@ -152,8 +152,8 @@ function validateImageFile(file: File): void {
 
 /**
  * Produces a bounded descriptor set: one whole-image dHash plus
- * overlapping region hashes at three scales and three positions
- * per axis. Each region is sampled directly from the decoded bitmap.
+ * overlapping region hashes across multiple scales and nine positions
+ * per axis, improving coverage of off-center and edge crops. Each region is sampled directly from the decoded bitmap.
  */
 async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
   validateImageFile(file);
@@ -190,7 +190,8 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
     context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
     hashes.push(readHash(context));
 
-    // Dense multi-scale windows cover centered and off-center crops.
+    // Multi-scale windows sampled on a denser 8-step grid cover centered,
+    // off-center, and edge crops with less positional quantization.
     // Use independent horizontal/vertical scales so portrait, landscape,
     // and edge-biased crops are represented without a huge canvas.
     for (const widthScale of REGION_WIDTH_SCALES) {
