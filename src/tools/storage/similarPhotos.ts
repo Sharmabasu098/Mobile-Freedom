@@ -38,11 +38,22 @@ export type SimilarPhotoErrorHandler = (
   error: unknown,
 ) => void;
 
+interface RegionHash {
+  hash: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  centerX: number;
+  centerY: number;
+}
+
 interface ImageHashSet {
   file: File;
   width: number;
   height: number;
-  hashes: string[];
+  wholeImageHash: string;
+  regions: RegionHash[];
 }
 
 interface CropMatch {
@@ -184,11 +195,10 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
       );
     }
 
-    const hashes: string[] = [];
-
-    // Whole-image baseline remains part of the descriptor set.
+    // Keep the whole-image descriptor separate from positioned regions.
     context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
-    hashes.push(readHash(context));
+    const wholeImageHash = readHash(context);
+    const regions: RegionHash[] = [];
 
     // Multi-scale windows sampled on a denser 8-step grid cover centered,
     // off-center, and edge crops with less positional quantization.
@@ -219,13 +229,27 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
               HASH_HEIGHT,
             );
 
-            hashes.push(readHash(context));
+            regions.push({
+              hash: readHash(context),
+              x: sourceX / bitmap.width,
+              y: sourceY / bitmap.height,
+              width: regionWidth / bitmap.width,
+              height: regionHeight / bitmap.height,
+              centerX: (sourceX + regionWidth / 2) / bitmap.width,
+              centerY: (sourceY + regionHeight / 2) / bitmap.height,
+            });
           }
         }
       }
     }
 
-    return { file, width: bitmap.width, height: bitmap.height, hashes };
+    return {
+      file,
+      width: bitmap.width,
+      height: bitmap.height,
+      wholeImageHash,
+      regions,
+    };
   } finally {
     bitmap.close();
 
@@ -297,49 +321,51 @@ function compareHashSets(
   second: ImageHashSet,
   maxDistance: number,
 ): CropMatch | undefined {
-  // Reject tiny snippets before considering even an exact perceptual hash.
   const smallerArea = Math.min(first.width * first.height, second.width * second.height);
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
   if (smallerArea / largerArea < 0.08) return undefined;
 
-  // Count spatially separate region hits rather than unique hash values.
-  // Different windows can legitimately share the same dHash (especially
-  // in textured or low-contrast images), so Set<string> under-counts valid
-  // crop evidence. The two directions still prevent a single isolated
-  // accidental patch from being sufficient.
+  const MIN_CENTER_SEPARATION = 0.12;
+  const MIN_INDEPENDENT_MATCHES = 2;
+
   const directionalMatch = (
     wholeImageHash: string,
-    regionHashes: string[],
+    candidateRegions: RegionHash[],
   ): CropMatch | undefined => {
-    let matchedRegions = 0;
-    let bestDistance = 64;
+    const candidates = candidateRegions
+      .map(region => ({
+        region,
+        distance: calculateHashDistance(wholeImageHash, region.hash),
+      }))
+      .filter(candidate => candidate.distance <= maxDistance)
+      .sort((a, b) => a.distance - b.distance);
 
-    for (const regionHash of regionHashes.slice(1)) {
-      const distance = calculateHashDistance(wholeImageHash, regionHash);
-
-      if (distance <= maxDistance) {
-        matchedRegions += 1;
-        bestDistance = Math.min(bestDistance, distance);
-      }
+    const independent: typeof candidates = [];
+    for (const candidate of candidates) {
+      const separated = independent.every(existing => {
+        const dx = candidate.region.centerX - existing.region.centerX;
+        const dy = candidate.region.centerY - existing.region.centerY;
+        return Math.hypot(dx, dy) >= MIN_CENTER_SEPARATION;
+      });
+      if (separated) independent.push(candidate);
+      if (independent.length >= MIN_INDEPENDENT_MATCHES) break;
     }
 
-    // One region is enough in this direction only when the reverse
-    // direction independently confirms it.
-    if (matchedRegions < 1) return undefined;
-
-    return { distance: bestDistance, matches: matchedRegions };
+    if (independent.length < MIN_INDEPENDENT_MATCHES) return undefined;
+    return {
+      distance: Math.min(...independent.map(match => match.distance)),
+      matches: independent.length,
+    };
   };
 
-  const firstInSecond = directionalMatch(first.hashes[0], second.hashes);
-  const secondInFirst = directionalMatch(second.hashes[0], first.hashes);
+  // A crop cannot contain the original's complete frame. Accept either
+  // direction only when multiple spatially separated regions agree.
+  const firstInSecond = directionalMatch(first.wholeImageHash, second.regions);
+  const secondInFirst = directionalMatch(second.wholeImageHash, first.regions);
 
-  // Cropping and resizing can make the cropped file's pixel dimensions
-  // larger than the original even though it contains a smaller field of
-  // view. Therefore do not infer crop direction from pixel area alone.
-  // Require reciprocal evidence. Do not fall back to a one-way match:
-  // one accidental region in only one image is not enough to form a pair.
-  if (!firstInSecond || !secondInFirst) return undefined;
-
+  if (!firstInSecond && !secondInFirst) return undefined;
+  if (!firstInSecond) return secondInFirst;
+  if (!secondInFirst) return firstInSecond;
   return firstInSecond.distance <= secondInFirst.distance
     ? firstInSecond
     : secondInFirst;
