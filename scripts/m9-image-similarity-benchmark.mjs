@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { pathToFileURL } from 'node:url'
 import { appendFile, writeFile } from 'node:fs/promises'
 import {
   BFMatcher,
@@ -209,7 +210,7 @@ async function describe(cv, fixture) {
   }
 }
 
-async function similarity(cv, leftFixture, rightFixture) {
+export async function similarity(cv, leftFixture, rightFixture) {
   const left = await describe(cv, leftFixture)
   const right = await describe(cv, rightFixture)
   const matcher = new BFMatcher(NORM_HAMMING, false)
@@ -376,8 +377,10 @@ async function main() {
   console.log('M9_IMAGE_BENCHMARK_DIAGNOSTIC_PASS')
 }
 
-main().catch(error => {
-  console.error('M9_IMAGE_BENCHMARK_DIAGNOSTIC_FAIL')
-  console.error(error?.stack ?? error)
-  process.exitCode = 1
-})
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(error => {
+    console.error('M9_IMAGE_BENCHMARK_DIAGNOSTIC_FAIL')
+    console.error(error?.stack ?? error)
+    process.exitCode = 1
+  })
+}
