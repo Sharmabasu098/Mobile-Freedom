@@ -8,6 +8,7 @@ on:
     paths:
       - "scripts/m9-image-similarity-benchmark.mjs"
       - "scripts/m9-real-photo-benchmark.mjs"
+      - "scripts/m9-sift-real-photo-benchmark.mjs"
       - ".github/workflows/m9-real-photo-benchmark.yml"
   workflow_dispatch:
 
