@@ -35,3 +35,10 @@ jobs:
         run: |
           cd "$RUNNER_TEMP/m9-image-benchmark"
           node benchmark.mjs
+      - name: Upload machine-readable diagnostic results
+        uses: actions/upload-artifact@v4
+        with:
+          name: m9-image-similarity-a1-a7-results
+          path: ${{ runner.temp }}/m9-image-benchmark/m9-image-similarity-results.json
+          if-no-files-found: error
+          retention-days: 30
