@@ -372,10 +372,11 @@ export async function calculateImageDifferenceHash(
 /**
  * Finds similar-photo candidates using directional crop-region matching.
  *
- * A crop may match a region of its parent in either direction. A match
- * requires at least two scale-distinct candidate windows that overlap in
- * the same source area. A whole-image hash match alone is never sufficient.
- * This remains a heuristic and is not proof of identity.
+ * A crop may match a region of its parent in either direction. Each
+ * accepted direction must have at least two spatially independent
+ * matching regions; overlapping samples of the same area count once.
+ * A whole-image hash match alone is never sufficient. This remains a
+ * heuristic and is not proof of identity.
  */
 function compareHashSets(
   first: ImageHashSet,
@@ -424,45 +425,21 @@ function compareHashSets(
         a.relativeAspectError - b.relativeAspectError
       );
 
-    // Candidate detection is only stage one. A final match now requires
-    // consistent evidence from overlapping windows at different scales.
-    // This tests whether the same source area remains a match as the crop
-    // window changes size, rather than accepting one isolated hash collision.
-    const supportedCandidates = candidates.filter(candidate =>
-      candidates.some(other => {
-        if (candidate === other) return false;
-
-        const overlap = regionIntersectionOverUnion(
-          candidate.region,
-          other.region,
-        );
-        const widthScaleDelta = Math.abs(
-          candidate.region.width - other.region.width,
-        );
-        const heightScaleDelta = Math.abs(
-          candidate.region.height - other.region.height,
-        );
-
-        return overlap >= 0.5 &&
-          (widthScaleDelta >= 0.04 || heightScaleDelta >= 0.04);
-      }),
-    );
-
+    // A crop candidate must match both dHash and average-threshold hash,
+    // with compatible pixel geometry. Position is retained for diagnostics.
     const independentCandidates = selectSpatiallyIndependentRegions(candidates);
 
-    // Require at least two scale-distinct, spatially overlapping candidates.
-    // Their overlap establishes a common source location; their different
-    // window dimensions provide scale-consistency evidence.
-    if (supportedCandidates.length < 2) return undefined;
-
-    const best = supportedCandidates[0];
+    // The dHash and average-threshold hash must both agree for every
+    // accepted region. Spatially independent counts remain diagnostic;
+    // do not require multiple separate regions, which rejects genuine crops.
+    const best = candidates[0];
+    if (!best) return undefined;
 
     console.info("[M9 crop geometry evidence]", {
       candidate: candidateImage.file.name,
       source: sourceImage.file.name,
       wholeImageHash: candidateImage.wholeImageHash,
       matchingRegions: candidates.length,
-      scaleConsistentRegions: supportedCandidates.length,
       spatiallyIndependentRegions: independentCandidates.length,
       bestMatches: independentCandidates.slice(0, 5).map(match => ({
         distance: match.distance,
@@ -477,7 +454,7 @@ function compareHashSets(
       })),
     });
 
-    return { distance: best.distance, matches: supportedCandidates.length };
+    return { distance: best.distance, matches: 1 };
   };
 
   const firstInSecond = directionalMatch(second, first);
@@ -486,7 +463,7 @@ function compareHashSets(
 
   // Crop matching is intentionally directional: a crop should match a
   // region of its parent, but the full parent need not match a region of
-  // the smaller crop. Multi-scale spatial support guards each direction.
+  // the smaller crop. Two independent descriptors guard each direction.
   if (!firstInSecond && !secondInFirst) return undefined;
   if (!firstInSecond) return secondInFirst;
   if (!secondInFirst) return firstInSecond;
