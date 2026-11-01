@@ -89,6 +89,15 @@ jobs:
           curl --fail --location --retry 3 "https://www.cs.columbia.edu/CAVE/databases/SLAM_coil-20_coil-100/coil-20/coil-20-proc.zip" -o coil-20-proc.zip
           unzip -q coil-20-proc.zip
           test -f coil-20-proc/obj1__0.png
+      - name: Download pinned LFW View 1 fixtures
+        run: |
+          cd "$RUNNER_TEMP/m9-real-photo/fixtures/same-subject"
+          curl --fail --location --retry 4 --retry-all-errors "https://ndownloader.figshare.com/files/5976009" -o pairsDevTest.txt
+          echo "7cb06600ea8b2814ac26e946201cdb304296262aad67d046a16a7ec85d0ff87c  pairsDevTest.txt" | sha256sum --check
+          curl --fail --location --retry 4 --retry-all-errors "https://ndownloader.figshare.com/files/5976018" -o lfw.tgz
+          tar -xzf lfw.tgz
+          test -d lfw
+          test -s pairsDevTest.txt
       - name: Run same-object and same-person hard-negative benchmark
         run: |
           cp "$GITHUB_WORKSPACE/scripts/m9-image-similarity-benchmark.mjs" .
