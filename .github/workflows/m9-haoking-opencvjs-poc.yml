@@ -1,0 +1,46 @@
+name: M9 Haoking OpenCV.js WASM Proof of Concept
+
+on:
+  push:
+    branches: [m9-haoking-opencvjs-poc]
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/m9-haoking-opencvjs-poc.mjs"
+      - ".github/workflows/m9-haoking-opencvjs-poc.yml"
+      - "docs/M9_HAOKING_OPENCVJS_POC.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-poc:
+    name: Isolated Node/WASM algorithm runtime checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pinned candidate outside application dependency graph
+        run: |
+          mkdir -p "$RUNNER_TEMP/m9-haoking-poc"
+          cd "$RUNNER_TEMP/m9-haoking-poc"
+          npm init -y
+          npm install --no-audit --no-fund --save-exact @haoking/opencvjs@4.0.0
+          npm ls @haoking/opencvjs
+          du -sh node_modules/@haoking/opencvjs
+
+      - name: Run actual ORB, BFMatcher and RANSAC runtime tests
+        env:
+          NODE_PATH: ${{ runner.temp }}/m9-haoking-poc/node_modules
+        run: |
+          cp scripts/m9-haoking-opencvjs-poc.mjs "$RUNNER_TEMP/m9-haoking-poc/poc.mjs"
+          cd "$RUNNER_TEMP/m9-haoking-poc"
+          node poc.mjs
