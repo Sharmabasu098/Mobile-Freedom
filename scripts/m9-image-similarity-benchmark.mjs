@@ -102,6 +102,34 @@ function repeatedTexture(seed) {
   return { width, height, data }
 }
 
+function convexHullAreaFraction(points, width, height) {
+  if (points.length < 3) return 0
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y)
+  const cross = (origin, a, b) =>
+    (a.x - origin.x) * (b.y - origin.y) - (a.y - origin.y) * (b.x - origin.x)
+  const lower = []
+  for (const point of sorted) {
+    while (lower.length >= 2 && cross(lower.at(-2), lower.at(-1), point) <= 0) lower.pop()
+    lower.push(point)
+  }
+  const upper = []
+  for (const point of sorted.slice().reverse()) {
+    while (upper.length >= 2 && cross(upper.at(-2), upper.at(-1), point) <= 0) upper.pop()
+    upper.push(point)
+  }
+  lower.pop()
+  upper.pop()
+  const hull = lower.concat(upper)
+  if (hull.length < 3) return 0
+  let twiceArea = 0
+  for (let index = 0; index < hull.length; index++) {
+    const current = hull[index]
+    const next = hull[(index + 1) % hull.length]
+    twiceArea += current.x * next.y - next.x * current.y
+  }
+  return Number((Math.abs(twiceArea) / 2 / (width * height)).toFixed(4))
+}
+
 function spatialCoverage(points, width, height) {
   if (!points.length) {
     return {
@@ -265,8 +293,14 @@ async function similarity(cv, leftFixture, rightFixture) {
         Array.from({ length: toPoints.length / 2 }, (_, index) => ({ x: toPoints[index * 2], y: toPoints[index * 2 + 1] })),
         rightFixture.width, rightFixture.height
       ),
-      ransacInlierSourceCoverage: spatialCoverage(inlierFromPoints, leftFixture.width, leftFixture.height),
-      ransacInlierTargetCoverage: spatialCoverage(inlierToPoints, rightFixture.width, rightFixture.height),
+      ransacInlierSourceCoverage: {
+        ...spatialCoverage(inlierFromPoints, leftFixture.width, leftFixture.height),
+        convexHullAreaFraction: convexHullAreaFraction(inlierFromPoints, leftFixture.width, leftFixture.height)
+      },
+      ransacInlierTargetCoverage: {
+        ...spatialCoverage(inlierToPoints, rightFixture.width, rightFixture.height),
+        convexHullAreaFraction: convexHullAreaFraction(inlierToPoints, rightFixture.width, rightFixture.height)
+      },
       ratioAcceptedMatches: accepted,
       ratioCandidates,
       meanBestDistance: accepted ? Number((bestDistanceTotal / accepted).toFixed(2)) : null,
@@ -305,6 +339,19 @@ async function main() {
   // It must expose scores for calibration; it does not approve M9 or merge the engine.
   assert.equal(results.length, 7)
   assert.ok(results.every(result => Number.isFinite(result.score)))
+  const resizedCase = results.find(result => result.name === 'A2_resized')
+  const repeatedTextureCase = results.find(result => result.name === 'A7_repeated_texture')
+  // Fixture-specific regression guard only: this is not a production classification threshold.
+  assert.ok(
+    resizedCase.ransacInlierTargetCoverage.occupiedGridCells >
+      repeatedTextureCase.ransacInlierTargetCoverage.occupiedGridCells,
+    'A2 resized fixture should retain broader target inlier distribution than A7 repeated texture'
+  )
+  assert.ok(
+    resizedCase.ransacInlierTargetCoverage.convexHullAreaFraction >
+      repeatedTextureCase.ransacInlierTargetCoverage.convexHullAreaFraction * 3,
+    'A2 resized fixture should have materially broader target inlier hull than A7 repeated texture'
+  )
   await writeFile('m9-image-similarity-results.json', JSON.stringify({
     benchmark: 'synthetic-diagnostic-v1',
     generatedAt: new Date().toISOString(),
