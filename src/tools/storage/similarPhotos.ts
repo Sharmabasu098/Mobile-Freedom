@@ -329,13 +329,14 @@ function compareHashSets(
 
   const directionalMatch = (
     candidateImage: ImageHashSet,
-    candidateRegions: RegionHash[],
+    sourceImage: ImageHashSet,
   ): CropMatch | undefined => {
+    const candidateRegions = sourceImage.regions;
     const candidateAspect = candidateImage.width / candidateImage.height;
     const candidates = candidateRegions
       .map(region => {
         const regionAspect =
-          (region.width * first.width) / (region.height * first.height);
+          (region.width * sourceImage.width) / (region.height * sourceImage.height);
         const relativeAspectError =
           Math.abs(regionAspect - candidateAspect) / candidateAspect;
         return {
@@ -379,8 +380,8 @@ function compareHashSets(
     return { distance: best.distance, matches: 1 };
   };
 
-  const firstInSecond = directionalMatch(second, first.regions);
-  const secondInFirst = directionalMatch(first, second.regions);
+  const firstInSecond = directionalMatch(second, first);
+  const secondInFirst = directionalMatch(first, second);
 
 
   if (!firstInSecond && !secondInFirst) return undefined;
