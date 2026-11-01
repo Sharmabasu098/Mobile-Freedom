@@ -240,7 +240,6 @@ export async function similarity(cv, leftFixture, rightFixture) {
     const toPoints = []
 
     for (let index = 0; index < knnMatches.size(); index++) {
-      console.log('M9_ORB_SIMILARITY_STAGE', JSON.stringify({ stage: 'knn_pair_get_start', index }))
       const pair = knnMatches.get(index)
       try {
         if (pair.size() < 2) continue
@@ -252,7 +251,6 @@ export async function similarity(cv, leftFixture, rightFixture) {
           if (!(best.distance < 0.9 * second.distance)) continue
           accepted++
           bestDistanceTotal += best.distance
-          console.log('M9_ORB_SIMILARITY_STAGE', JSON.stringify({ stage: 'match_indices', queryIdx: best.queryIdx, trainIdx: best.trainIdx, leftPointCount: left.points.length, rightPointCount: right.points.length }))
           const from = left.points[best.queryIdx]
           const to = right.points[best.trainIdx]
           if (from && to) {
@@ -272,9 +270,13 @@ export async function similarity(cv, leftFixture, rightFixture) {
     let inlierRatio = 0
     const inlierFromPoints = []
     const inlierToPoints = []
-    if (fromPoints.length >= 4) {
-      const fromMat = new Mat(fromPoints.length / 2, 1, CV_32FC2)
-      const toMat = new Mat(toPoints.length / 2, 1, CV_32FC2)
+    // fromPoints is a flat [x,y,...] array: 8 numbers = 4 point pairs.
+    // OpenCV findHomography requires at least four correspondences.
+    const correspondenceCount = fromPoints.length / 2
+    console.log('M9_ORB_SIMILARITY_STAGE', JSON.stringify({ stage: 'homography_gate', correspondenceCount, required: 4 }))
+    if (correspondenceCount >= 4) {
+      const fromMat = new Mat(correspondenceCount, 1, CV_32FC2)
+      const toMat = new Mat(correspondenceCount, 1, CV_32FC2)
       const inlierMask = new Mat()
       let homography
       try {
