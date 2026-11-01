@@ -325,86 +325,63 @@ function compareHashSets(
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
   if (smallerArea / largerArea < 0.08) return undefined;
 
-  const MIN_CENTER_SEPARATION = 0.12;
-  const MIN_INDEPENDENT_MATCHES = 2;
+  const MAX_RELATIVE_ASPECT_ERROR = 0.04;
 
   const directionalMatch = (
-    wholeImageHash: string,
+    candidateImage: ImageHashSet,
     candidateRegions: RegionHash[],
   ): CropMatch | undefined => {
+    const candidateAspect = candidateImage.width / candidateImage.height;
     const candidates = candidateRegions
-      .map(region => ({
-        region,
-        distance: calculateHashDistance(wholeImageHash, region.hash),
-      }))
-      .filter(candidate => candidate.distance <= maxDistance)
-      .sort((a, b) => a.distance - b.distance);
-
-    const independent: typeof candidates = [];
-    const candidateReport = candidates.slice(0, 8).map(candidate => ({
-      distance: candidate.distance,
-      x: Number(candidate.region.x.toFixed(3)),
-      y: Number(candidate.region.y.toFixed(3)),
-      width: Number(candidate.region.width.toFixed(3)),
-      height: Number(candidate.region.height.toFixed(3)),
-      centerX: Number(candidate.region.centerX.toFixed(3)),
-      centerY: Number(candidate.region.centerY.toFixed(3)),
-    }));
-
-    for (const candidate of candidates) {
-      const comparisons = independent.map(existing => {
-        const dx = candidate.region.centerX - existing.region.centerX;
-        const dy = candidate.region.centerY - existing.region.centerY;
-        return Math.hypot(dx, dy);
-      });
-      const separated = comparisons.every(distance =>
-        distance >= MIN_CENTER_SEPARATION
+      .map(region => {
+        const regionAspect =
+          (region.width * first.width) / (region.height * first.height);
+        const relativeAspectError =
+          Math.abs(regionAspect - candidateAspect) / candidateAspect;
+        return {
+          region,
+          distance: calculateHashDistance(candidateImage.wholeImageHash, region.hash),
+          regionAspect,
+          relativeAspectError,
+        };
+      })
+      .filter(candidate =>
+        candidate.distance <= maxDistance &&
+        candidate.relativeAspectError <= MAX_RELATIVE_ASPECT_ERROR
+      )
+      .sort((a, b) =>
+        a.distance - b.distance ||
+        a.relativeAspectError - b.relativeAspectError
       );
-      if (separated) independent.push(candidate);
-      if (independent.length >= MIN_INDEPENDENT_MATCHES) break;
-    }
 
-    const selectedReport = independent.map((candidate, index) => {
-      const previous = independent.slice(0, index);
-      const nearestDistance = previous.length
-        ? Math.min(...previous.map(existing => Math.hypot(
-            candidate.region.centerX - existing.region.centerX,
-            candidate.region.centerY - existing.region.centerY,
-          )))
-        : null;
-      return {
-        distance: candidate.distance,
-        x: Number(candidate.region.x.toFixed(3)),
-        y: Number(candidate.region.y.toFixed(3)),
-        width: Number(candidate.region.width.toFixed(3)),
-        height: Number(candidate.region.height.toFixed(3)),
-        centerX: Number(candidate.region.centerX.toFixed(3)),
-        centerY: Number(candidate.region.centerY.toFixed(3)),
-        nearestSelectedCenterDistance: nearestDistance === null
-          ? null
-          : Number(nearestDistance.toFixed(3)),
-      };
+    // One strong descriptor can be sufficient only when its pixel geometry
+    // agrees with the candidate crop's aspect ratio. Position is retained
+    // for diagnostics and bounded to the source image by construction.
+    const best = candidates[0];
+    if (!best) return undefined;
+
+    console.info("[M9 crop geometry evidence]", {
+      candidate: candidateImage.file.name,
+      wholeImageHash: candidateImage.wholeImageHash,
+      matchingRegions: candidates.length,
+      selected: {
+        distance: best.distance,
+        x: Number(best.region.x.toFixed(3)),
+        y: Number(best.region.y.toFixed(3)),
+        width: Number(best.region.width.toFixed(3)),
+        height: Number(best.region.height.toFixed(3)),
+        regionAspect: Number(best.regionAspect.toFixed(4)),
+        candidateAspect: Number(candidateAspect.toFixed(4)),
+        relativeAspectError: Number(best.relativeAspectError.toFixed(4)),
+      },
     });
 
-    console.info("[M9 crop evidence]", {
-      wholeImageHash,
-      totalMatchingRegions: candidates.length,
-      bestCandidates: candidateReport,
-      selectedIndependentRegions: selectedReport,
-      requiredCenterSeparation: MIN_CENTER_SEPARATION,
-    });
-
-    if (independent.length < MIN_INDEPENDENT_MATCHES) return undefined;
-    return {
-      distance: Math.min(...independent.map(match => match.distance)),
-      matches: independent.length,
-    };
+    return { distance: best.distance, matches: 1 };
   };
 
-  // A crop cannot contain the original's complete frame. Accept either
-  // direction only when multiple spatially separated regions agree.
-  const firstInSecond = directionalMatch(first.wholeImageHash, second.regions);
-  const secondInFirst = directionalMatch(second.wholeImageHash, first.regions);
+  const firstInSecond = directionalMatch(second, first.regions);
+  const secondInFirst = directionalMatch(first, second.regions);
+
 
   if (!firstInSecond && !secondInFirst) return undefined;
   if (!firstInSecond) return secondInFirst;
