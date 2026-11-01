@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - m9-opencv-wasm-poc
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
