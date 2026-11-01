@@ -44,10 +44,17 @@ jobs:
           cp "$GITHUB_WORKSPACE/scripts/m9-real-photo-benchmark.mjs" .
           node m9-real-photo-benchmark.mjs
         working-directory: ${{ runner.temp }}/m9-real-photo
-      - name: Upload real-photo diagnostic results
+      - name: Run SIFT real-photo comparison
+        run: |
+          cp "$GITHUB_WORKSPACE/scripts/m9-sift-real-photo-benchmark.mjs" .
+          node m9-sift-real-photo-benchmark.mjs
+        working-directory: ${{ runner.temp }}/m9-real-photo
+      - name: Upload SIFT and ORB comparison results
         uses: actions/upload-artifact@v4
         with:
-          name: m9-real-photo-diagnostic-results
-          path: ${{ runner.temp }}/m9-real-photo/m9-real-photo-results.json
+          name: m9-orb-sift-real-photo-comparison
+          path: |
+            ${{ runner.temp }}/m9-real-photo/m9-real-photo-results.json
+            ${{ runner.temp }}/m9-real-photo/m9-sift-real-photo-results.json
           if-no-files-found: error
           retention-days: 30
