@@ -200,6 +200,10 @@ async function similarity(cv, leftFixture, rightFixture) {
 
 async function main() {
   await initOpenCV()
+  console.log('M9_KNN_API_PROBE', JSON.stringify({
+    matcherMethods: Object.getOwnPropertyNames(BFMatcher.prototype).sort(),
+    vectorExports: Object.keys(await import('@banou/opencv-wasm')).filter(name => /DMatch.*Vector|Vector.*DMatch/.test(name)).sort()
+  }))
   const original = scene(7)
   const cases = [
     ['A1_exact_duplicate', original, { ...original, data: original.data.slice() }, 'positive'],
