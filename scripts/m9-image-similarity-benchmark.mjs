@@ -3,9 +3,13 @@ import { appendFile, writeFile } from 'node:fs/promises'
 import {
   BFMatcher,
   CV_8UC1,
+  CV_32FC2,
   Mat,
   NORM_HAMMING,
   ORB_create,
+  RANSAC,
+  countNonZero,
+  findHomography,
   initOpenCV
 } from '@banou/opencv-wasm'
 
@@ -111,7 +115,16 @@ async function describe(cv, fixture) {
   const orb = ORB_create(1200)
   try {
     orb.detectAndCompute(image, mask, keypoints, descriptors)
-    return { keypoints: keypoints.size(), descriptors: descriptors.mat_clone() }
+    const points = []
+    for (let index = 0; index < keypoints.size(); index++) {
+      const point = keypoints.get(index)
+      try {
+        points.push({ x: point.pt.x, y: point.pt.y })
+      } finally {
+        point.delete?.()
+      }
+    }
+    return { keypoints: keypoints.size(), points, descriptors: descriptors.mat_clone() }
   } finally {
     orb.delete()
     keypoints.delete()
@@ -124,21 +137,55 @@ async function describe(cv, fixture) {
 async function similarity(cv, leftFixture, rightFixture) {
   const left = await describe(cv, leftFixture)
   const right = await describe(cv, rightFixture)
-  const matcher = new BFMatcher(NORM_HAMMING, true)
+  const matcher = new BFMatcher(NORM_HAMMING, false)
   const matches = new (await import('@banou/opencv-wasm')).DMatchVector()
   try {
     matcher.match(left.descriptors, right.descriptors, matches)
     let accepted = 0
+    const fromPoints = []
+    const toPoints = []
     for (let index = 0; index < matches.size(); index++) {
       const match = matches.get(index)
       try {
-        if (match.distance <= 48) accepted++
+        if (match.distance <= 64) {
+          accepted++
+          const from = left.points[match.queryIdx]
+          const to = right.points[match.trainIdx]
+          if (from && to) {
+            fromPoints.push(from.x, from.y)
+            toPoints.push(to.x, to.y)
+          }
+        }
       } finally {
         match.delete?.()
       }
     }
+    let inliers = 0
+    let inlierRatio = 0
+    if (fromPoints.length >= 8) {
+      const fromMat = new Mat(fromPoints.length / 2, 1, CV_32FC2)
+      const toMat = new Mat(toPoints.length / 2, 1, CV_32FC2)
+      const inlierMask = new Mat()
+      let homography
+      try {
+        fromMat.data32F.set(fromPoints)
+        toMat.data32F.set(toPoints)
+        homography = findHomography(fromMat, toMat, RANSAC, 4, inlierMask)
+        if (homography && !homography.empty()) {
+          inliers = countNonZero(inlierMask)
+          inlierRatio = inliers / (fromPoints.length / 2)
+        }
+      } finally {
+        homography?.delete()
+        inlierMask.delete()
+        toMat.delete()
+        fromMat.delete()
+      }
+    }
     return {
       score: accepted / Math.max(1, Math.min(left.keypoints, right.keypoints)),
+      inliers,
+      inlierRatio: Number(inlierRatio.toFixed(4)),
       acceptedMatches: accepted,
       leftKeypoints: left.keypoints,
       rightKeypoints: right.keypoints
@@ -181,18 +228,18 @@ async function main() {
     results
   }, null, 2) + '\n')
   const rows = results.map(result =>
-    '| ' + result.name + ' | ' + result.expected + ' | ' + result.score.toFixed(4) + ' | ' + result.acceptedMatches + ' | ' + result.leftKeypoints + '/' + result.rightKeypoints + ' |'
+    '| ' + result.name + ' | ' + result.expected + ' | ' + result.score.toFixed(4) + ' | ' + result.acceptedMatches + ' | ' + result.inliers + ' (' + result.inlierRatio.toFixed(4) + ') | ' + result.leftKeypoints + '/' + result.rightKeypoints + ' |'
   )
   const summary = [
     '## M9 A1-A7 Image Similarity Diagnostic',
     '',
-    '> Synthetic diagnostic only. These scores are not a production duplicate threshold and do not establish M9 acceptance.',
+    '> Synthetic exploratory diagnostic only. Non-cross-check ORB matches with a Hamming distance cap of 64 are geometrically checked by RANSAC; values are not production thresholds and do not establish M9 acceptance.',
     '',
-    '| Case | Expected | Score | Accepted matches | Keypoints L/R |',
-    '|---|---|---:|---:|---:|',
+    '| Case | Expected | Raw score | Accepted matches | RANSAC inliers (ratio) | Keypoints L/R |',
+    '|---|---|---:|---:|---:|---:|',
     ...rows,
     '',
-    'Real-photo and Android validation remain required.',
+    'RANSAC is an exploratory geometry signal, not a production decision. Real-photo and Android validation remain required.',
     ''
   ].join('\n')
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, summary)
