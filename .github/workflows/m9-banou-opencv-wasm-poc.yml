@@ -1,0 +1,43 @@
+name: M9 Banou OpenCV WASM Runtime Proof of Concept
+
+on:
+  push:
+    branches: [m9-banou-opencv-wasm-poc]
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/m9-banou-opencv-wasm-poc.mjs"
+      - ".github/workflows/m9-banou-opencv-wasm-poc.yml"
+      - "docs/M9_BANOU_OPENCV_WASM_POC.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-poc:
+    name: Isolated ORB BFMatcher RANSAC runtime checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install pinned candidate outside application dependency graph
+        run: |
+          mkdir -p "$RUNNER_TEMP/m9-banou-poc"
+          cd "$RUNNER_TEMP/m9-banou-poc"
+          npm init -y
+          npm install --no-audit --no-fund --save-exact @banou/opencv-wasm@0.0.6
+          npm ls @banou/opencv-wasm
+          du -sh node_modules/@banou/opencv-wasm
+      - name: Execute real WASM algorithm tests
+        env:
+          NODE_PATH: ${{ runner.temp }}/m9-banou-poc/node_modules
+        run: |
+          cp scripts/m9-banou-opencv-wasm-poc.mjs "$RUNNER_TEMP/m9-banou-poc/poc.mjs"
+          cd "$RUNNER_TEMP/m9-banou-poc"
+          node poc.mjs

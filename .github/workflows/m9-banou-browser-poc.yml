@@ -1,0 +1,48 @@
+name: M9 Banou Browser WASM Feasibility PoC
+
+on:
+  push:
+    branches: [m9-banou-opencv-wasm-poc]
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/m9-banou-browser-poc.html"
+      - "scripts/m9-banou-browser-src/**"
+      - "scripts/m9-banou-browser-playwright.mjs"
+      - ".github/workflows/m9-banou-browser-poc.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-poc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Create isolated consumer outside application dependency graph
+        run: |
+          mkdir -p "$RUNNER_TEMP/m9-banou-browser"
+          cp scripts/m9-banou-browser-poc.html "$RUNNER_TEMP/m9-banou-browser/index.html"
+          cp -R scripts/m9-banou-browser-src "$RUNNER_TEMP/m9-banou-browser/src"
+          cp scripts/m9-banou-browser-playwright.mjs "$RUNNER_TEMP/m9-banou-browser/check.mjs"
+          cd "$RUNNER_TEMP/m9-banou-browser"
+          npm init -y
+          npm install --no-audit --no-fund --save-exact vite@6.3.5 playwright@1.52.0 @banou/opencv-wasm@0.0.6
+          npx playwright install --with-deps chromium
+          npx vite build
+      - name: Run Chromium against production Vite bundle
+        run: |
+          cd "$RUNNER_TEMP/m9-banou-browser"
+          npx vite preview --host 127.0.0.1 --port 4173 > vite-preview.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          node check.mjs
