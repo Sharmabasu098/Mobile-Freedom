@@ -9,6 +9,7 @@ on:
       - "scripts/m9-image-similarity-benchmark.mjs"
       - "scripts/m9-real-photo-benchmark.mjs"
       - "scripts/m9-sift-real-photo-benchmark.mjs"
+      - "scripts/m9-same-subject-hard-negative-benchmark.mjs"
       - ".github/workflows/m9-real-photo-benchmark.yml"
   workflow_dispatch:
 
@@ -81,6 +82,27 @@ jobs:
           cp "$GITHUB_WORKSPACE/scripts/m9-sift-real-photo-benchmark.mjs" .
           node m9-sift-real-photo-benchmark.mjs
         working-directory: ${{ runner.temp }}/m9-real-photo
+      - name: Download COIL-20 viewpoint dataset for same-object tests
+        run: |
+          mkdir -p "$RUNNER_TEMP/m9-real-photo/fixtures/same-subject"
+          cd "$RUNNER_TEMP/m9-real-photo/fixtures/same-subject"
+          curl --fail --location --retry 3 "https://www.cs.columbia.edu/CAVE/databases/SLAM_coil-20_coil-100/coil-20/coil-20-proc.zip" -o coil-20-proc.zip
+          unzip -q coil-20-proc.zip
+          test -f coil-20-proc/obj1__0.png
+      - name: Run same-object and same-person hard-negative benchmark
+        run: |
+          cp "$GITHUB_WORKSPACE/scripts/m9-image-similarity-benchmark.mjs" .
+          cp "$GITHUB_WORKSPACE/scripts/m9-sift-real-photo-benchmark.mjs" .
+          cp "$GITHUB_WORKSPACE/scripts/m9-same-subject-hard-negative-benchmark.mjs" .
+          node m9-same-subject-hard-negative-benchmark.mjs
+        working-directory: ${{ runner.temp }}/m9-real-photo
+      - name: Upload same-subject hard-negative results
+        uses: actions/upload-artifact@v4
+        with:
+          name: m9-same-subject-hard-negative-results
+          path: ${{ runner.temp }}/m9-real-photo/m9-same-subject-hard-negative-results.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload SIFT and ORB comparison results
         uses: actions/upload-artifact@v4
         with:
