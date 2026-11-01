@@ -113,8 +113,7 @@ async function main() {
   }
 
   // LFW View 1 development test pairs. Person names are used only to fetch fixtures and never logged.
-  const pairsResponse = await fetchWithRetry('https://vis-www.cs.umass.edu/lfw/pairsDevTest.txt', 'LFW pair protocol download')
-  const pairsText = await pairsResponse.text()
+  const pairsText = await readFile(`${ROOT}/pairsDevTest.txt`, 'utf8')
   const lines = pairsText.trim().split(/\r?\n/)
   const counts = lines[0].trim().split(/\s+/).map(Number)
   assert.ok(counts.length >= 2 && counts[0] >= 20 && counts[1] >= 20, 'LFW pairsDevTest protocol file did not match expected format')
@@ -124,19 +123,9 @@ async function main() {
   assert.equal(negativeLines.length, 20, 'LFW different-person pair count mismatch')
 
   const faceDir = `${ROOT}/lfw`
-  await mkdir(faceDir, { recursive: true })
-  const imageCache = new Map()
   async function getFace(person, index) {
     const fileName = `${person}_${String(index).padStart(4, '0')}.jpg`
-    const localPath = `${faceDir}/${fileName}`
-    if (!imageCache.has(fileName)) {
-      const url = `https://vis-www.cs.umass.edu/lfw/${person}/${fileName}`
-      const response = await fetchWithRetry(url, `LFW image download ${fileName}`)
-      const bytes = new Uint8Array(await response.arrayBuffer())
-      await writeFile(localPath, bytes)
-      imageCache.set(fileName, localPath)
-    }
-    return decode(imageCache.get(fileName))
+    return decode(`${faceDir}/${person}/${fileName}`)
   }
   function parseSame(line) {
     const [person, a, b] = line.trim().split(/\s+/)
