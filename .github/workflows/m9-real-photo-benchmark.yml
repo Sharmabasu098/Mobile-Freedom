@@ -39,6 +39,35 @@ jobs:
           curl --fail --location --retry 3 "https://c.pxhere.com/photos/12/18/western_ghats_mountains_sahyadri_india_karnataka_landscape_wilderness_scenery-1020298.jpg!d" -o fixtures/real-photos/sahyadri-1020298.jpg
           curl --fail --location --retry 3 "https://c.pxhere.com/photos/a0/c7/forests_valley_nature_mountains_scenic_western_ghats_sahyadri_india-1017099.jpg!d" -o fixtures/real-photos/forest-1017099.jpg
           file fixtures/real-photos/*.jpg
+      - name: Download diverse CC0 category fixtures
+        run: |
+          cd "$RUNNER_TEMP/m9-real-photo"
+          mkdir -p fixtures/diverse-photos
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/9a/82/boy_portrait_child_teenager_teen_head_face_hair-1238926.jpg!d" -o fixtures/diverse-photos/portrait-1238926.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/37/8c/businessman_businessperson_man_male_portrait_indian_suit_elegant-947420.jpg!d" -o fixtures/diverse-photos/portrait-947420.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/images/b0/81/18ab2f4cff5c1d389309f2b4b632-1449339.jpg!d" -o fixtures/diverse-photos/object-camera-1449339.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/0c/f9/still_life_perfumes_rose_petals_pearl_necklace-746054.jpg!d" -o fixtures/diverse-photos/object-perfume-746054.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/dd/d8/blogging_computer_desk_notebook_notes_pen_writing-971343.jpg!d" -o fixtures/diverse-photos/document-desk-971343.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/b0/a1/notebook_pen_table_blank_desk_paper_note_white-546963.jpg!d" -o fixtures/diverse-photos/document-notebook-546963.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/ef/44/living_room_sofa_lounge_settee_interior_room_furniture-1235207.jpg!d" -o fixtures/diverse-photos/indoor-room-1235207.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/3e/49/living_room_interior_design_sofa_wood_floor_living_room_interior_residential_lifestyle_decoration-559753.jpg!d" -o fixtures/diverse-photos/indoor-room-559753.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/54/87/western_ghats_sharavati_river_valley_mountains_dense_forest_evergreen_forest_karnataka-1102826.jpg!d" -o fixtures/diverse-photos/outdoor-western-ghats-1102826.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/97/6d/photo-90475.jpg!d" -o fixtures/diverse-photos/outdoor-street-90475.jpg
+          file fixtures/diverse-photos/*.jpg
+      - name: Run diverse category, crop sweep and ORB-SIFT diagnostics
+        run: |
+          cp "$GITHUB_WORKSPACE/scripts/m9-image-similarity-benchmark.mjs" .
+          cp "$GITHUB_WORKSPACE/scripts/m9-sift-real-photo-benchmark.mjs" .
+          cp "$GITHUB_WORKSPACE/scripts/m9-diverse-photo-benchmark.mjs" .
+          node m9-diverse-photo-benchmark.mjs
+        working-directory: ${{ runner.temp }}/m9-real-photo
+      - name: Upload diverse category and crop sweep results
+        uses: actions/upload-artifact@v4
+        with:
+          name: m9-diverse-photo-orb-sift-results
+          path: ${{ runner.temp }}/m9-real-photo/m9-diverse-photo-results.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Run real-photo positive and hard-negative diagnostics
         run: |
           cp "$GITHUB_WORKSPACE/scripts/m9-image-similarity-benchmark.mjs" .
