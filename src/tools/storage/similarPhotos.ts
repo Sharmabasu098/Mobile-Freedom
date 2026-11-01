@@ -423,9 +423,11 @@ function compareHashSets(
   const secondInFirst = directionalMatch(first, second);
 
 
-  if (!firstInSecond && !secondInFirst) return undefined;
-  if (!firstInSecond) return secondInFirst;
-  if (!secondInFirst) return firstInSecond;
+  // Require reciprocal evidence: each image's whole-image descriptor
+  // must match a geometrically compatible region in the other image.
+  // A one-way patch collision is not enough to classify two photos as similar.
+  if (!firstInSecond || !secondInFirst) return undefined;
+
   return firstInSecond.distance <= secondInFirst.distance
     ? firstInSecond
     : secondInFirst;
