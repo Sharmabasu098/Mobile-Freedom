@@ -24,8 +24,8 @@ async function main() {
   const coilDir = `${ROOT}/coil-20-proc`
   const objectPairs = []
   for (const objectId of [1, 2, 3, 4, 5]) {
-    objectPairs.push({ objectId, left: `obj${objectId}__0.png`, right: `obj${objectId}__90.png`, expected: 'same_object_different_view' })
-    objectPairs.push({ objectId, left: `obj${objectId}__0.png`, right: `obj${objectId}__180.png`, expected: 'same_object_different_view' })
+    objectPairs.push({ objectId, left: `obj${objectId}__0.png`, right: `obj${objectId}__18.png`, expected: 'same_object_different_view' })
+    objectPairs.push({ objectId, left: `obj${objectId}__0.png`, right: `obj${objectId}__36.png`, expected: 'same_object_different_view' })
   }
   for (const [leftId, rightId] of [[1,2],[1,3],[1,4],[1,5],[2,3],[2,4],[2,5],[3,4],[3,5],[4,5]]) {
     objectPairs.push({ objectId: null, left: `obj${leftId}__0.png`, right: `obj${rightId}__0.png`, expected: 'different_object' })
