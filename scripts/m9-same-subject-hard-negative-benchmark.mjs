@@ -8,6 +8,25 @@ import { siftSimilarity } from './m9-sift-real-photo-benchmark.mjs'
 const ROOT = 'fixtures/same-subject'
 const results = []
 
+async function fetchWithRetry(url, label, attempts = 4) {
+  let lastError
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(20000) })
+      if (!response.ok) throw new Error(`${label}: HTTP ${response.status}`)
+      return response
+    } catch (error) {
+      lastError = error
+      console.warn('M9_NETWORK_RETRY', JSON.stringify({
+        label, attempt, attempts,
+        error: error instanceof Error ? error.message : String(error)
+      }))
+      if (attempt < attempts) await new Promise(resolve => setTimeout(resolve, attempt * 1500))
+    }
+  }
+  throw new Error(`${label} failed after ${attempts} attempts: ${lastError instanceof Error ? lastError.message : String(lastError)}`)
+}
+
 function errorDetails(error) {
   if (error instanceof Error) return { name: error.name, message: error.message, stack: error.stack }
   return { name: typeof error, message: String(error), value: error }
@@ -94,8 +113,7 @@ async function main() {
   }
 
   // LFW View 1 development test pairs. Person names are used only to fetch fixtures and never logged.
-  const pairsResponse = await fetch('https://vis-www.cs.umass.edu/lfw/pairsDevTest.txt')
-  if (!pairsResponse.ok) throw new Error(`LFW pair protocol download failed: HTTP ${pairsResponse.status}`)
+  const pairsResponse = await fetchWithRetry('https://vis-www.cs.umass.edu/lfw/pairsDevTest.txt', 'LFW pair protocol download')
   const pairsText = await pairsResponse.text()
   const lines = pairsText.trim().split(/\r?\n/)
   const counts = lines[0].trim().split(/\s+/).map(Number)
@@ -113,8 +131,7 @@ async function main() {
     const localPath = `${faceDir}/${fileName}`
     if (!imageCache.has(fileName)) {
       const url = `https://vis-www.cs.umass.edu/lfw/${person}/${fileName}`
-      const response = await fetch(url)
-      if (!response.ok) throw new Error(`LFW image download failed: HTTP ${response.status}`)
+      const response = await fetchWithRetry(url, `LFW image download ${fileName}`)
       const bytes = new Uint8Array(await response.arrayBuffer())
       await writeFile(localPath, bytes)
       imageCache.set(fileName, localPath)
