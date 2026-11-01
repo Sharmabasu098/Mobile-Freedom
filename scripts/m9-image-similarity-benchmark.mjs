@@ -138,6 +138,20 @@ async function similarity(cv, leftFixture, rightFixture) {
   const left = await describe(cv, leftFixture)
   const right = await describe(cv, rightFixture)
   const matcher = new BFMatcher(NORM_HAMMING, false)
+  const matcherApi = []
+  let matcherPrototype = matcher
+  while (matcherPrototype && matcherPrototype !== Object.prototype) {
+    matcherApi.push({
+      level: matcherPrototype === matcher ? 'instance' : matcherPrototype.constructor?.name ?? 'prototype',
+      properties: Object.getOwnPropertyNames(matcherPrototype).sort()
+    })
+    matcherPrototype = Object.getPrototypeOf(matcherPrototype)
+  }
+  console.log('M9_MATCHER_INSTANCE_API', JSON.stringify({
+    knnMatchType: typeof matcher.knnMatch,
+    matchType: typeof matcher.match,
+    methods: matcherApi
+  }))
   const matches = new (await import('@banou/opencv-wasm')).DMatchVector()
   try {
     matcher.match(left.descriptors, right.descriptors, matches)
