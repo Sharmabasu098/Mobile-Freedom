@@ -341,15 +341,58 @@ function compareHashSets(
       .sort((a, b) => a.distance - b.distance);
 
     const independent: typeof candidates = [];
+    const candidateReport = candidates.slice(0, 8).map(candidate => ({
+      distance: candidate.distance,
+      x: Number(candidate.region.x.toFixed(3)),
+      y: Number(candidate.region.y.toFixed(3)),
+      width: Number(candidate.region.width.toFixed(3)),
+      height: Number(candidate.region.height.toFixed(3)),
+      centerX: Number(candidate.region.centerX.toFixed(3)),
+      centerY: Number(candidate.region.centerY.toFixed(3)),
+    }));
+
     for (const candidate of candidates) {
-      const separated = independent.every(existing => {
+      const comparisons = independent.map(existing => {
         const dx = candidate.region.centerX - existing.region.centerX;
         const dy = candidate.region.centerY - existing.region.centerY;
-        return Math.hypot(dx, dy) >= MIN_CENTER_SEPARATION;
+        return Math.hypot(dx, dy);
       });
+      const separated = comparisons.every(distance =>
+        distance >= MIN_CENTER_SEPARATION
+      );
       if (separated) independent.push(candidate);
       if (independent.length >= MIN_INDEPENDENT_MATCHES) break;
     }
+
+    const selectedReport = independent.map((candidate, index) => {
+      const previous = independent.slice(0, index);
+      const nearestDistance = previous.length
+        ? Math.min(...previous.map(existing => Math.hypot(
+            candidate.region.centerX - existing.region.centerX,
+            candidate.region.centerY - existing.region.centerY,
+          )))
+        : null;
+      return {
+        distance: candidate.distance,
+        x: Number(candidate.region.x.toFixed(3)),
+        y: Number(candidate.region.y.toFixed(3)),
+        width: Number(candidate.region.width.toFixed(3)),
+        height: Number(candidate.region.height.toFixed(3)),
+        centerX: Number(candidate.region.centerX.toFixed(3)),
+        centerY: Number(candidate.region.centerY.toFixed(3)),
+        nearestSelectedCenterDistance: nearestDistance === null
+          ? null
+          : Number(nearestDistance.toFixed(3)),
+      };
+    });
+
+    console.info("[M9 crop evidence]", {
+      wholeImageHash,
+      totalMatchingRegions: candidates.length,
+      bestCandidates: candidateReport,
+      selectedIndependentRegions: selectedReport,
+      requiredCenterSeparation: MIN_CENTER_SEPARATION,
+    });
 
     if (independent.length < MIN_INDEPENDENT_MATCHES) return undefined;
     return {
