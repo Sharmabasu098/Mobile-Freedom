@@ -1,0 +1,53 @@
+name: M9 Real-Photo Similarity Diagnostic
+
+on:
+  push:
+    branches: [m9-banou-opencv-wasm-poc]
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/m9-image-similarity-benchmark.mjs"
+      - "scripts/m9-real-photo-benchmark.mjs"
+      - ".github/workflows/m9-real-photo-benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-photo-benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install pinned isolated diagnostic dependencies
+        run: |
+          mkdir -p "$RUNNER_TEMP/m9-real-photo"
+          cd "$RUNNER_TEMP/m9-real-photo"
+          npm init -y
+          npm install --no-audit --no-fund --save-exact @banou/opencv-wasm@0.0.6 sharp@0.34.5
+          mkdir -p fixtures/real-photos
+      - name: Download CC0 real-photo fixtures
+        run: |
+          cd "$RUNNER_TEMP/m9-real-photo"
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/54/87/western_ghats_sharavati_river_valley_mountains_dense_forest_evergreen_forest_karnataka-1102826.jpg!d" -o fixtures/real-photos/western-ghats-1102826.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/78/f1/western_ghats_sharavati_river_valley_mountains_dense_forest_evergreen_forest_karnataka-968078.jpg!d" -o fixtures/real-photos/western-ghats-968078.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/12/18/western_ghats_mountains_sahyadri_india_karnataka_landscape_wilderness_scenery-1020298.jpg!d" -o fixtures/real-photos/sahyadri-1020298.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/a0/c7/forests_valley_nature_mountains_scenic_western_ghats_sahyadri_india-1017099.jpg!d" -o fixtures/real-photos/forest-1017099.jpg
+          file fixtures/real-photos/*.jpg
+      - name: Run real-photo positive and hard-negative diagnostics
+        run: |
+          cp "$GITHUB_WORKSPACE/scripts/m9-image-similarity-benchmark.mjs" .
+          cp "$GITHUB_WORKSPACE/scripts/m9-real-photo-benchmark.mjs" .
+          node m9-real-photo-benchmark.mjs
+        working-directory: ${{ runner.temp }}/m9-real-photo
+      - name: Upload real-photo diagnostic results
+        uses: actions/upload-artifact@v4
+        with:
+          name: m9-real-photo-diagnostic-results
+          path: ${{ runner.temp }}/m9-real-photo/m9-real-photo-results.json
+          if-no-files-found: error
+          retention-days: 30
