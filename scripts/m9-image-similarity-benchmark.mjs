@@ -4,6 +4,7 @@ import {
   BFMatcher,
   CV_8UC1,
   CV_32FC2,
+  DMatchVectorVector,
   Mat,
   NORM_HAMMING,
   ORB_create,
