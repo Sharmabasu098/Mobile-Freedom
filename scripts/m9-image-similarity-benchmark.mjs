@@ -184,42 +184,55 @@ function toMat(cv, fixture) {
   return mat
 }
 
-async function describe(cv, fixture) {
-  const image = toMat(cv, fixture)
-  const mask = new Mat()
-  const keypoints = new (await import('@banou/opencv-wasm')).KeyPointVector()
-  const descriptors = new Mat()
-  const orb = ORB_create(1200)
+async function describe(cv, fixture, side = 'unknown') {
+  const mark = (stage, details = {}) => console.log('M9_ORB_SIMILARITY_STAGE', JSON.stringify({ side, stage, ...details }))
+  let image, mask, keypoints, descriptors, orb
   try {
+    mark('toMat_start', { width: fixture.width, height: fixture.height, bytes: fixture.data?.length })
+    image = toMat(cv, fixture)
+    mark('toMat_complete', { rows: image.rows, cols: image.cols, type: image.type() })
+    mask = new Mat()
+    keypoints = new (await import('@banou/opencv-wasm')).KeyPointVector()
+    descriptors = new Mat()
+    orb = ORB_create(1200)
+    mark('detectAndCompute_start', { nfeatures: 1200, inputType: image.type() })
     orb.detectAndCompute(image, mask, keypoints, descriptors)
+    mark('detectAndCompute_complete', { keypoints: keypoints.size(), descriptorRows: descriptors.rows, descriptorCols: descriptors.cols, descriptorType: descriptors.type() })
     const points = []
     for (let index = 0; index < keypoints.size(); index++) {
       const point = keypoints.get(index)
-      try {
-        points.push({ x: point.pt.x, y: point.pt.y })
-      } finally {
-        point.delete?.()
-      }
+      try { points.push({ x: point.pt.x, y: point.pt.y }) }
+      finally { point.delete?.() }
     }
-    return { keypoints: keypoints.size(), points, descriptors: descriptors.mat_clone() }
+    mark('keypoint_vector_read_complete', { points: points.length })
+    const cloned = descriptors.mat_clone()
+    mark('descriptor_clone_complete', { rows: cloned.rows, cols: cloned.cols, type: cloned.type() })
+    return { keypoints: keypoints.size(), points, descriptors: cloned }
+  } catch (error) {
+    mark('error', { name: error?.name, message: String(error?.message ?? error), stack: error?.stack })
+    throw error
   } finally {
-    orb.delete()
-    keypoints.delete()
-    mask.delete()
-    image.delete()
-    descriptors.delete()
+    mark('cleanup_start')
+    orb?.delete()
+    keypoints?.delete()
+    mask?.delete()
+    image?.delete()
+    descriptors?.delete()
+    mark('cleanup_complete')
   }
 }
 
 export async function similarity(cv, leftFixture, rightFixture) {
-  const left = await describe(cv, leftFixture)
-  const right = await describe(cv, rightFixture)
+  const left = await describe(cv, leftFixture, 'left')
+  const right = await describe(cv, rightFixture, 'right')
   const matcher = new BFMatcher(NORM_HAMMING, false)
   const knnMatches = new DMatchVectorVector()
   try {
+    console.log('M9_ORB_SIMILARITY_STAGE', JSON.stringify({ stage: 'matcher_start', norm: NORM_HAMMING, crossCheck: false, k: 2, leftRows: left.descriptors.rows, rightRows: right.descriptors.rows }))
     // OpenCV DescriptorMatcher::knnMatch(query, train, matches, k).
     // Keep k=2 so Lowe's ratio test can compare the nearest and second-nearest candidate.
     matcher.knnMatch(left.descriptors, right.descriptors, knnMatches, 2)
+    console.log('M9_ORB_SIMILARITY_STAGE', JSON.stringify({ stage: 'matcher_complete', queryCount: knnMatches.size() }))
     let accepted = 0
     let ratioCandidates = 0
     let bestDistanceTotal = 0
@@ -227,6 +240,7 @@ export async function similarity(cv, leftFixture, rightFixture) {
     const toPoints = []
 
     for (let index = 0; index < knnMatches.size(); index++) {
+      console.log('M9_ORB_SIMILARITY_STAGE', JSON.stringify({ stage: 'knn_pair_get_start', index }))
       const pair = knnMatches.get(index)
       try {
         if (pair.size() < 2) continue
@@ -238,6 +252,7 @@ export async function similarity(cv, leftFixture, rightFixture) {
           if (!(best.distance < 0.9 * second.distance)) continue
           accepted++
           bestDistanceTotal += best.distance
+          console.log('M9_ORB_SIMILARITY_STAGE', JSON.stringify({ stage: 'match_indices', queryIdx: best.queryIdx, trainIdx: best.trainIdx, leftPointCount: left.points.length, rightPointCount: right.points.length }))
           const from = left.points[best.queryIdx]
           const to = right.points[best.trainIdx]
           if (from && to) {
@@ -265,7 +280,9 @@ export async function similarity(cv, leftFixture, rightFixture) {
       try {
         fromMat.data32F.set(fromPoints)
         toMat.data32F.set(toPoints)
+        console.log('M9_ORB_SIMILARITY_STAGE', JSON.stringify({ stage: 'homography_start', count: fromPoints.length / 2, threshold: 4 }))
         homography = findHomography(fromMat, toMat, RANSAC, 4, inlierMask)
+        console.log('M9_ORB_SIMILARITY_STAGE', JSON.stringify({ stage: 'homography_complete', empty: !homography || homography.empty(), maskBytes: inlierMask.data.length }))
         if (homography && !homography.empty()) {
           inliers = countNonZero(inlierMask)
           inlierRatio = inliers / (fromPoints.length / 2)
