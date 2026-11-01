@@ -40,6 +40,7 @@ export type SimilarPhotoErrorHandler = (
 
 interface RegionHash {
   hash: string;
+  averageHash: string;
   x: number;
   y: number;
   width: number;
@@ -53,6 +54,7 @@ interface ImageHashSet {
   width: number;
   height: number;
   wholeImageHash: string;
+  wholeImageAverageHash: string;
   regions: RegionHash[];
 }
 
@@ -150,32 +152,52 @@ export function calculateHashDistance(
   return distance;
 }
 
-function readHash(
-  context: CanvasRenderingContext2D,
-): string {
-  const imageData = context.getImageData(
-    0,
-    0,
-    HASH_WIDTH,
-    HASH_HEIGHT,
-  );
+function readGrayscalePixels(context: CanvasRenderingContext2D): number[] {
+  const imageData = context.getImageData(0, 0, HASH_WIDTH, HASH_HEIGHT);
   const grayscale: number[] = [];
-
   for (let index = 0; index < imageData.data.length; index += 4) {
-    grayscale.push(
-      Math.round(
-        0.299 * imageData.data[index] +
-        0.587 * imageData.data[index + 1] +
-        0.114 * imageData.data[index + 2],
-      ),
-    );
+    grayscale.push(Math.round(
+      0.299 * imageData.data[index] +
+      0.587 * imageData.data[index + 1] +
+      0.114 * imageData.data[index + 2],
+    ));
   }
+  return grayscale;
+}
 
-  return calculateDifferenceHashFromPixels(
-    grayscale,
-    HASH_WIDTH,
-    HASH_HEIGHT,
-  );
+function calculateAverageHash(pixels: number[]): string {
+  if (pixels.length !== HASH_WIDTH * HASH_HEIGHT) {
+    throw new Error("Average hash requires exactly 72 grayscale pixels.");
+  }
+  const average = pixels.reduce((sum, value) => sum + value, 0) / pixels.length;
+  return pixels.map(value => value >= average ? "1" : "0").join("");
+}
+
+function calculateAverageHashDistance(first: string, second: string): number {
+  if (first.length !== 72 || second.length !== 72 ||
+      !/^[01]+$/.test(first) || !/^[01]+$/.test(second)) {
+    throw new Error("Both average hashes must contain exactly 72 binary digits.");
+  }
+  let distance = 0;
+  for (let index = 0; index < 72; index += 1) {
+    if (first[index] !== second[index]) distance += 1;
+  }
+  return distance;
+}
+
+function readDescriptors(context: CanvasRenderingContext2D): {
+  differenceHash: string;
+  averageHash: string;
+} {
+  const grayscale = readGrayscalePixels(context);
+  return {
+    differenceHash: calculateDifferenceHashFromPixels(grayscale),
+    averageHash: calculateAverageHash(grayscale),
+  };
+}
+
+function readHash(context: CanvasRenderingContext2D): string {
+  return readDescriptors(context).differenceHash;
 }
 
 function validateImageFile(file: File): void {
@@ -232,7 +254,9 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
 
     // Keep the whole-image descriptor separate from positioned regions.
     context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
-    const wholeImageHash = readHash(context);
+    const wholeImageDescriptors = readDescriptors(context);
+    const wholeImageHash = wholeImageDescriptors.differenceHash;
+    const wholeImageAverageHash = wholeImageDescriptors.averageHash;
     const regions: RegionHash[] = [];
 
     // Multi-scale windows sampled on a denser 8-step grid cover centered,
@@ -264,8 +288,10 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
               HASH_HEIGHT,
             );
 
+            const regionDescriptors = readDescriptors(context);
             regions.push({
-              hash: readHash(context),
+              hash: regionDescriptors.differenceHash,
+              averageHash: regionDescriptors.averageHash,
               x: sourceX / bitmap.width,
               y: sourceY / bitmap.height,
               width: regionWidth / bitmap.width,
@@ -283,6 +309,7 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
       width: bitmap.width,
       height: bitmap.height,
       wholeImageHash,
+      wholeImageAverageHash,
       regions,
     };
   } finally {
@@ -361,6 +388,9 @@ function compareHashSets(
   if (smallerArea / largerArea < 0.08) return undefined;
 
   const MAX_RELATIVE_ASPECT_ERROR = 0.04;
+  // A second, differently constructed descriptor reduces accidental
+  // dHash-only matches while remaining tolerant of global brightness shifts.
+  const MAX_AVERAGE_HASH_DISTANCE = 12;
 
   const directionalMatch = (
     candidateImage: ImageHashSet,
@@ -377,12 +407,17 @@ function compareHashSets(
         return {
           region,
           distance: calculateHashDistance(candidateImage.wholeImageHash, region.hash),
+          averageDistance: calculateAverageHashDistance(
+            candidateImage.wholeImageAverageHash,
+            region.averageHash,
+          ),
           regionAspect,
           relativeAspectError,
         };
       })
       .filter(candidate =>
         candidate.distance <= maxDistance &&
+        candidate.averageDistance <= MAX_AVERAGE_HASH_DISTANCE &&
         candidate.relativeAspectError <= MAX_RELATIVE_ASPECT_ERROR
       )
       .sort((a, b) =>
@@ -390,9 +425,8 @@ function compareHashSets(
         a.relativeAspectError - b.relativeAspectError
       );
 
-    // One strong descriptor can be sufficient only when its pixel geometry
-    // agrees with the candidate crop's aspect ratio. Position is retained
-    // for diagnostics and bounded to the source image by construction.
+    // A crop candidate must match both dHash and average-threshold hash,
+    // with compatible pixel geometry. Position is retained for diagnostics.
     const best = candidates[0];
     if (!best) return undefined;
 
@@ -406,6 +440,7 @@ function compareHashSets(
       spatiallyIndependentRegions: independentCandidates.length,
       bestMatches: independentCandidates.slice(0, 5).map(match => ({
         distance: match.distance,
+        averageDistance: match.averageDistance,
         x: Number(match.region.x.toFixed(3)),
         y: Number(match.region.y.toFixed(3)),
         width: Number(match.region.width.toFixed(3)),
@@ -423,11 +458,12 @@ function compareHashSets(
   const secondInFirst = directionalMatch(first, second);
 
 
-  // Require reciprocal evidence: each image's whole-image descriptor
-  // must match a geometrically compatible region in the other image.
-  // A one-way patch collision is not enough to classify two photos as similar.
-  if (!firstInSecond || !secondInFirst) return undefined;
-
+  // Crop matching is intentionally directional: a crop should match a
+  // region of its parent, but the full parent need not match a region of
+  // the smaller crop. Two independent descriptors guard each direction.
+  if (!firstInSecond && !secondInFirst) return undefined;
+  if (!firstInSecond) return secondInFirst;
+  if (!secondInFirst) return firstInSecond;
   return firstInSecond.distance <= secondInFirst.distance
     ? firstInSecond
     : secondInFirst;
