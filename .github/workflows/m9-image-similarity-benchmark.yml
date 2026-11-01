@@ -1,0 +1,37 @@
+name: M9 Image Similarity Benchmark (Diagnostic)
+
+on:
+  push:
+    branches: [m9-banou-opencv-wasm-poc]
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/m9-image-similarity-benchmark.mjs"
+      - ".github/workflows/m9-image-similarity-benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image-benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install pinned OpenCV in isolated temporary consumer
+        run: |
+          mkdir -p "$RUNNER_TEMP/m9-image-benchmark"
+          cd "$RUNNER_TEMP/m9-image-benchmark"
+          npm init -y
+          npm install --no-audit --no-fund --save-exact @banou/opencv-wasm@0.0.6
+          cp "$GITHUB_WORKSPACE/scripts/m9-image-similarity-benchmark.mjs" ./benchmark.mjs
+      - name: Run A1-A7 diagnostic fixtures
+        env:
+          NODE_PATH: ${{ runner.temp }}/m9-image-benchmark/node_modules
+        run: |
+          cd "$RUNNER_TEMP/m9-image-benchmark"
+          node benchmark.mjs
