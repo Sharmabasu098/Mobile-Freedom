@@ -57,10 +57,15 @@ async function runAlgorithm(name, fn, left, right, pairLabel) {
 }
 
 async function compare(left, right, pairLabel) {
-  const [orb, sift] = await Promise.all([
-    runAlgorithm('ORB', async (a, b) => similarity(null, a, b), left, right, pairLabel),
-    runAlgorithm('SIFT', siftSimilarity, left, right, pairLabel)
-  ])
+  // OpenCV WASM shares one native heap/runtime. Do not invoke two native
+  // pipelines concurrently: overlapping Embind calls can surface opaque
+  // numeric WASM exceptions (observed on COIL-03).
+  const orb = await runAlgorithm(
+    'ORB', async (a, b) => similarity(null, a, b), left, right, pairLabel
+  )
+  const sift = await runAlgorithm(
+    'SIFT', siftSimilarity, left, right, pairLabel
+  )
   return { orb, sift }
 }
 
