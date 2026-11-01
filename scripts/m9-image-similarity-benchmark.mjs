@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { appendFile, writeFile } from 'node:fs/promises'
 import {
   BFMatcher,
   CV_8UC1,
@@ -174,6 +175,27 @@ async function main() {
   // It must expose scores for calibration; it does not approve M9 or merge the engine.
   assert.equal(results.length, 7)
   assert.ok(results.every(result => Number.isFinite(result.score)))
+  await writeFile('m9-image-similarity-results.json', JSON.stringify({
+    benchmark: 'synthetic-diagnostic-v1',
+    generatedAt: new Date().toISOString(),
+    results
+  }, null, 2) + '\n')
+  const rows = results.map(result =>
+    '| ' + result.name + ' | ' + result.expected + ' | ' + result.score.toFixed(4) + ' | ' + result.acceptedMatches + ' | ' + result.leftKeypoints + '/' + result.rightKeypoints + ' |'
+  )
+  const summary = [
+    '## M9 A1-A7 Image Similarity Diagnostic',
+    '',
+    '> Synthetic diagnostic only. These scores are not a production duplicate threshold and do not establish M9 acceptance.',
+    '',
+    '| Case | Expected | Score | Accepted matches | Keypoints L/R |',
+    '|---|---|---:|---:|---:|',
+    ...rows,
+    '',
+    'Real-photo and Android validation remain required.',
+    ''
+  ].join('\n')
+  if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, summary)
   console.log('M9_IMAGE_BENCHMARK_DIAGNOSTIC_PASS')
 }
 
