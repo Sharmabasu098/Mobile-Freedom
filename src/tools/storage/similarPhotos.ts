@@ -286,9 +286,11 @@ export async function calculateImageDifferenceHash(
 /**
  * Finds similar-photo candidates using bidirectional region matching.
  *
- * A match must be supported by at least two distinct descriptors in
- * each direction. This reduces accidental one-patch matches. It remains
- * a heuristic and is not proof of identity.
+ * A match must be supported by at least one sampled region in BOTH
+ * directions: each image's whole-image hash must match a region from
+ * the other image. A one-way isolated patch is not sufficient evidence.
+ * A whole-image hash match alone is never sufficient. This remains a
+ * heuristic and is not proof of identity.
  */
 function compareHashSets(
   first: ImageHashSet,
@@ -321,9 +323,8 @@ function compareHashSets(
       }
     }
 
-    // A single region can be valid crop evidence, but it must be
-    // corroborated by the reverse direction below. A whole-image hash
-    // match alone is never accepted because only sampled regions count.
+    // One region is enough in this direction only when the reverse
+    // direction independently confirms it.
     if (matchedRegions < 1) return undefined;
 
     return { distance: bestDistance, matches: matchedRegions };
@@ -335,10 +336,9 @@ function compareHashSets(
   // Cropping and resizing can make the cropped file's pixel dimensions
   // larger than the original even though it contains a smaller field of
   // view. Therefore do not infer crop direction from pixel area alone.
-  // Accept region evidence in either direction, but never accept a
-  // whole-image hash match by itself.
-  if (!firstInSecond) return secondInFirst;
-  if (!secondInFirst) return firstInSecond;
+  // Require reciprocal evidence. Do not fall back to a one-way match:
+  // one accidental region in only one image is not enough to form a pair.
+  if (!firstInSecond || !secondInFirst) return undefined;
 
   return firstInSecond.distance <= secondInFirst.distance
     ? firstInSecond
