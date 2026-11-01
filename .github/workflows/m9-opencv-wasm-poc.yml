@@ -1,0 +1,35 @@
+name: M9 OpenCV WASM Proof of Concept
+
+on:
+  push:
+    branches:
+      - m9-opencv-wasm-poc
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  opencv-wasm-api-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install candidate in isolated temporary project
+        run: |
+          mkdir -p "$RUNNER_TEMP/m9-opencv-poc"
+          cd "$RUNNER_TEMP/m9-opencv-poc"
+          npm init -y
+          npm install --no-audit --no-fund @techstark/opencv-js@5.0.0-release.1
+          cp "$GITHUB_WORKSPACE/scripts/m9-opencv-wasm-poc.mjs" ./poc.mjs
+      - name: Check ORB, BFMatcher, RANSAC, WASM initialization and lazy loader
+        run: |
+          cd "$RUNNER_TEMP/m9-opencv-poc"
+          node ./poc.mjs
+      - name: Report package footprint
+        run: |
+          du -h "$RUNNER_TEMP/m9-opencv-poc/node_modules/@techstark/opencv-js/dist/opencv.js"
+          du -sh "$RUNNER_TEMP/m9-opencv-poc/node_modules/@techstark/opencv-js"
