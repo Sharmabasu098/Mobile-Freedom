@@ -1,4 +1,5 @@
 name: M9 OpenCV WASM Proof of Concept
+# POC_TRIGGER_CHECK: execute isolated ORB and RANSAC runtime validation on branch updates.
 
 on:
   push:
