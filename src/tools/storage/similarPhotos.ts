@@ -429,10 +429,11 @@ function compareHashSets(
     // with compatible pixel geometry. Position is retained for diagnostics.
     const independentCandidates = selectSpatiallyIndependentRegions(candidates);
 
-    // Do not accept a crop based on one isolated perceptual-hash match.
-    // Require corroboration from a second, spatially separate source area.
-    if (independentCandidates.length < 2) return undefined;
-    const best = independentCandidates[0];
+    // The dHash and average-threshold hash must both agree for every
+    // accepted region. Spatially independent counts remain diagnostic;
+    // do not require multiple separate regions, which rejects genuine crops.
+    const best = candidates[0];
+    if (!best) return undefined;
 
     console.info("[M9 crop geometry evidence]", {
       candidate: candidateImage.file.name,
@@ -453,7 +454,7 @@ function compareHashSets(
       })),
     });
 
-    return { distance: best.distance, matches: independentCandidates.length };
+    return { distance: best.distance, matches: 1 };
   };
 
   const firstInSecond = directionalMatch(second, first);
