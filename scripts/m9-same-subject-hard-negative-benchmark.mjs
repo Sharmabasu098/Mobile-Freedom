@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir, readFile, writeFile, appendFile } from 'node:fs/promises'
 import sharp from 'sharp'
 import { initOpenCV } from '@banou/opencv-wasm'
-import { similarity } from './m9-image-similarity-benchmark.mjs'
+import { similarity, diagnoseCoil03 } from './m9-image-similarity-benchmark.mjs'
 import { siftSimilarity } from './m9-sift-real-photo-benchmark.mjs'
 
 const ROOT = 'fixtures/same-subject'
@@ -98,6 +98,12 @@ async function main() {
 
   // COIL-20: same physical object photographed at different viewing angles.
   const coilDir = `${ROOT}/coil-20-proc`
+  // Run the known COIL-03 failure in isolation before the full pair sweep.
+  const coil03Diagnostic = await diagnoseCoil03(
+    await decode(`${coilDir}/obj2__0.png`),
+    await decode(`${coilDir}/obj2__18.png`)
+  )
+  console.log('M9_COIL03_DIAGNOSTIC_RESULT', JSON.stringify(coil03Diagnostic))
   const objectPairs = []
   for (const objectId of [1, 2, 3, 4, 5]) {
     objectPairs.push({ objectId, left: `obj${objectId}__0.png`, right: `obj${objectId}__18.png`, expected: 'same_object_different_view' })
@@ -193,6 +199,7 @@ async function main() {
     protocol: 'diagnostic-only; no production thresholds; LFW View 1 development test pairs',
     counts: expectedCounts,
     statusCounts,
+    coil03Diagnostic,
     metrics: 'ORB/SIFT RANSAC inliers and matcher diagnostics; per-algorithm failures retained',
     results
   }
