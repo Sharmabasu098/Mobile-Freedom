@@ -38,7 +38,7 @@ async function describeSift(fixture) {
   }
 }
 
-async function siftSimilarity(leftFixture, rightFixture) {
+export async function siftSimilarity(leftFixture, rightFixture) {
   const left = await describeSift(leftFixture)
   const right = await describeSift(rightFixture)
   const matcher = new BFMatcher(NORM_L2, false)
@@ -136,4 +136,6 @@ async function main() {
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, summary)
   console.log('M9_SIFT_REAL_PHOTO_DIAGNOSTIC_PASS')
 }
-main().catch(error => { console.error('M9_SIFT_REAL_PHOTO_DIAGNOSTIC_FAIL'); console.error(error?.stack ?? error); process.exitCode = 1 })
+if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+  main().catch(error => { console.error('M9_SIFT_REAL_PHOTO_DIAGNOSTIC_FAIL'); console.error(error?.stack ?? error); process.exitCode = 1 })
+}
