@@ -32,7 +32,7 @@ async function main() {
     objects: ['object-camera-1449339.jpg', 'object-perfume-746054.jpg'],
     documents: ['document-desk-971343.jpg', 'document-notebook-546963.jpg'],
     indoor: ['indoor-room-1235207.jpg', 'indoor-room-559753.jpg'],
-    outdoor: ['outdoor-western-ghats-1102826.jpg', 'outdoor-street-90475.jpg']
+    outdoor: ['outdoor-western-ghats-1102826.jpg', 'outdoor-street-90475.jpg', 'outdoor-rocky-mountains-489986.jpg', 'outdoor-lake-mountains-1161018.jpg']
   }
   const originals = new Map()
   for (const [category, names] of Object.entries(categories)) {
@@ -56,8 +56,12 @@ async function main() {
     }
   }
   const pairs = []
-  for (const [category, names] of Object.entries(categories)) {
-    pairs.push({ category, left: names[0], right: names[1], pairType: 'same_category_hard_negative' })
+  for (const [category, categoryNames] of Object.entries(categories)) {
+    for (let i = 0; i < categoryNames.length; i++) {
+      for (let j = i + 1; j < categoryNames.length; j++) {
+        pairs.push({ category, left: categoryNames[i], right: categoryNames[j], pairType: 'same_category_hard_negative' })
+      }
+    }
   }
   const names = [...originals.keys()]
   for (let i = 0; i < names.length; i++) {
@@ -78,10 +82,10 @@ async function main() {
   const cropResults = results.filter(r => r.case === 'center_crop')
   const negativeResults = results.filter(r => r.case === 'different_photos')
   assert.equal(cropResults.length, 40)
-  assert.ok(negativeResults.length >= 40)
+  assert.equal(negativeResults.length, 66, 'Expected all 66 unique negative pairs for 12 distinct photos')
   assert.ok(results.every(r => Number.isFinite(r.orb.inliers) && Number.isFinite(r.sift.inliers)))
   const summary = {
-    benchmark: 'diverse-real-photo-orb-sift-v1',
+    benchmark: 'diverse-real-photo-orb-sift-v2',
     categories: Object.fromEntries(Object.entries(categories).map(([k,v]) => [k,v.length])),
     cropFractions: [0.5,0.6,0.7,0.8],
     totalCropCases: cropResults.length,
@@ -96,7 +100,7 @@ async function main() {
   const report = [
     '## M9 Diverse Real-Photo ORB vs SIFT Diagnostic',
     '',
-    '> 5 categories, 10 CC0 photos, center crop retention ratios 50/60/70/80%, same-category and cross-category negatives. Inlier counts are diagnostics, not a production classifier.',
+    '> 5 categories, 12 CC0 photos including a four-image outdoor landscape hard-negative group, center crop retention ratios 50/60/70/80%, exhaustive same-category and cross-category negatives. Inlier counts are diagnostics, not a production classifier.',
     '',
     '| Test | Category | Pair / Source | Crop retained | ORB inliers | SIFT inliers | Expected |',
     '|---|---|---|---:|---:|---:|---|', ...rows,
