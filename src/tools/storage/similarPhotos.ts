@@ -61,6 +61,41 @@ interface CropMatch {
   matches: number;
 }
 
+/** Intersection-over-union for two normalized source-image windows. */
+function regionIntersectionOverUnion(first: RegionHash, second: RegionHash): number {
+  const left = Math.max(first.x, second.x);
+  const top = Math.max(first.y, second.y);
+  const right = Math.min(first.x + first.width, second.x + second.width);
+  const bottom = Math.min(first.y + first.height, second.y + second.height);
+  const intersection = Math.max(0, right - left) * Math.max(0, bottom - top);
+  const firstArea = first.width * first.height;
+  const secondArea = second.width * second.height;
+  const union = firstArea + secondArea - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+/**
+ * Greedy non-maximum suppression: overlapping windows describing the
+ * same source area count as one spatial evidence cluster.
+ */
+function selectSpatiallyIndependentRegions<T extends { region: RegionHash }>(
+  candidates: T[],
+  maximumOverlap = 0.25,
+): T[] {
+  const selected: T[] = [];
+  for (const candidate of candidates) {
+    if (
+      selected.every(
+        accepted =>
+          regionIntersectionOverUnion(candidate.region, accepted.region) <= maximumOverlap,
+      )
+    ) {
+      selected.push(candidate);
+    }
+  }
+  return selected;
+}
+
 export function calculateDifferenceHashFromPixels(
   pixels: ArrayLike<number>,
   width = HASH_WIDTH,
@@ -361,20 +396,24 @@ function compareHashSets(
     const best = candidates[0];
     if (!best) return undefined;
 
+    const independentCandidates = selectSpatiallyIndependentRegions(candidates);
+
     console.info("[M9 crop geometry evidence]", {
       candidate: candidateImage.file.name,
+      source: sourceImage.file.name,
       wholeImageHash: candidateImage.wholeImageHash,
       matchingRegions: candidates.length,
-      selected: {
-        distance: best.distance,
-        x: Number(best.region.x.toFixed(3)),
-        y: Number(best.region.y.toFixed(3)),
-        width: Number(best.region.width.toFixed(3)),
-        height: Number(best.region.height.toFixed(3)),
-        regionAspect: Number(best.regionAspect.toFixed(4)),
+      spatiallyIndependentRegions: independentCandidates.length,
+      bestMatches: independentCandidates.slice(0, 5).map(match => ({
+        distance: match.distance,
+        x: Number(match.region.x.toFixed(3)),
+        y: Number(match.region.y.toFixed(3)),
+        width: Number(match.region.width.toFixed(3)),
+        height: Number(match.region.height.toFixed(3)),
+        regionAspect: Number(match.regionAspect.toFixed(4)),
         candidateAspect: Number(candidateAspect.toFixed(4)),
-        relativeAspectError: Number(best.relativeAspectError.toFixed(4)),
-      },
+        relativeAspectError: Number(match.relativeAspectError.toFixed(4)),
+      })),
     });
 
     return { distance: best.distance, matches: 1 };
