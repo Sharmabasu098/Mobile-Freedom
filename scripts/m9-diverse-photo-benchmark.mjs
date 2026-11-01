@@ -81,7 +81,7 @@ async function main() {
   }
   const cropResults = results.filter(r => r.case === 'center_crop')
   const negativeResults = results.filter(r => r.case === 'different_photos')
-  assert.equal(cropResults.length, 40)
+  assert.equal(cropResults.length, 48, 'Expected 4 crop ratios for each of 12 distinct photos')
   assert.equal(negativeResults.length, 66, 'Expected all 66 unique negative pairs for 12 distinct photos')
   assert.ok(results.every(r => Number.isFinite(r.orb.inliers) && Number.isFinite(r.sift.inliers)))
   const summary = {
