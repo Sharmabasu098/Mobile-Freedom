@@ -7,12 +7,12 @@
  */
 
 export const MAX_SIMILARITY_FILE_SIZE_BYTES = 20 * 1024 * 1024;
-export const DEFAULT_SIMILARITY_DISTANCE = 8;
+export const DEFAULT_SIMILARITY_DISTANCE = 4;
 
 const HASH_WIDTH = 9;
 const HASH_HEIGHT = 8;
-const REGION_WIDTH_SCALES = [0.5, 0.6, 0.65, 0.75, 0.8, 0.9] as const;
-const REGION_HEIGHT_SCALES = [0.5, 0.6, 0.65, 0.75, 0.78, 0.8, 0.9] as const;
+const REGION_WIDTH_SCALES = [0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.75, 0.8, 0.9, 0.95] as const;
+const REGION_HEIGHT_SCALES = [0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.75, 0.78, 0.8, 0.9, 0.95] as const;
 const REGION_GRID_STEPS = 8;
 
 const SUPPORTED_SIMILARITY_TYPES = new Set([
@@ -38,16 +38,64 @@ export type SimilarPhotoErrorHandler = (
   error: unknown,
 ) => void;
 
+interface RegionHash {
+  hash: string;
+  averageHash: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  centerX: number;
+  centerY: number;
+}
+
 interface ImageHashSet {
   file: File;
   width: number;
   height: number;
-  hashes: string[];
+  wholeImageHash: string;
+  wholeImageAverageHash: string;
+  regions: RegionHash[];
 }
 
 interface CropMatch {
   distance: number;
   matches: number;
+}
+
+/** Intersection-over-union for two normalized source-image windows. */
+function regionIntersectionOverUnion(first: RegionHash, second: RegionHash): number {
+  const left = Math.max(first.x, second.x);
+  const top = Math.max(first.y, second.y);
+  const right = Math.min(first.x + first.width, second.x + second.width);
+  const bottom = Math.min(first.y + first.height, second.y + second.height);
+  const intersection = Math.max(0, right - left) * Math.max(0, bottom - top);
+  const firstArea = first.width * first.height;
+  const secondArea = second.width * second.height;
+  const union = firstArea + secondArea - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+/**
+ * Greedy non-maximum suppression: overlapping windows describing the
+ * same source area count as one spatial evidence cluster.
+ */
+function selectSpatiallyIndependentRegions<T extends { region: RegionHash }>(
+  candidates: T[],
+  maximumOverlap = 0.25,
+): T[] {
+  const selected: T[] = [];
+  for (const candidate of candidates) {
+    if (
+      selected.every(
+        accepted =>
+          regionIntersectionOverUnion(candidate.region, accepted.region) <= maximumOverlap,
+      )
+    ) {
+      selected.push(candidate);
+    }
+  }
+  return selected;
 }
 
 export function calculateDifferenceHashFromPixels(
@@ -104,32 +152,52 @@ export function calculateHashDistance(
   return distance;
 }
 
-function readHash(
-  context: CanvasRenderingContext2D,
-): string {
-  const imageData = context.getImageData(
-    0,
-    0,
-    HASH_WIDTH,
-    HASH_HEIGHT,
-  );
+function readGrayscalePixels(context: CanvasRenderingContext2D): number[] {
+  const imageData = context.getImageData(0, 0, HASH_WIDTH, HASH_HEIGHT);
   const grayscale: number[] = [];
-
   for (let index = 0; index < imageData.data.length; index += 4) {
-    grayscale.push(
-      Math.round(
-        0.299 * imageData.data[index] +
-        0.587 * imageData.data[index + 1] +
-        0.114 * imageData.data[index + 2],
-      ),
-    );
+    grayscale.push(Math.round(
+      0.299 * imageData.data[index] +
+      0.587 * imageData.data[index + 1] +
+      0.114 * imageData.data[index + 2],
+    ));
   }
+  return grayscale;
+}
 
-  return calculateDifferenceHashFromPixels(
-    grayscale,
-    HASH_WIDTH,
-    HASH_HEIGHT,
-  );
+function calculateAverageHash(pixels: number[]): string {
+  if (pixels.length !== HASH_WIDTH * HASH_HEIGHT) {
+    throw new Error("Average hash requires exactly 72 grayscale pixels.");
+  }
+  const average = pixels.reduce((sum, value) => sum + value, 0) / pixels.length;
+  return pixels.map(value => value >= average ? "1" : "0").join("");
+}
+
+function calculateAverageHashDistance(first: string, second: string): number {
+  if (first.length !== 72 || second.length !== 72 ||
+      !/^[01]+$/.test(first) || !/^[01]+$/.test(second)) {
+    throw new Error("Both average hashes must contain exactly 72 binary digits.");
+  }
+  let distance = 0;
+  for (let index = 0; index < 72; index += 1) {
+    if (first[index] !== second[index]) distance += 1;
+  }
+  return distance;
+}
+
+function readDescriptors(context: CanvasRenderingContext2D): {
+  differenceHash: string;
+  averageHash: string;
+} {
+  const grayscale = readGrayscalePixels(context);
+  return {
+    differenceHash: calculateDifferenceHashFromPixels(grayscale),
+    averageHash: calculateAverageHash(grayscale),
+  };
+}
+
+function readHash(context: CanvasRenderingContext2D): string {
+  return readDescriptors(context).differenceHash;
 }
 
 function validateImageFile(file: File): void {
@@ -184,11 +252,12 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
       );
     }
 
-    const hashes: string[] = [];
-
-    // Whole-image baseline remains part of the descriptor set.
+    // Keep the whole-image descriptor separate from positioned regions.
     context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
-    hashes.push(readHash(context));
+    const wholeImageDescriptors = readDescriptors(context);
+    const wholeImageHash = wholeImageDescriptors.differenceHash;
+    const wholeImageAverageHash = wholeImageDescriptors.averageHash;
+    const regions: RegionHash[] = [];
 
     // Multi-scale windows sampled on a denser 8-step grid cover centered,
     // off-center, and edge crops with less positional quantization.
@@ -219,13 +288,30 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
               HASH_HEIGHT,
             );
 
-            hashes.push(readHash(context));
+            const regionDescriptors = readDescriptors(context);
+            regions.push({
+              hash: regionDescriptors.differenceHash,
+              averageHash: regionDescriptors.averageHash,
+              x: sourceX / bitmap.width,
+              y: sourceY / bitmap.height,
+              width: regionWidth / bitmap.width,
+              height: regionHeight / bitmap.height,
+              centerX: (sourceX + regionWidth / 2) / bitmap.width,
+              centerY: (sourceY + regionHeight / 2) / bitmap.height,
+            });
           }
         }
       }
     }
 
-    return { file, width: bitmap.width, height: bitmap.height, hashes };
+    return {
+      file,
+      width: bitmap.width,
+      height: bitmap.height,
+      wholeImageHash,
+      wholeImageAverageHash,
+      regions,
+    };
   } finally {
     bitmap.close();
 
@@ -284,62 +370,103 @@ export async function calculateImageDifferenceHash(
 }
 
 /**
- * Finds similar-photo candidates using bidirectional region matching.
+ * Finds similar-photo candidates using directional crop-region matching.
  *
- * A match must be supported by at least two distinct descriptors in
- * each direction. This reduces accidental one-patch matches. It remains
- * a heuristic and is not proof of identity.
+ * A crop may match a region of its parent in either direction. Each
+ * accepted direction must have at least two spatially independent
+ * matching regions; overlapping samples of the same area count once.
+ * A whole-image hash match alone is never sufficient. This remains a
+ * heuristic and is not proof of identity.
  */
 function compareHashSets(
   first: ImageHashSet,
   second: ImageHashSet,
   maxDistance: number,
 ): CropMatch | undefined {
-  // Reject tiny snippets before considering even an exact perceptual hash.
   const smallerArea = Math.min(first.width * first.height, second.width * second.height);
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
   if (smallerArea / largerArea < 0.08) return undefined;
 
-  if (first.hashes[0] === second.hashes[0]) {
-    return { distance: 0, matches: 1 };
-  }
+  const MAX_RELATIVE_ASPECT_ERROR = 0.04;
+  // A second, differently constructed descriptor reduces accidental
+  // dHash-only matches while remaining tolerant of global brightness shifts.
+  const MAX_AVERAGE_HASH_DISTANCE = 12;
 
-  // Count spatially separate region hits rather than unique hash values.
-  // Different windows can legitimately share the same dHash (especially
-  // in textured or low-contrast images), so Set<string> under-counts valid
-  // crop evidence. The two directions still prevent a single isolated
-  // accidental patch from being sufficient.
   const directionalMatch = (
-    wholeImageHash: string,
-    regionHashes: string[],
+    candidateImage: ImageHashSet,
+    sourceImage: ImageHashSet,
   ): CropMatch | undefined => {
-    let matchedRegions = 0;
-    let bestDistance = 64;
+    const candidateRegions = sourceImage.regions;
+    const candidateAspect = candidateImage.width / candidateImage.height;
+    const candidates = candidateRegions
+      .map(region => {
+        const regionAspect =
+          (region.width * sourceImage.width) / (region.height * sourceImage.height);
+        const relativeAspectError =
+          Math.abs(regionAspect - candidateAspect) / candidateAspect;
+        return {
+          region,
+          distance: calculateHashDistance(candidateImage.wholeImageHash, region.hash),
+          averageDistance: calculateAverageHashDistance(
+            candidateImage.wholeImageAverageHash,
+            region.averageHash,
+          ),
+          regionAspect,
+          relativeAspectError,
+        };
+      })
+      .filter(candidate =>
+        candidate.distance <= maxDistance &&
+        candidate.averageDistance <= MAX_AVERAGE_HASH_DISTANCE &&
+        candidate.relativeAspectError <= MAX_RELATIVE_ASPECT_ERROR
+      )
+      .sort((a, b) =>
+        a.distance - b.distance ||
+        a.relativeAspectError - b.relativeAspectError
+      );
 
-    for (const regionHash of regionHashes.slice(1)) {
-      const distance = calculateHashDistance(wholeImageHash, regionHash);
+    // A crop candidate must match both dHash and average-threshold hash,
+    // with compatible pixel geometry. Position is retained for diagnostics.
+    const independentCandidates = selectSpatiallyIndependentRegions(candidates);
 
-      if (distance <= maxDistance) {
-        matchedRegions += 1;
-        bestDistance = Math.min(bestDistance, distance);
-      }
-    }
+    // The dHash and average-threshold hash must both agree for every
+    // accepted region. Spatially independent counts remain diagnostic;
+    // do not require multiple separate regions, which rejects genuine crops.
+    const best = candidates[0];
+    if (!best) return undefined;
 
-    // A genuine crop can align with exactly one sampled window in its parent.
-    // Requiring two hits rejects valid crops when the deterministic grid has
-    // only one window at the crop's exact scale and position. The match is
-    // still constrained by the 64-bit distance threshold and minimum area ratio.
-    if (matchedRegions < 1) return undefined;
+    console.info("[M9 crop geometry evidence]", {
+      candidate: candidateImage.file.name,
+      source: sourceImage.file.name,
+      wholeImageHash: candidateImage.wholeImageHash,
+      matchingRegions: candidates.length,
+      spatiallyIndependentRegions: independentCandidates.length,
+      bestMatches: independentCandidates.slice(0, 5).map(match => ({
+        distance: match.distance,
+        averageDistance: match.averageDistance,
+        x: Number(match.region.x.toFixed(3)),
+        y: Number(match.region.y.toFixed(3)),
+        width: Number(match.region.width.toFixed(3)),
+        height: Number(match.region.height.toFixed(3)),
+        regionAspect: Number(match.regionAspect.toFixed(4)),
+        candidateAspect: Number(candidateAspect.toFixed(4)),
+        relativeAspectError: Number(match.relativeAspectError.toFixed(4)),
+      })),
+    });
 
-    return { distance: bestDistance, matches: matchedRegions };
+    return { distance: best.distance, matches: 1 };
   };
 
-  const firstInSecond = directionalMatch(first.hashes[0], second.hashes);
-  const secondInFirst = directionalMatch(second.hashes[0], first.hashes);
+  const firstInSecond = directionalMatch(second, first);
+  const secondInFirst = directionalMatch(first, second);
 
+
+  // Crop matching is intentionally directional: a crop should match a
+  // region of its parent, but the full parent need not match a region of
+  // the smaller crop. Two independent descriptors guard each direction.
+  if (!firstInSecond && !secondInFirst) return undefined;
   if (!firstInSecond) return secondInFirst;
   if (!secondInFirst) return firstInSecond;
-
   return firstInSecond.distance <= secondInFirst.distance
     ? firstInSecond
     : secondInFirst;
