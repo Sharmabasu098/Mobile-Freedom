@@ -53,6 +53,8 @@ jobs:
           curl --fail --location --retry 3 "https://c.pxhere.com/photos/3e/49/living_room_interior_design_sofa_wood_floor_living_room_interior_residential_lifestyle_decoration-559753.jpg!d" -o fixtures/diverse-photos/indoor-room-559753.jpg
           curl --fail --location --retry 3 "https://c.pxhere.com/photos/54/87/western_ghats_sharavati_river_valley_mountains_dense_forest_evergreen_forest_karnataka-1102826.jpg!d" -o fixtures/diverse-photos/outdoor-western-ghats-1102826.jpg
           curl --fail --location --retry 3 "https://c.pxhere.com/photos/97/6d/photo-90475.jpg!d" -o fixtures/diverse-photos/outdoor-street-90475.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/20/8d/colorado_rocky_mountains_national_park_landscape_scenic_nature_outdoors_forest-489986.jpg!d" -o fixtures/diverse-photos/outdoor-rocky-mountains-489986.jpg
+          curl --fail --location --retry 3 "https://c.pxhere.com/photos/90/a2/forest_house_idyllic_lake_meadow_motel_mountains_river-1161018.jpg!d" -o fixtures/diverse-photos/outdoor-lake-mountains-1161018.jpg
           file fixtures/diverse-photos/*.jpg
       - name: Run diverse category, crop sweep and ORB-SIFT diagnostics
         run: |
