@@ -6,6 +6,7 @@ import {
   CV_8UC1,
   CV_32FC2,
   DMatchVectorVector,
+  KeyPointVector,
   Mat,
   NORM_HAMMING,
   ORB_create,
@@ -314,6 +315,48 @@ export async function similarity(cv, leftFixture, rightFixture) {
     left.descriptors.delete()
     right.descriptors.delete()
   }
+}
+
+
+export async function diagnoseCoil03(leftFixture, rightFixture) {
+  const stages = []
+  const run = async (name, fn) => {
+    try { const details = await fn(); stages.push({ stage: name, status: 'ok', ...details }); console.log('M9_COIL03_STAGE', JSON.stringify(stages.at(-1))); return true }
+    catch (error) { stages.push({ stage: name, status: 'error', name: error?.name, message: String(error?.message ?? error), stack: error?.stack }); console.error('M9_COIL03_STAGE', JSON.stringify(stages.at(-1))); return false }
+  }
+  let a,b,ma,mb,ka,kb,da,db,orb,matcher,matches
+  const detected = await run('feature_detection_and_descriptor_generation', async () => {
+    a=toMat(null,leftFixture); b=toMat(null,rightFixture); ma=new Mat(); mb=new Mat()
+    ka=new KeyPointVector(); kb=new KeyPointVector(); da=new Mat(); db=new Mat(); orb=ORB_create(1200)
+    orb.detect(a,ka,ma); orb.detect(b,kb,mb)
+    const detectedCounts=[ka.size(),kb.size()]
+    orb.compute(a,ka,da); orb.compute(b,kb,db)
+    return { detectedCounts, descriptorRows:[da.rows,db.rows], descriptorCols:[da.cols,db.cols], descriptorTypes:[da.type(),db.type()] }
+  })
+  if (detected) {
+    const matched = await run('bfmatcher_knn', async () => {
+      matcher=new BFMatcher(NORM_HAMMING,false); matches=new DMatchVectorVector()
+      matcher.knnMatch(da,db,matches,2)
+      return { queryCount: matches.size() }
+    })
+    if (matched) {
+      const filtered = await run('lowe_ratio_filter', async () => {
+        const from=[],to=[]; let candidates=0,accepted=0
+        for(let i=0;i<matches.size();i++){const pair=matches.get(i);try{if(pair.size()<2)continue;const best=pair.get(0),second=pair.get(1);try{candidates++;if(best.distance<.9*second.distance){accepted++;const p=ka.get(best.queryIdx),q=kb.get(best.trainIdx);try{from.push(p.pt.x,p.pt.y);to.push(q.pt.x,q.pt.y)}finally{p.delete?.();q.delete?.()}}}finally{second.delete?.();best.delete?.()}}finally{pair.delete?.()}}
+        return { candidates, accepted, from, to }
+      })
+      if(filtered) await run('ransac_homography', async () => {
+        const {from,to,candidates,accepted}=stages.find(x=>x.stage==='lowe_ratio_filter')
+        if(from.length<8)return { skipped:true,reason:'fewer than four correspondences',candidates,accepted }
+        const x=new Mat(from.length/2,1,CV_32FC2),y=new Mat(to.length/2,1,CV_32FC2),mask=new Mat();let h
+        try{x.data32F.set(from);y.data32F.set(to);h=findHomography(x,y,RANSAC,4,mask);return { homographyCreated:!!h&&!h.empty(),inliers:h&&!h.empty()?countNonZero(mask):0,maskBytes:mask.data.length,candidates,accepted }}
+        finally{h?.delete();mask.delete();y.delete();x.delete()}
+      })
+    }
+  }
+  await run('native_object_disposal',async()=>{matches?.delete();matcher?.delete();orb?.delete();db?.delete();da?.delete();kb?.delete();ka?.delete();mb?.delete();ma?.delete();b?.delete();a?.delete();return {disposed:true}})
+  await run('allocation_disposal_stress_5_cycles',async()=>{const cycles=[];for(let i=0;i<5;i++){const x=toMat(null,leftFixture),y=toMat(null,rightFixture),m1=new Mat(),m2=new Mat(),k1=new KeyPointVector(),k2=new KeyPointVector(),d1=new Mat(),d2=new Mat(),o=ORB_create(300);try{o.detectAndCompute(x,m1,k1,d1);o.detectAndCompute(y,m2,k2,d2);cycles.push({cycle:i+1,left:k1.size(),right:k2.size(),rows:[d1.rows,d2.rows]})}finally{o.delete();d2.delete();d1.delete();k2.delete();k1.delete();m2.delete();m1.delete();y.delete();x.delete()}}return {cycles}})
+  return { stages: stages.map(({stage,status,...detail})=>({stage,status,...detail})), failedStages:stages.filter(x=>x.status==='error').map(x=>x.stage) }
 }
 
 async function main() {
