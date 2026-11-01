@@ -6,7 +6,10 @@ import {
   vi,
 } from "vitest";
 
-import { findSimilarPhotos } from "./similarPhotos";
+import {
+  calculateImageDifferenceHash,
+  findSimilarPhotos,
+} from "./similarPhotos";
 
 const SOURCE_WIDTH = 96;
 const SOURCE_HEIGHT = 72;
@@ -167,8 +170,7 @@ function createFixtures(): Record<string, Raster> {
  * resolves each fixture raster, drawImage scales that raster to the
  * production 9×8 canvas, and getImageData returns those sampled pixels.
  */
-function mockImageDecoding(): void {
-  const fixtures = createFixtures();
+function mockImageDecoding(fixtures = createFixtures()): void {
   let activeRaster: Raster | undefined;
   let activeRegion = { x: 0, y: 0, width: 0, height: 0 };
 
@@ -247,6 +249,59 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+
+/**
+ * Two independently generated scenes with the same whole-image dHash.
+ * Values at the exact 9×8 whole-image sampling coordinates are identical,
+ * while pixels between those anchors use opposite deterministic patterns.
+ * This creates a controlled dHash collision without making one image a
+ * crop, resize, or edit of the other.
+ */
+function createWholeImageDHashCollisionFixtures(): Record<string, Raster> {
+  const width = SOURCE_WIDTH;
+  const height = SOURCE_HEIGHT;
+  const anchorX = Array.from({ length: 9 }, (_, x) =>
+    Math.floor(x * width / 9),
+  );
+  const anchorY = Array.from({ length: 8 }, (_, y) =>
+    Math.floor(y * height / 8),
+  );
+
+  const build = (reverse: boolean): Raster => {
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    const anchors = new Set(anchorX);
+    for (let y = 0; y < height; y += 1) {
+      const row = anchorY.indexOf(y);
+      for (let x = 0; x < width; x += 1) {
+        const leftAnchor = anchorX.reduce((best, value) =>
+          value <= x && value > best ? value : best, 0);
+        const rightAnchor = anchorX.find(value => value > x) ?? width - 1;
+        const segment = Math.max(1, rightAnchor - leftAnchor);
+        const offset = x - leftAnchor;
+        const phase = (row < 0 ? y : row) * 29 + anchorX.indexOf(leftAnchor) * 17;
+        const wave = Math.round((offset / segment) * 180);
+        const value = anchors.has(x)
+          ? 35 + ((row < 0 ? y : row) * 23) % 180
+          : Math.max(0, Math.min(255,
+              35 + ((row < 0 ? y : row) * 23) % 180 +
+              (reverse ? 180 - wave : wave) * (phase % 2 === 0 ? 1 : -1),
+            ));
+        const index = (y * width + x) * 4;
+        pixels[index] = value;
+        pixels[index + 1] = value;
+        pixels[index + 2] = value;
+        pixels[index + 3] = 255;
+      }
+    }
+    return { width, height, pixels };
+  };
+
+  return {
+    "11_collision_scene_a.png": build(false),
+    "12_collision_scene_b.png": build(true),
+  };
+}
+
 describe("M9 crop detection — real pixel-geometry fixtures", () => {
   it("builds crop fixtures from copied regions of the same source raster", () => {
     const fixtures = createFixtures();
@@ -262,6 +317,28 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(Array.from(crop.pixels.slice(0, 4))).toEqual(
       Array.from(original.pixels.slice((9 * SOURCE_WIDTH + 12) * 4, (9 * SOURCE_WIDTH + 12) * 4 + 4)),
     );
+  });
+
+  it("rejects unrelated scenes even when their whole-image dHashes are identical (A7)", async () => {
+    const collisionFixtures = createWholeImageDHashCollisionFixtures();
+    mockImageDecoding(collisionFixtures);
+
+    const first = createImageFile("11_collision_scene_a.png");
+    const second = createImageFile("12_collision_scene_b.png");
+    const firstHash = await calculateImageDifferenceHash(first);
+    const secondHash = await calculateImageDifferenceHash(second);
+
+    // Mandatory precondition: this test must exercise a real whole-image dHash collision.
+    expect(firstHash).toBe(secondHash);
+
+    const errors: Array<{ file: File; error: unknown }> = [];
+    const result = await findSimilarPhotos(
+      [first, second],
+      (file, error) => errors.push({ file, error }),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(result).toHaveLength(0);
   });
 
   it("keeps an unrelated generated scene separate", async () => {
