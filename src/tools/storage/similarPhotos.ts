@@ -370,11 +370,11 @@ export async function calculateImageDifferenceHash(
 }
 
 /**
- * Finds similar-photo candidates using bidirectional region matching.
+ * Finds similar-photo candidates using directional crop-region matching.
  *
- * A match must be supported by at least one sampled region in BOTH
- * directions: each image's whole-image hash must match a region from
- * the other image. A one-way isolated patch is not sufficient evidence.
+ * A crop may match a region of its parent in either direction. Each
+ * accepted direction must have at least two spatially independent
+ * matching regions; overlapping samples of the same area count once.
  * A whole-image hash match alone is never sufficient. This remains a
  * heuristic and is not proof of identity.
  */
@@ -427,10 +427,12 @@ function compareHashSets(
 
     // A crop candidate must match both dHash and average-threshold hash,
     // with compatible pixel geometry. Position is retained for diagnostics.
-    const best = candidates[0];
-    if (!best) return undefined;
-
     const independentCandidates = selectSpatiallyIndependentRegions(candidates);
+
+    // Do not accept a crop based on one isolated perceptual-hash match.
+    // Require corroboration from a second, spatially separate source area.
+    if (independentCandidates.length < 2) return undefined;
+    const best = independentCandidates[0];
 
     console.info("[M9 crop geometry evidence]", {
       candidate: candidateImage.file.name,
@@ -451,7 +453,7 @@ function compareHashSets(
       })),
     });
 
-    return { distance: best.distance, matches: 1 };
+    return { distance: best.distance, matches: independentCandidates.length };
   };
 
   const firstInSecond = directionalMatch(second, first);
