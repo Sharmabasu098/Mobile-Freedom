@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import * as cvModule from '@banou/opencv-wasm'
 import {
   BFMatcher,
   CV_8UC1,
@@ -45,7 +46,10 @@ async function main() {
     wasmExports: typeof ORB_create,
     matcherExport: typeof BFMatcher,
     homographyExport: typeof findHomography,
-    ransac: RANSAC
+    ransac: RANSAC,
+    siftCreate: typeof cvModule.SIFT_create,
+    akazeCreate: typeof cvModule.AKAZE_create,
+    briskCreate: typeof cvModule.BRISK_create
   }))
 
   // Gate 1: real ORB detector construction and feature extraction.
