@@ -138,45 +138,47 @@ async function similarity(cv, leftFixture, rightFixture) {
   const left = await describe(cv, leftFixture)
   const right = await describe(cv, rightFixture)
   const matcher = new BFMatcher(NORM_HAMMING, false)
-  const matcherApi = []
-  let matcherPrototype = matcher
-  while (matcherPrototype && matcherPrototype !== Object.prototype) {
-    matcherApi.push({
-      level: matcherPrototype === matcher ? 'instance' : matcherPrototype.constructor?.name ?? 'prototype',
-      properties: Object.getOwnPropertyNames(matcherPrototype).sort()
-    })
-    matcherPrototype = Object.getPrototypeOf(matcherPrototype)
-  }
-  console.log('M9_MATCHER_INSTANCE_API', JSON.stringify({
-    knnMatchType: typeof matcher.knnMatch,
-    matchType: typeof matcher.match,
-    methods: matcherApi
-  }))
-  const matches = new (await import('@banou/opencv-wasm')).DMatchVector()
+  const knnMatches = new DMatchVectorVector()
   try {
-    matcher.match(left.descriptors, right.descriptors, matches)
+    // OpenCV DescriptorMatcher::knnMatch(query, train, matches, k).
+    // Keep k=2 so Lowe's ratio test can compare the nearest and second-nearest candidate.
+    matcher.knnMatch(left.descriptors, right.descriptors, knnMatches, 2)
     let accepted = 0
+    let ratioCandidates = 0
+    let bestDistanceTotal = 0
     const fromPoints = []
     const toPoints = []
-    for (let index = 0; index < matches.size(); index++) {
-      const match = matches.get(index)
+
+    for (let index = 0; index < knnMatches.size(); index++) {
+      const pair = knnMatches.get(index)
       try {
-        if (match.distance <= 64) {
+        if (pair.size() < 2) continue
+        const best = pair.get(0)
+        const second = pair.get(1)
+        try {
+          ratioCandidates++
+          // Lowe's ratio test: accept only an unambiguous nearest neighbour.
+          if (!(best.distance < 0.8 * second.distance)) continue
           accepted++
-          const from = left.points[match.queryIdx]
-          const to = right.points[match.trainIdx]
+          bestDistanceTotal += best.distance
+          const from = left.points[best.queryIdx]
+          const to = right.points[best.trainIdx]
           if (from && to) {
             fromPoints.push(from.x, from.y)
             toPoints.push(to.x, to.y)
           }
+        } finally {
+          second.delete?.()
+          best.delete?.()
         }
       } finally {
-        match.delete?.()
+        pair.delete?.()
       }
     }
+
     let inliers = 0
     let inlierRatio = 0
-    if (fromPoints.length >= 8) {
+    if (fromPoints.length >= 4) {
       const fromMat = new Mat(fromPoints.length / 2, 1, CV_32FC2)
       const toMat = new Mat(toPoints.length / 2, 1, CV_32FC2)
       const inlierMask = new Mat()
@@ -197,15 +199,17 @@ async function similarity(cv, leftFixture, rightFixture) {
       }
     }
     return {
-      score: accepted / Math.max(1, Math.min(left.keypoints, right.keypoints)),
+      score: inliers / Math.max(1, Math.min(left.keypoints, right.keypoints)),
       inliers,
       inlierRatio: Number(inlierRatio.toFixed(4)),
-      acceptedMatches: accepted,
+      ratioAcceptedMatches: accepted,
+      ratioCandidates,
+      meanBestDistance: accepted ? Number((bestDistanceTotal / accepted).toFixed(2)) : null,
       leftKeypoints: left.keypoints,
       rightKeypoints: right.keypoints
     }
   } finally {
-    matches.delete()
+    knnMatches.delete()
     matcher.delete()
     left.descriptors.delete()
     right.descriptors.delete()
@@ -214,10 +218,6 @@ async function similarity(cv, leftFixture, rightFixture) {
 
 async function main() {
   await initOpenCV()
-  console.log('M9_KNN_API_PROBE', JSON.stringify({
-    matcherMethods: Object.getOwnPropertyNames(BFMatcher.prototype).sort(),
-    vectorExports: Object.keys(await import('@banou/opencv-wasm')).filter(name => /DMatch.*Vector|Vector.*DMatch/.test(name)).sort()
-  }))
   const original = scene(7)
   const cases = [
     ['A1_exact_duplicate', original, { ...original, data: original.data.slice() }, 'positive'],
@@ -246,14 +246,14 @@ async function main() {
     results
   }, null, 2) + '\n')
   const rows = results.map(result =>
-    '| ' + result.name + ' | ' + result.expected + ' | ' + result.score.toFixed(4) + ' | ' + result.acceptedMatches + ' | ' + result.inliers + ' (' + result.inlierRatio.toFixed(4) + ') | ' + result.leftKeypoints + '/' + result.rightKeypoints + ' |'
+    '| ' + result.name + ' | ' + result.expected + ' | ' + result.score.toFixed(4) + ' | ' + result.ratioAcceptedMatches + '/' + result.ratioCandidates + ' | ' + result.inliers + ' (' + result.inlierRatio.toFixed(4) + ') | ' + result.leftKeypoints + '/' + result.rightKeypoints + ' |'
   )
   const summary = [
     '## M9 A1-A7 Image Similarity Diagnostic',
     '',
-    '> Synthetic exploratory diagnostic only. Non-cross-check ORB matches with a Hamming distance cap of 64 are geometrically checked by RANSAC; values are not production thresholds and do not establish M9 acceptance.',
+    '> Synthetic exploratory diagnostic only. ORB KNN (k=2) matches pass Lowe ratio 0.8 before RANSAC geometry verification; values are not production thresholds and do not establish M9 acceptance.',
     '',
-    '| Case | Expected | Raw score | Accepted matches | RANSAC inliers (ratio) | Keypoints L/R |',
+    '| Case | Expected | RANSAC score | Ratio accepted / candidates | RANSAC inliers (ratio) | Keypoints L/R |',
     '|---|---|---:|---:|---:|---:|',
     ...rows,
     '',
