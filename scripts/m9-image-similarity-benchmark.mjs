@@ -159,7 +159,7 @@ async function similarity(cv, leftFixture, rightFixture) {
         try {
           ratioCandidates++
           // Lowe's ratio test: accept only an unambiguous nearest neighbour.
-          if (!(best.distance < 0.8 * second.distance)) continue
+          if (!(best.distance < 0.9 * second.distance)) continue
           accepted++
           bestDistanceTotal += best.distance
           const from = left.points[best.queryIdx]
@@ -252,7 +252,7 @@ async function main() {
   const summary = [
     '## M9 A1-A7 Image Similarity Diagnostic',
     '',
-    '> Synthetic exploratory diagnostic only. ORB KNN (k=2) matches pass Lowe ratio 0.8 before RANSAC geometry verification; values are not production thresholds and do not establish M9 acceptance.',
+    '> Synthetic exploratory diagnostic only. ORB KNN (k=2) matches pass Lowe ratio 0.9 before RANSAC geometry verification; values are not production thresholds and do not establish M9 acceptance.',
     '',
     '| Case | Expected | RANSAC score | Ratio accepted / candidates | RANSAC inliers (ratio) | Keypoints L/R |',
     '|---|---|---:|---:|---:|---:|',
