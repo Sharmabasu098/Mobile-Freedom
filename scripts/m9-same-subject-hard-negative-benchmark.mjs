@@ -115,10 +115,20 @@ async function main() {
   // LFW View 1 development test pairs. Person names are used only to fetch fixtures and never logged.
   const pairsText = await readFile(`${ROOT}/pairsDevTest.txt`, 'utf8')
   const lines = pairsText.trim().split(/\r?\n/)
-  const counts = lines[0].trim().split(/\s+/).map(Number)
-  assert.ok(counts.length >= 2 && counts[0] >= 20 && counts[1] >= 20, 'LFW pairsDevTest protocol file did not match expected format')
-  const positiveLines = lines.slice(1, 1 + 20)
-  const negativeLines = lines.slice(1 + counts[0], 1 + counts[0] + 20)
+  // LFW pairsDevTest.txt uses a one-number header: N same-person pairs,
+  // followed by N different-person pairs. Support two-number variants too.
+  const header = lines[0].trim().split(/\s+/).map(Number)
+  assert.ok(
+    (header.length === 1 || header.length === 2) &&
+    header.every(value => Number.isInteger(value) && value >= 20),
+    `LFW pairsDevTest protocol header invalid: ${JSON.stringify(lines[0])}`
+  )
+  const sameCount = header[0]
+  const differentCount = header.length === 1 ? header[0] : header[1]
+  assert.ok(lines.length >= 1 + sameCount + differentCount,
+    `LFW pairsDevTest protocol truncated: expected ${sameCount + differentCount} pairs, found ${lines.length - 1}`)
+  const positiveLines = lines.slice(1, 1 + Math.min(20, sameCount))
+  const negativeLines = lines.slice(1 + sameCount, 1 + sameCount + Math.min(20, differentCount))
   assert.equal(positiveLines.length, 20, 'LFW same-person pair count mismatch')
   assert.equal(negativeLines.length, 20, 'LFW different-person pair count mismatch')
 
