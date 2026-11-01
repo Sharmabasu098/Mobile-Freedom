@@ -102,6 +102,52 @@ function repeatedTexture(seed) {
   return { width, height, data }
 }
 
+function spatialCoverage(points, width, height) {
+  if (!points.length) {
+    return {
+      pointCount: 0,
+      bboxAreaFraction: 0,
+      occupiedGridCells: 0,
+      occupiedQuadrants: 0,
+      centroidX: null,
+      centroidY: null,
+      spreadX: 0,
+      spreadY: 0
+    }
+  }
+
+  const xs = points.map(point => point.x)
+  const ys = points.map(point => point.y)
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  const minY = Math.min(...ys)
+  const maxY = Math.max(...ys)
+  const meanX = xs.reduce((sum, value) => sum + value, 0) / points.length
+  const meanY = ys.reduce((sum, value) => sum + value, 0) / points.length
+  const varianceX = xs.reduce((sum, value) => sum + (value - meanX) ** 2, 0) / points.length
+  const varianceY = ys.reduce((sum, value) => sum + (value - meanY) ** 2, 0) / points.length
+  const gridCells = new Set()
+  const quadrants = new Set()
+
+  for (const point of points) {
+    const cellX = Math.min(3, Math.max(0, Math.floor(point.x / width * 4)))
+    const cellY = Math.min(3, Math.max(0, Math.floor(point.y / height * 4)))
+    gridCells.add(cellY * 4 + cellX)
+    quadrants.add((point.x >= width / 2 ? 1 : 0) + (point.y >= height / 2 ? 2 : 0))
+  }
+
+  return {
+    pointCount: points.length,
+    bboxAreaFraction: Number((((maxX - minX) * (maxY - minY)) / (width * height)).toFixed(4)),
+    occupiedGridCells: gridCells.size,
+    occupiedQuadrants: quadrants.size,
+    centroidX: Number((meanX / width).toFixed(4)),
+    centroidY: Number((meanY / height).toFixed(4)),
+    spreadX: Number((Math.sqrt(varianceX) / width).toFixed(4)),
+    spreadY: Number((Math.sqrt(varianceY) / height).toFixed(4))
+  }
+}
+
 function toMat(cv, fixture) {
   const mat = new Mat(fixture.height, fixture.width, CV_8UC1)
   mat.data.set(fixture.data)
@@ -179,6 +225,8 @@ async function similarity(cv, leftFixture, rightFixture) {
 
     let inliers = 0
     let inlierRatio = 0
+    const inlierFromPoints = []
+    const inlierToPoints = []
     if (fromPoints.length >= 4) {
       const fromMat = new Mat(fromPoints.length / 2, 1, CV_32FC2)
       const toMat = new Mat(toPoints.length / 2, 1, CV_32FC2)
@@ -191,6 +239,12 @@ async function similarity(cv, leftFixture, rightFixture) {
         if (homography && !homography.empty()) {
           inliers = countNonZero(inlierMask)
           inlierRatio = inliers / (fromPoints.length / 2)
+          // OpenCV's RANSAC mask is one byte per candidate correspondence.
+          for (let index = 0; index < inlierMask.data.length; index++) {
+            if (!inlierMask.data[index]) continue
+            inlierFromPoints.push({ x: fromPoints[index * 2], y: fromPoints[index * 2 + 1] })
+            inlierToPoints.push({ x: toPoints[index * 2], y: toPoints[index * 2 + 1] })
+          }
         }
       } finally {
         homography?.delete()
@@ -203,6 +257,16 @@ async function similarity(cv, leftFixture, rightFixture) {
       score: inliers / Math.max(1, Math.min(left.keypoints, right.keypoints)),
       inliers,
       inlierRatio: Number(inlierRatio.toFixed(4)),
+      ratioMatchSourceCoverage: spatialCoverage(
+        Array.from({ length: fromPoints.length / 2 }, (_, index) => ({ x: fromPoints[index * 2], y: fromPoints[index * 2 + 1] })),
+        leftFixture.width, leftFixture.height
+      ),
+      ratioMatchTargetCoverage: spatialCoverage(
+        Array.from({ length: toPoints.length / 2 }, (_, index) => ({ x: toPoints[index * 2], y: toPoints[index * 2 + 1] })),
+        rightFixture.width, rightFixture.height
+      ),
+      ransacInlierSourceCoverage: spatialCoverage(inlierFromPoints, leftFixture.width, leftFixture.height),
+      ransacInlierTargetCoverage: spatialCoverage(inlierToPoints, rightFixture.width, rightFixture.height),
       ratioAcceptedMatches: accepted,
       ratioCandidates,
       meanBestDistance: accepted ? Number((bestDistanceTotal / accepted).toFixed(2)) : null,
