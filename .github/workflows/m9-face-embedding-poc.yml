@@ -1,0 +1,44 @@
+name: M9 Face Embedding PoC Validation
+
+on:
+  push:
+    branches:
+      - m9-face-embedding-poc
+    paths:
+      - "poc/face-embedding/**"
+      - ".github/workflows/m9-face-embedding-poc.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "poc/face-embedding/**"
+      - ".github/workflows/m9-face-embedding-poc.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate JavaScript syntax
+        run: node --check poc/face-embedding/main.js
+
+      - name: Verify PoC entry points and pinned runtime
+        run: |
+          test -s poc/face-embedding/index.html
+          test -s poc/face-embedding/main.js
+          test -s poc/face-embedding/style.css
+          grep -q '@vladmandic/human@3.3.6' poc/face-embedding/index.html
+          grep -q 'backend: "wasm"' poc/face-embedding/main.js
+          grep -q 'description: { enabled: true }' poc/face-embedding/main.js
+          grep -q 'human.match.similarity' poc/face-embedding/main.js
