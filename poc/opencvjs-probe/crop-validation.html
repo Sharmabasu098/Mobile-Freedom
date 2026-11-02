@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mobile Freedom — Genuine Crop Validation</title>
+  <style>
+    body{font:16px system-ui,sans-serif;max-width:900px;margin:24px auto;padding:0 16px;background:#10141c;color:#eef2f7}
+    h1{font-size:1.45rem} p{color:#bac4d2;line-height:1.5}
+    .panel{background:#1a2230;border:1px solid #344154;border-radius:12px;padding:16px;margin:14px 0}
+    label{display:block;margin:12px 0} input{display:block;margin-top:6px;max-width:100%}
+    button{padding:12px 18px;border:0;border-radius:8px;background:#76a9fa;color:#10141c;font-weight:700}
+    button:disabled{opacity:.5} pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#080b10;padding:14px;border-radius:8px}
+    .note{font-size:.9rem}
+  </style>
+</head>
+<body>
+  <h1>Genuine Crop Detection — Local Browser Validation</h1>
+  <p>Choose an original image and a crop created from that exact original. Processing stays in this browser tab; files are not uploaded.</p>
+  <section class="panel">
+    <label>Original image<input id="original" type="file" accept="image/*"></label>
+    <label>Crop image<input id="crop" type="file" accept="image/*"></label>
+    <button id="run" disabled>Run ORB + KNN + RANSAC</button>
+    <p class="note">For the first run, use a crop retaining roughly 50–80% of the original image. Avoid screenshots or recompressed copies for this controlled test.</p>
+  </section>
+  <section class="panel">
+    <strong>Results</strong>
+    <pre id="output">Select both images to begin.</pre>
+  </section>
+  <script type="module" src="./browser-crop-validation.js"></script>
+</body>
+</html>
