@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Face Embedding Runtime PoC — Mobile Freedom</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/dist/human.js"></script>
+  <script type="module" src="./main.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">M9 · Isolated experiment</p>
+      <h1>Face Embedding PoC</h1>
+      <p>Browser-side face detection and embedding extraction. No image is uploaded.</p>
+    </header>
+    <section class="notice">
+      <strong>Privacy and test-data rule</strong>
+      Use only images of consenting adult participants. Do not use public-figure images,
+      minors, or images collected without permission. Images stay in this browser tab.
+      The pinned runtime and model weights are fetched from jsDelivr on first use;
+      image pixels and embeddings are not sent to that CDN.
+    </section>
+    <section class="panel">
+      <div class="actions">
+        <button id="load-models" type="button">Load face models</button>
+        <span id="runtime-status" role="status">Runtime not initialized</span>
+      </div>
+      <p id="runtime-detail" class="muted">Models are loaded only after you press the button.</p>
+    </section>
+    <section class="grid">
+      <article class="panel">
+        <h2>Image A</h2>
+        <input id="image-a" type="file" accept="image/*">
+        <img id="preview-a" alt="Preview image A" hidden>
+        <p id="status-a" class="muted">No image selected.</p>
+      </article>
+      <article class="panel">
+        <h2>Image B</h2>
+        <input id="image-b" type="file" accept="image/*">
+        <img id="preview-b" alt="Preview image B" hidden>
+        <p id="status-b" class="muted">No image selected.</p>
+      </article>
+    </section>
+    <section class="panel">
+      <label for="pair-label">Ground-truth label for this pair</label>
+      <select id="pair-label">
+        <option value="same">Same consenting participant</option>
+        <option value="different">Different consenting participants</option>
+      </select>
+      <button id="compare" type="button" disabled>Extract embeddings and compare</button>
+      <p id="compare-status" role="status" class="muted">Load models and select two images.</p>
+      <div id="result" hidden></div>
+    </section>
+    <section class="panel">
+      <div class="actions">
+        <h2>Session measurements</h2>
+        <button id="export" type="button" disabled>Export measurements (JSON)</button>
+      </div>
+      <p class="muted">Exports labels, scores, vector dimensions, and timings only — never images or embeddings.</p>
+      <pre id="measurements">No comparisons yet.</pre>
+    </section>
+    <footer>Experimental only · Not production identity verification · No PASS decision from a single pair</footer>
+  </main>
+</body>
+</html>
