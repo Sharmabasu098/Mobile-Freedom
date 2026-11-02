@@ -19,7 +19,7 @@ const measurements = [];
 
 const config = {
   backend: "wasm",
-  wasmPath: "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.10.0/dist/",
+  wasmPath: "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/",
   modelBasePath: "https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/models/",
   cacheModels: true,
   debug: true,
@@ -81,10 +81,11 @@ loadButton.addEventListener("click", async () => {
   loadButton.disabled = true;
   setStatus("Loading pinned Human runtime and face models…", "WASM backend selected. Model files are downloaded from the pinned CDN path.");
   try {
-    if (!window.Human?.Human) throw new Error("Human global constructor is unavailable; CDN runtime did not load.");
-    human = new window.Human.Human(config);
+    const HumanCtor = typeof window.Human === "function" ? window.Human : window.Human?.Human;
+    if (typeof HumanCtor !== "function") throw new Error("Human global constructor is unavailable; CDN runtime did not load.");
+    human = new HumanCtor(config);
+    await human.init();
     await human.load();
-    await human.warmup();
     modelReady = true;
     setStatus("Runtime and configured models loaded.", "Backend: " + human.tf?.getBackend?.() + " · Human version: " + (window.Human.version ?? "not exposed"));
     compareStatus.textContent = "Ready. Select two consented test images.";
