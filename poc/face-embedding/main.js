@@ -85,9 +85,12 @@ loadButton.addEventListener("click", async () => {
     if (typeof HumanCtor !== "function") throw new Error("Human global constructor is unavailable; CDN runtime did not load.");
     human = new HumanCtor(config);
     await human.init();
+    const activeBackend = human.tf?.getBackend?.();
+    if (activeBackend !== "wasm") throw new Error("Requested WASM backend, but active backend is " + String(activeBackend));
+    setStatus("WASM backend initialized.", "Loading face detector, mesh and description models…");
     await human.load();
     modelReady = true;
-    setStatus("Runtime and configured models loaded.", "Backend: " + human.tf?.getBackend?.() + " · Human version: " + (window.Human.version ?? "not exposed"));
+    setStatus("Runtime and configured models loaded.", "Verified backend: " + activeBackend + " · Human version: " + (human.version ?? "not exposed"));
     compareStatus.textContent = "Ready. Select two consented test images.";
     updateCompareEnabled();
   } catch (error) {
