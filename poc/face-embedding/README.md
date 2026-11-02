@@ -2,7 +2,7 @@
 
 ## Runtime harness prepared
 - Pinned browser runtime: `@vladmandic/human@3.3.6` (IIFE build).
-- Backend: TensorFlow.js WASM, pinned to 4.10.0 to align with the Human 3.3.6 runtime line.
+- Backend: TensorFlow.js WASM, pinned to 4.22.0 to align with the Human 3.3.6 runtime line.
 - Enabled pipeline: face detector with rotation, face mesh, face description/embedding.
 - Disabled unrelated models: body, hand, object, segmentation, emotion, iris, anti-spoof and liveness.
 - Pair harness: two local image inputs, explicit ground-truth pair label, embedding dimensions, library similarity/distance, detection timings, JSON export.
