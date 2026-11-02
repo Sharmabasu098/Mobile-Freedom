@@ -109,8 +109,11 @@ runButton.addEventListener("click", async () => {
     matcher = new cv.BFMatcher(cv.NORM_HAMMING, false);
     owned.push(orb, keypointsA, keypointsB, descriptorsA, descriptorsB, matches, matcher);
 
-    orb.detectAndCompute(grayA, new cv.Mat(), keypointsA, descriptorsA);
-    orb.detectAndCompute(grayB, new cv.Mat(), keypointsB, descriptorsB);
+    const emptyMaskA = new cv.Mat();
+    const emptyMaskB = new cv.Mat();
+    owned.push(emptyMaskA, emptyMaskB);
+    orb.detectAndCompute(grayA, emptyMaskA, keypointsA, descriptorsA);
+    orb.detectAndCompute(grayB, emptyMaskB, keypointsB, descriptorsB);
 
     const keypointCountA = keypointsA.size();
     const keypointCountB = keypointsB.size();
@@ -138,10 +141,15 @@ runButton.addEventListener("click", async () => {
         const second = group.get(1);
         ratioPairsTested++;
         if (best.distance < ratioThreshold * second.distance) {
-          const pointA = keypointsA.get(best.queryIdx).pt;
-          const pointB = keypointsB.get(best.trainIdx).pt;
-          sourcePoints.push({ x: pointA.x, y: pointA.y });
-          targetPoints.push({ x: pointB.x, y: pointB.y });
+          const keypointA = keypointsA.get(best.queryIdx);
+          const keypointB = keypointsB.get(best.trainIdx);
+          try {
+            sourcePoints.push({ x: keypointA.pt.x, y: keypointA.pt.y });
+            targetPoints.push({ x: keypointB.pt.x, y: keypointB.pt.y });
+          } finally {
+            keypointA.delete();
+            keypointB.delete();
+          }
           ratioAccepted++;
         }
       } finally {
