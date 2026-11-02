@@ -19,7 +19,7 @@ const measurements = [];
 
 const config = {
   backend: "wasm",
-  wasmPath: "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/",
+  wasmPath: "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.10.0/dist/",
   modelBasePath: "https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/models/",
   cacheModels: true,
   debug: true,
