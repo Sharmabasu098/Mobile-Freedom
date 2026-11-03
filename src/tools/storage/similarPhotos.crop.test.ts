@@ -358,6 +358,118 @@ describe("M9 controlled spatial acceptance experiment", () => {
   });
 });
 
+
+/** Synthetic hard-negative scenes: independently generated pixel content,
+ * deliberately sharing palette, background, subject class, or small patches. */
+function createHardNegativeScene(kind: "palette-a" | "palette-b" | "background-a" | "background-b" | "portrait-a" | "portrait-b" | "object-a" | "object-b" | "patch-a" | "patch-b"): Raster {
+  const width = SOURCE_WIDTH;
+  const height = SOURCE_HEIGHT;
+  const pixels = new Uint8ClampedArray(width * height * 4);
+  const palette = kind.startsWith("palette") ? [176, 142, 96] : [218, 218, 218];
+  const seed = kind.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  let state = seed >>> 0;
+  const random = () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state >>> 24;
+  };
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      const noise = random();
+      let r = palette[0] + (noise % 31) - 15;
+      let g = palette[1] + (noise % 29) - 14;
+      let b = palette[2] + (noise % 27) - 13;
+
+      if (kind.startsWith("background")) {
+        // Same broad blue/gray background, independently different foreground silhouettes.
+        r = 118 + Math.floor(y / 5) + (noise % 9);
+        g = 154 + Math.floor(y / 6) + (noise % 11);
+        b = 184 + Math.floor(y / 7) + (noise % 13);
+        const shapeA = kind === "background-a" &&
+          ((x > 17 && x < 42 && y > 20 && y < 62) || (x > 52 && x < 78 && y > 35 && y < 58));
+        const shapeB = kind === "background-b" &&
+          ((x > 8 && x < 31 && y > 34 && y < 66) || (x > 44 && x < 88 && y > 17 && y < 43));
+        if (shapeA || shapeB) { r = 66 + noise % 17; g = 72 + noise % 19; b = 78 + noise % 23; }
+      } else if (kind.startsWith("portrait")) {
+        // Two distinct stylized portrait compositions, same skin/background palette.
+        r = 72 + noise % 12; g = 105 + noise % 14; b = 132 + noise % 16;
+        const cx = kind === "portrait-a" ? 34 : 62;
+        const cy = kind === "portrait-a" ? 31 : 36;
+        const dx = (x - cx) / (kind === "portrait-a" ? 17 : 14);
+        const dy = (y - cy) / 23;
+        if (dx * dx + dy * dy < 1) { r = 198 + noise % 16; g = 145 + noise % 15; b = 112 + noise % 13; }
+        if (y > 52 && Math.abs(x - cx) < 24) { r = 42 + noise % 12; g = 48 + noise % 13; b = 58 + noise % 15; }
+        if (Math.abs(x - (cx - 6)) < 2 && Math.abs(y - (cy - 3)) < 2) { r = 25; g = 22; b = 18; }
+        if (Math.abs(x - (cx + 6)) < 2 && Math.abs(y - (cy - 3)) < 2) { r = 25; g = 22; b = 18; }
+      } else if (kind.startsWith("object")) {
+        // Same object category (ceramic mug), different shape/orientation and scene.
+        r = kind === "object-a" ? 182 + noise % 13 : 142 + noise % 15;
+        g = kind === "object-a" ? 164 + noise % 12 : 176 + noise % 14;
+        b = kind === "object-a" ? 132 + noise % 11 : 194 + noise % 13;
+        const bodyA = kind === "object-a" && x > 25 && x < 58 && y > 19 && y < 57;
+        const bodyB = kind === "object-b" && x > 43 && x < 77 && y > 14 && y < 51;
+        if (bodyA || bodyB) { r = 210 + noise % 12; g = 210 + noise % 12; b = 205 + noise % 12; }
+        const handleA = kind === "object-a" && x > 57 && x < 70 && y > 27 && y < 48 && (x > 62 || y < 31 || y > 44);
+        const handleB = kind === "object-b" && x > 31 && x < 46 && y > 22 && y < 43 && (x < 36 || y < 26 || y > 39);
+        if (handleA || handleB) { r = 45; g = 43; b = 39; }
+      } else if (kind.startsWith("patch")) {
+        // Same small local texture patch at different positions; surrounding scenes unrelated.
+        r = (kind === "patch-a" ? 35 : 190) + noise % 50;
+        g = (kind === "patch-a" ? 85 : 45) + noise % 45;
+        b = (kind === "patch-a" ? 145 : 75) + noise % 40;
+        const px = kind === "patch-a" ? 24 : 63;
+        const py = kind === "patch-a" ? 20 : 45;
+        if (x >= px && x < px + 20 && y >= py && y < py + 18) {
+          const local = ((x - px) * 13 + (y - py) * 7) % 23;
+          r = 90 + local * 3; g = 110 + local * 2; b = 130 + local;
+        }
+      } else {
+        r += 0; // Similar palette, different independent texture fields.
+      }
+      pixels[i] = Math.max(0, Math.min(255, r));
+      pixels[i + 1] = Math.max(0, Math.min(255, g));
+      pixels[i + 2] = Math.max(0, Math.min(255, b));
+      pixels[i + 3] = 255;
+    }
+  }
+  return { width, height, pixels };
+}
+
+
+describe("M9 single-region hard-negative stress experiment", () => {
+  it("measures shared palettes, backgrounds, portraits, object classes, and accidental local patches", async () => {
+    const pairs = [
+      ["palette-a", "palette-b", "similar-colors-different-texture"],
+      ["background-a", "background-b", "same-background-different-subjects"],
+      ["portrait-a", "portrait-b", "different-portraits"],
+      ["object-a", "object-b", "same-object-class-different-photos"],
+      ["patch-a", "patch-b", "unrelated-scenes-shared-small-patch"],
+    ] as const;
+    const fixtures: Record<string, Raster> = {};
+    for (const [first, second] of pairs) {
+      fixtures[first + ".png"] = createHardNegativeScene(first);
+      fixtures[second + ".png"] = createHardNegativeScene(second);
+    }
+    const measurements = [];
+    for (const [first, second, label] of pairs) {
+      mockImageDecoding(fixtures);
+      const evidence = await analyzeCropPairSpatialEvidence(
+        createImageFile(first + ".png"),
+        createImageFile(second + ".png"),
+      );
+      measurements.push({ label, ...evidence });
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
+    console.info("[M9 hard-negative spatial stress]", JSON.stringify(measurements));
+    expect(measurements).toHaveLength(pairs.length);
+    // Each pair is intentionally unrelated; any one-region acceptance is a false positive.
+    for (const result of measurements) {
+      expect(result.currentMatcherWouldAccept, result.label).toBe(false);
+    }
+  });
+});
+
 describe("M9 spatial evidence diagnostics", () => {
   it("counts heavily overlapping windows as one evidence cluster", () => {
     const count = countSpatiallyIndependentRegions([
