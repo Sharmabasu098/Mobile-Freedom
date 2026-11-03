@@ -151,13 +151,10 @@ async function runProbe() {
         if (best.distance < ratioThreshold * second.distance) {
           const pointA = keypointsA.get(best.queryIdx);
           const pointB = keypointsB.get(best.trainIdx);
-          try {
-            source.push([pointA.pt.x, pointA.pt.y]);
-            target.push([pointB.pt.x, pointB.pt.y]);
-          } finally {
-            pointA.delete();
-            pointB.delete();
-          }
+          // KeyPointVector.get() returns a plain value object in this binding,
+          // not an owned Embind handle; only the vectors themselves need delete().
+          source.push([pointA.pt.x, pointA.pt.y]);
+          target.push([pointB.pt.x, pointB.pt.y]);
           ratioAccepted++;
         }
       } finally {
