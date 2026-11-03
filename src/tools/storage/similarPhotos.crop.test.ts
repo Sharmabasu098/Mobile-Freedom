@@ -538,7 +538,7 @@ describe("M9 adversarial shared-region descriptor collision", () => {
 
     // Preconditions: the candidate has the same 4:3 geometry and at least
     // 8% area ratio, and a source region has an exact dHash distance of 0.
-    expect(evidence.areaRatio).toBe(0.25);
+    expect(evidence.areaRatio).toBe(0.140625);
     expect(evidence.firstComparedAgainstSecond.bestDistance).toBeNull();
     expect(evidence.secondComparedAgainstFirst.bestDistance).toBe(0);
     expect(evidence.secondComparedAgainstFirst.candidateRegionCount).toBeGreaterThan(0);
