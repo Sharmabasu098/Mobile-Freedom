@@ -7,6 +7,7 @@ import {
 } from "vitest";
 
 import {
+  analyzeCropPairSpatialEvidence,
   calculateImageDifferenceHash,
   countSpatiallyIndependentRegions,
   findSimilarPhotos,
@@ -302,6 +303,60 @@ function createWholeImageDHashCollisionFixtures(): Record<string, Raster> {
     "12_collision_scene_b.png": build(true),
   };
 }
+
+describe("M9 controlled spatial acceptance experiment", () => {
+  it("records independent-region counts for genuine positives and negative controls", async () => {
+    const fixtures = createFixtures();
+    const pairs = [
+      ["01_original_scene.png", "02_crop_25_percent.png", "positive-25-percent"],
+      ["01_original_scene.png", "03_crop_50_percent.png", "positive-50-percent"],
+      ["01_original_scene.png", "04_crop_left_edge.png", "positive-left-edge"],
+      ["01_original_scene.png", "05_crop_right_edge.png", "positive-right-edge"],
+      ["01_original_scene.png", "06_resized_crop.png", "positive-resized"],
+      ["01_original_scene.png", "07_compressed_crop.jpg", "positive-jpeg-mime-mock"],
+      ["01_original_scene.png", "08_brightness_crop.png", "positive-brightness"],
+      ["01_original_scene.png", "09_unrelated_scene.png", "negative-unrelated"],
+      ["01_original_scene.png", "10_tiny_detail_crop.png", "negative-tiny-detail"],
+    ] as const;
+
+    const measurements = [];
+    for (const [firstName, secondName, label] of pairs) {
+      mockImageDecoding(fixtures);
+      const evidence = await analyzeCropPairSpatialEvidence(
+        createImageFile(firstName),
+        createImageFile(secondName),
+      );
+      measurements.push({
+        label,
+        currentMatcherWouldAccept: evidence.currentMatcherWouldAccept,
+        twoRegionRuleWouldAccept: evidence.twoRegionRuleWouldAccept,
+        firstDirection: evidence.firstComparedAgainstSecond,
+        reverseDirection: evidence.secondComparedAgainstFirst,
+      });
+      expect(evidence.currentMatcherWouldAccept).toBe(
+        evidence.firstComparedAgainstSecond.acceptedBySingleRegionRule ||
+        evidence.secondComparedAgainstFirst.acceptedBySingleRegionRule,
+      );
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
+    console.info("[M9 spatial acceptance experiment]", JSON.stringify(measurements));
+    expect(measurements).toHaveLength(pairs.length);
+  });
+
+  it("records A7 equal-whole-image-dHash collision evidence", async () => {
+    const fixtures = createWholeImageDHashCollisionFixtures();
+    mockImageDecoding(fixtures);
+    const first = createImageFile("11_collision_scene_a.png");
+    const second = createImageFile("12_collision_scene_b.png");
+    expect(await calculateImageDifferenceHash(first)).toBe(
+      await calculateImageDifferenceHash(second),
+    );
+    const evidence = await analyzeCropPairSpatialEvidence(first, second);
+    console.info("[M9 spatial acceptance A7]", JSON.stringify(evidence));
+    expect(evidence.currentMatcherWouldAccept).toBe(false);
+  });
+});
 
 describe("M9 spatial evidence diagnostics", () => {
   it("counts heavily overlapping windows as one evidence cluster", () => {
