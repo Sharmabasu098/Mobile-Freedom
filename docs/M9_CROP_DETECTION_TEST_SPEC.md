@@ -65,6 +65,22 @@ The fixture images are procedurally generated. No personal photos or external im
 
 The current `similarPhotos.ts` implementation creates a whole-image 64-bit dHash and average-threshold hash, then samples multi-scale regions from each decoded image. It compares a candidate image against source-image regions using dHash distance, average-hash distance, and relative aspect geometry. The implementation also computes spatially independent candidate regions, but currently accepts a direction based on its single best matching region; the independent-region count is diagnostic rather than an acceptance gate. This is a known false-positive risk that must be resolved against genuine-crop positives and negative controls before production use.
 
+
+## Latest automated verification evidence
+
+**Run:** M9 Storage Regression Suite, commit `8bfb763cf325f975f862b198ab5d4fcc7dbc7221`  
+**Result:** SUCCESS
+
+- Vitest: 10 test files passed; 122 tests passed.
+- TypeScript and production build: passed.
+- Production artifact check: passed.
+- Spatial diagnostic tests: overlapping windows collapse to one evidence cluster; separated windows remain independent; mixed windows produce two clusters.
+- Chromium real-JPEG test: source PNG encoded at 105,599 bytes; browser-generated JPEG crop encoded at 16,875 bytes; MIME `image/jpeg`; decoded dimensions 240×180; no decode errors; engine returned one candidate with dHash distance 1 (98% score).
+
+The browser test uses actual Chromium Canvas JPEG encoding and `createImageBitmap` decoding, so it covers JPEG quantization for this deterministic synthetic crop. It does not establish accuracy across arbitrary camera photos, devices, JPEG qualities, rotations, noise, or repeated recompression.
+
+The spatial tests verify the independent-region selector's clustering behavior in isolation. They do **not** show that spatial independence currently affects the production classification decision: the matcher still selects `candidates[0]` and returns `matches: 1`. The helper is diagnostic only; acceptance logic and thresholds were not changed.
+
 ## Next implementation stage
 
 Validate the multi-scale matcher against every positive crop case and the negative controls in CI. Then add browser-level JPEG encode/decode coverage; the current Vitest mock validates pixel geometry and JPEG MIME handling but does not simulate JPEG quantization. The current Vitest mock validates source/crop pixel geometry and resize/brightness transformations, but does not simulate JPEG quantization. Preserve the current API or document any necessary API change before integration.
