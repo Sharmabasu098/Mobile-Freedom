@@ -58,359 +58,64 @@ interface ImageHashSet {
   regions: RegionHash[];
 }
 
+export interface SpatialDirectionEvidence {
+  candidateRegionCount: number;
+  independentRegionCount: number;
+  bestDistance: number | null;
+  /** Current matcher accepts when at least one candidate region exists. */
+  acceptedBySingleRegionRule: boolean;
+  /** Counterfactual only: would this direction pass a two-independent-region rule? */
+  acceptedByTwoRegionRule: boolean;
+}
+
+export interface CropPairSpatialEvidence {
+  areaRatio: number;
+  firstComparedAgainstSecond: SpatialDirectionEvidence;
+  secondComparedAgainstFirst: SpatialDirectionEvidence;
+  currentMatcherWouldAccept: boolean;
+  twoRegionRuleWouldAccept: boolean;
+}
+
 interface CropMatch {
   distance: number;
   matches: number;
 }
 
-/** Intersection-over-union for two normalized source-image windows. */
-function regionIntersectionOverUnion(first: RegionHash, second: RegionHash): number {
-  const left = Math.max(first.x, second.x);
-  const top = Math.max(first.y, second.y);
-  const right = Math.min(first.x + first.width, second.x + second.width);
-  const bottom = Math.min(first.y + first.height, second.y + second.height);
-  const intersection = Math.max(0, right - left) * Math.max(0, bottom - top);
-  const firstArea = first.width * first.height;
-  const secondArea = second.width * second.height;
-  const union = firstArea + secondArea - intersection;
-  return union > 0 ? intersection / union : 0;
-}
+const EMPTY_DIRECTION_EVIDENCE: SpatialDirectionEvidence = {
+  candidateRegionCount: 0,
+  independentRegionCount: 0,
+  bestDistance: null,
+  acceptedBySingleRegionRule: false,
+  acceptedByTwoRegionRule: false,
+};
 
-/**
- * Greedy non-maximum suppression: overlapping windows describing the
- * same source area count as one spatial evidence cluster.
- */
-function selectSpatiallyIndependentRegions<T extends { region: RegionHash }>(
-  candidates: T[],
-  maximumOverlap = 0.25,
-): T[] {
-  const selected: T[] = [];
-  for (const candidate of candidates) {
-    if (
-      selected.every(
-        accepted =>
-          regionIntersectionOverUnion(candidate.region, accepted.region) <= maximumOverlap,
-      )
-    ) {
-      selected.push(candidate);
-    }
-  }
-  return selected;
-}
-
-/**
- * Diagnostic-only helper for verifying spatial evidence clustering.
- * It does not participate in crop classification or change match acceptance.
- */
-export function countSpatiallyIndependentRegions(
-  regions: Array<Pick<RegionHash, "x" | "y" | "width" | "height">>,
-  maximumOverlap = 0.25,
-): number {
-  const candidates = regions.map(region => ({ region: { ...region } as RegionHash }));
-  return selectSpatiallyIndependentRegions(candidates, maximumOverlap).length;
-}
-
-export function calculateDifferenceHashFromPixels(
-  pixels: ArrayLike<number>,
-  width = HASH_WIDTH,
-  height = HASH_HEIGHT,
-): string {
-  if (
-    width !== HASH_WIDTH ||
-    height !== HASH_HEIGHT ||
-    pixels.length !== width * height
-  ) {
-    throw new Error(
-      "dHash requires exactly 72 grayscale pixels arranged as 9 × 8.",
-    );
-  }
-
-  let hash = "";
-
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width - 1; x += 1) {
-      hash += pixels[y * width + x] > pixels[y * width + x + 1]
-        ? "1"
-        : "0";
-    }
-  }
-
-  return hash;
-}
-
-export function calculateHashDistance(
-  firstHash: string,
-  secondHash: string,
-): number {
-  if (
-    firstHash.length !== 64 ||
-    secondHash.length !== 64 ||
-    !/^[01]+$/.test(firstHash) ||
-    !/^[01]+$/.test(secondHash)
-  ) {
-    throw new Error(
-      "Both perceptual hashes must contain exactly 64 binary digits.",
-    );
-  }
-
-  let distance = 0;
-
-  for (let index = 0; index < 64; index += 1) {
-    if (firstHash[index] !== secondHash[index]) {
-      distance += 1;
-    }
-  }
-
-  return distance;
-}
-
-function readGrayscalePixels(context: CanvasRenderingContext2D): number[] {
-  const imageData = context.getImageData(0, 0, HASH_WIDTH, HASH_HEIGHT);
-  const grayscale: number[] = [];
-  for (let index = 0; index < imageData.data.length; index += 4) {
-    grayscale.push(Math.round(
-      0.299 * imageData.data[index] +
-      0.587 * imageData.data[index + 1] +
-      0.114 * imageData.data[index + 2],
-    ));
-  }
-  return grayscale;
-}
-
-function calculateAverageHash(pixels: number[]): string {
-  if (pixels.length !== HASH_WIDTH * HASH_HEIGHT) {
-    throw new Error("Average hash requires exactly 72 grayscale pixels.");
-  }
-  const average = pixels.reduce((sum, value) => sum + value, 0) / pixels.length;
-  return pixels.map(value => value >= average ? "1" : "0").join("");
-}
-
-function calculateAverageHashDistance(first: string, second: string): number {
-  if (first.length !== 72 || second.length !== 72 ||
-      !/^[01]+$/.test(first) || !/^[01]+$/.test(second)) {
-    throw new Error("Both average hashes must contain exactly 72 binary digits.");
-  }
-  let distance = 0;
-  for (let index = 0; index < 72; index += 1) {
-    if (first[index] !== second[index]) distance += 1;
-  }
-  return distance;
-}
-
-function readDescriptors(context: CanvasRenderingContext2D): {
-  differenceHash: string;
-  averageHash: string;
-} {
-  const grayscale = readGrayscalePixels(context);
-  return {
-    differenceHash: calculateDifferenceHashFromPixels(grayscale),
-    averageHash: calculateAverageHash(grayscale),
-  };
-}
-
-function readHash(context: CanvasRenderingContext2D): string {
-  return readDescriptors(context).differenceHash;
-}
-
-function validateImageFile(file: File): void {
-  if (file.size <= 0) {
-    throw new Error("The selected image is empty.");
-  }
-
-  if (file.size > MAX_SIMILARITY_FILE_SIZE_BYTES) {
-    throw new Error(
-      "Image is too large for similarity checking. Maximum supported size is 20 MiB.",
-    );
-  }
-
-  if (!SUPPORTED_SIMILARITY_TYPES.has(file.type.toLowerCase())) {
-    throw new Error(
-      "Unsupported image format. Choose a JPEG, PNG, or WebP image.",
-    );
-  }
-}
-
-/**
- * Produces a bounded descriptor set: one whole-image dHash plus
- * overlapping region hashes across multiple scales and nine positions
- * per axis, improving coverage of off-center and edge crops. Each region is sampled directly from the decoded bitmap.
- */
-async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
-  validateImageFile(file);
-
-  if (typeof createImageBitmap !== "function") {
-    throw new Error("Image decoding is not supported by this browser.");
-  }
-
-  const bitmap = await createImageBitmap(file);
-  let canvas: HTMLCanvasElement | undefined;
-
-  try {
-    if (bitmap.width <= 0 || bitmap.height <= 0) {
-      throw new Error("The image has invalid dimensions.");
-    }
-
-    canvas = document.createElement("canvas");
-    canvas.width = HASH_WIDTH;
-    canvas.height = HASH_HEIGHT;
-
-    const context = canvas.getContext("2d", {
-      willReadFrequently: true,
-    });
-
-    if (!context) {
-      throw new Error(
-        "Image similarity checking is not supported by this browser.",
-      );
-    }
-
-    // Keep the whole-image descriptor separate from positioned regions.
-    context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
-    const wholeImageDescriptors = readDescriptors(context);
-    const wholeImageHash = wholeImageDescriptors.differenceHash;
-    const wholeImageAverageHash = wholeImageDescriptors.averageHash;
-    const regions: RegionHash[] = [];
-
-    // Multi-scale windows sampled on a denser 8-step grid cover centered,
-    // off-center, and edge crops with less positional quantization.
-    // Use independent horizontal/vertical scales so portrait, landscape,
-    // and edge-biased crops are represented without a huge canvas.
-    for (const widthScale of REGION_WIDTH_SCALES) {
-      for (const heightScale of REGION_HEIGHT_SCALES) {
-        const regionWidth = Math.max(1, Math.round(bitmap.width * widthScale));
-        const regionHeight = Math.max(1, Math.round(bitmap.height * heightScale));
-        const maxX = bitmap.width - regionWidth;
-        const maxY = bitmap.height - regionHeight;
-
-        for (let yStep = 0; yStep <= REGION_GRID_STEPS; yStep += 1) {
-          const sourceY = Math.round(maxY * yStep / REGION_GRID_STEPS);
-
-          for (let xStep = 0; xStep <= REGION_GRID_STEPS; xStep += 1) {
-            const sourceX = Math.round(maxX * xStep / REGION_GRID_STEPS);
-
-            context.drawImage(
-              bitmap,
-              sourceX,
-              sourceY,
-              regionWidth,
-              regionHeight,
-              0,
-              0,
-              HASH_WIDTH,
-              HASH_HEIGHT,
-            );
-
-            const regionDescriptors = readDescriptors(context);
-            regions.push({
-              hash: regionDescriptors.differenceHash,
-              averageHash: regionDescriptors.averageHash,
-              x: sourceX / bitmap.width,
-              y: sourceY / bitmap.height,
-              width: regionWidth / bitmap.width,
-              height: regionHeight / bitmap.height,
-              centerX: (sourceX + regionWidth / 2) / bitmap.width,
-              centerY: (sourceY + regionHeight / 2) / bitmap.height,
-            });
-          }
-        }
-      }
-    }
-
-    return {
-      file,
-      width: bitmap.width,
-      height: bitmap.height,
-      wholeImageHash,
-      wholeImageAverageHash,
-      regions,
-    };
-  } finally {
-    bitmap.close();
-
-    if (canvas) {
-      canvas.width = 0;
-      canvas.height = 0;
-    }
-  }
-}
-
-/**
- * Public single-image API retained for existing callers.
- * Returns the whole-image dHash, preserving its established behavior.
- */
-export async function calculateImageDifferenceHash(
-  file: File,
-): Promise<string> {
-  validateImageFile(file);
-
-  if (typeof createImageBitmap !== "function") {
-    throw new Error("Image decoding is not supported by this browser.");
-  }
-
-  const bitmap = await createImageBitmap(file);
-  let canvas: HTMLCanvasElement | undefined;
-
-  try {
-    if (bitmap.width <= 0 || bitmap.height <= 0) {
-      throw new Error("The image has invalid dimensions.");
-    }
-
-    canvas = document.createElement("canvas");
-    canvas.width = HASH_WIDTH;
-    canvas.height = HASH_HEIGHT;
-
-    const context = canvas.getContext("2d", {
-      willReadFrequently: true,
-    });
-
-    if (!context) {
-      throw new Error(
-        "Image similarity checking is not supported by this browser.",
-      );
-    }
-
-    context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
-    return readHash(context);
-  } finally {
-    bitmap.close();
-
-    if (canvas) {
-      canvas.width = 0;
-      canvas.height = 0;
-    }
-  }
-}
-
-/**
- * Finds similar-photo candidates using directional crop-region matching.
- *
- * A crop may match a region of its parent in either direction. Each
- * accepted direction must have at least two spatially independent
- * matching regions; overlapping samples of the same area count once.
- * A whole-image hash match alone is never sufficient. This remains a
- * heuristic and is not proof of identity.
- */
-function compareHashSets(
+function compareHashSetsWithSpatialEvidence(
   first: ImageHashSet,
   second: ImageHashSet,
   maxDistance: number,
-): CropMatch | undefined {
+): CropPairSpatialEvidence {
   const smallerArea = Math.min(first.width * first.height, second.width * second.height);
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
-  if (smallerArea / largerArea < 0.08) return undefined;
+  const areaRatio = smallerArea / largerArea;
+  if (areaRatio < 0.08) {
+    return {
+      areaRatio,
+      firstComparedAgainstSecond: EMPTY_DIRECTION_EVIDENCE,
+      secondComparedAgainstFirst: EMPTY_DIRECTION_EVIDENCE,
+      currentMatcherWouldAccept: false,
+      twoRegionRuleWouldAccept: false,
+    };
+  }
 
   const MAX_RELATIVE_ASPECT_ERROR = 0.04;
-  // A second, differently constructed descriptor reduces accidental
-  // dHash-only matches while remaining tolerant of global brightness shifts.
   const MAX_AVERAGE_HASH_DISTANCE = 12;
 
-  const directionalMatch = (
+  const directionalEvidence = (
     candidateImage: ImageHashSet,
     sourceImage: ImageHashSet,
-  ): CropMatch | undefined => {
-    const candidateRegions = sourceImage.regions;
+  ): SpatialDirectionEvidence => {
     const candidateAspect = candidateImage.width / candidateImage.height;
-    const candidates = candidateRegions
+    const candidates = sourceImage.regions
       .map(region => {
         const regionAspect =
           (region.width * sourceImage.width) / (region.height * sourceImage.height);
@@ -423,7 +128,6 @@ function compareHashSets(
             candidateImage.wholeImageAverageHash,
             region.averageHash,
           ),
-          regionAspect,
           relativeAspectError,
         };
       })
@@ -437,35 +141,68 @@ function compareHashSets(
         a.relativeAspectError - b.relativeAspectError
       );
 
-    // A crop candidate must match both dHash and average-threshold hash,
-    // with compatible pixel geometry. Position is retained for diagnostics.
-    // Keep the spatial-independence diagnostic calculation without storing an unused result.
-    selectSpatiallyIndependentRegions(candidates);
-
-    // The dHash and average-threshold hash must both agree for every
-    // accepted region. Spatially independent counts remain diagnostic;
-    // do not require multiple separate regions, which rejects genuine crops.
-    const best = candidates[0];
-    if (!best) return undefined;
-
-    // Do not log filenames or image-derived diagnostics to the console.
-    // Detailed evidence belongs in an explicit, user-initiated local report.
-    return { distance: best.distance, matches: 1 };
+    const independent = selectSpatiallyIndependentRegions(candidates);
+    return {
+      candidateRegionCount: candidates.length,
+      independentRegionCount: independent.length,
+      bestDistance: candidates[0]?.distance ?? null,
+      acceptedBySingleRegionRule: candidates.length > 0,
+      acceptedByTwoRegionRule: independent.length >= 2,
+    };
   };
 
-  const firstInSecond = directionalMatch(second, first);
-  const secondInFirst = directionalMatch(first, second);
+  const firstComparedAgainstSecond = directionalEvidence(first, second);
+  const secondComparedAgainstFirst = directionalEvidence(second, first);
+  return {
+    areaRatio,
+    firstComparedAgainstSecond,
+    secondComparedAgainstFirst,
+    currentMatcherWouldAccept:
+      firstComparedAgainstSecond.acceptedBySingleRegionRule ||
+      secondComparedAgainstFirst.acceptedBySingleRegionRule,
+    twoRegionRuleWouldAccept:
+      firstComparedAgainstSecond.acceptedByTwoRegionRule ||
+      secondComparedAgainstFirst.acceptedByTwoRegionRule,
+  };
+}
 
+/**
+ * Diagnostic-only controlled experiment API. It runs the same descriptor
+ * generation and region filters as production, then reports the current
+ * one-region decision beside a counterfactual two-independent-region rule.
+ * It never changes classification, thresholds, files, or production output.
+ */
+export async function analyzeCropPairSpatialEvidence(
+  first: File,
+  second: File,
+  maxDistance = DEFAULT_SIMILARITY_DISTANCE,
+): Promise<CropPairSpatialEvidence> {
+  if (!Number.isInteger(maxDistance) || maxDistance < 0 || maxDistance > 64) {
+    throw new Error("Similarity distance must be a whole number between 0 and 64.");
+  }
+  const [firstHashes, secondHashes] = await Promise.all([
+    calculateImageHashSet(first),
+    calculateImageHashSet(second),
+  ]);
+  return compareHashSetsWithSpatialEvidence(firstHashes, secondHashes, maxDistance);
+}
 
-  // Crop matching is intentionally directional: a crop should match a
-  // region of its parent, but the full parent need not match a region of
-  // the smaller crop. Two independent descriptors guard each direction.
-  if (!firstInSecond && !secondInFirst) return undefined;
-  if (!firstInSecond) return secondInFirst;
-  if (!secondInFirst) return firstInSecond;
-  return firstInSecond.distance <= secondInFirst.distance
-    ? firstInSecond
-    : secondInFirst;
+/**
+ * Existing production matcher remains deliberately unchanged: one matching
+ * region is still sufficient pending controlled experiment evidence.
+ */
+function compareHashSets(
+  first: ImageHashSet,
+  second: ImageHashSet,
+  maxDistance: number,
+): CropMatch | undefined {
+  const evidence = compareHashSetsWithSpatialEvidence(first, second, maxDistance);
+  if (!evidence.currentMatcherWouldAccept) return undefined;
+  const distances = [
+    evidence.firstComparedAgainstSecond.bestDistance,
+    evidence.secondComparedAgainstFirst.bestDistance,
+  ].filter((value): value is number => value !== null);
+  return { distance: Math.min(...distances), matches: 1 };
 }
 
 export async function findSimilarPhotos(
