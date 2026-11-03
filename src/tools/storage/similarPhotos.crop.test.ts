@@ -504,7 +504,7 @@ function createSharedDescriptorPatchFixtures(): Record<string, Raster> {
   const sampledColumnForPixel = (x: number) =>
     Math.min(8, Math.floor(x * 9 / targetWidth));
   const sampledRowForPixel = (y: number) =>
-    Math.min(7, Math.floor(y * 8 / targetHeight));
+    Math.min(7, Math.ceil((y + 1) * 8 / targetHeight) - 1);
 
   for (let y = 0; y < targetHeight; y += 1) {
     for (let x = 0; x < targetWidth; x += 1) {
