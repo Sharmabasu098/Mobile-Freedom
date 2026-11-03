@@ -20,10 +20,10 @@ try {
   await page.locator("#run").click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#output")?.textContent || "";
-    return text.includes("CROP_BENCHMARK_EXECUTED") ||
-      text.includes("CROP_BENCHMARK_REVIEW_REQUIRED") ||
-      text.includes("CROP_BENCHMARK_ERROR");
-  }, { timeout: 120000 });
+    return text.includes("EXPANDED_BENCHMARK_EXECUTED") ||
+      text.includes("EXPANDED_BENCHMARK_REVIEW_REQUIRED") ||
+      text.includes("EXPANDED_BENCHMARK_ERROR");
+  }, { timeout: 240000 });
 
   const result = JSON.parse(await page.locator("#output").innerText());
   result.pageErrors = pageErrors;
@@ -31,21 +31,26 @@ try {
   await page.screenshot({ path: "browser-probe-screenshot.png", fullPage: true });
 
   if (pageErrors.length) throw new Error("Browser page errors: " + pageErrors.join("; "));
-  if (result.productionAcceptance !== false || result.accuracyThresholdsApplied !== false) {
+  if (result.productionAcceptance !== false || result.productionThresholdSelected !== false) {
     throw new Error("Benchmark must remain explicitly non-production and threshold-neutral.");
   }
-  if (result.status !== "CROP_BENCHMARK_EXECUTED") {
-    throw new Error("Crop benchmark did not execute cleanly: " + (result.error?.message || result.status));
+  if (result.status !== "EXPANDED_BENCHMARK_EXECUTED") {
+    throw new Error("Expanded benchmark execution failed: " + (result.error?.message || result.status));
   }
-  if (result.summary?.totalCases !== 4 ||
-      result.summary?.genuineCropCases !== 3 ||
-      result.summary?.negativeControlCases !== 1) {
-    throw new Error("Expected exactly three crop cases and one unrelated negative control.");
+  if (result.summary?.uniqueCases !== 22 ||
+      result.summary?.totalEvaluations !== 66 ||
+      result.summary?.genuineCropCases !== 15 ||
+      result.summary?.unrelatedNegativeControls !== 5 ||
+      result.summary?.sameObjectDifferentPhotoHardNegatives !== 2) {
+    throw new Error("Expanded benchmark fixture count does not match the registered protocol.");
   }
-  if (result.cases.some(item => !item.orb || !item.matching || !item.ransac || !item.spatialCoverage)) {
-    throw new Error("One or more cases are missing required diagnostics.");
+  if (!Array.isArray(result.exploratoryThresholdSweep) || result.exploratoryThresholdSweep.length !== 24) {
+    throw new Error("Expected 24 exploratory threshold configurations for FP/FN analysis.");
   }
-  console.log("PASS: deterministic 50/65/80% genuine crops + unrelated control benchmark executed. No M9 acceptance implied.");
+  if (result.caseSummary.some(item => item.repeatCount !== 3 || item.pipelineStatuses.length !== 3)) {
+    throw new Error("Repeated-run diagnostics are incomplete.");
+  }
+  console.log("PASS: 22-case, 3-repeat crop/hard-negative benchmark executed with exploratory FP/FN sweep. No M9 acceptance implied.");
 } finally {
   await browser.close();
 }
