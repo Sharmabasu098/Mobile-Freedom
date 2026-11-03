@@ -427,7 +427,8 @@ function compareHashSets(
 
     // A crop candidate must match both dHash and average-threshold hash,
     // with compatible pixel geometry. Position is retained for diagnostics.
-    const independentCandidates = selectSpatiallyIndependentRegions(candidates);
+    // Keep the spatial-independence diagnostic calculation without storing an unused result.
+    selectSpatiallyIndependentRegions(candidates);
 
     // The dHash and average-threshold hash must both agree for every
     // accepted region. Spatially independent counts remain diagnostic;
