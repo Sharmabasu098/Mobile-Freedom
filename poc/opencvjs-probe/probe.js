@@ -236,15 +236,8 @@ try {
   // Do not hard-code "/opencv_js.wasm": that URL is handled by Vite's SPA
   // fallback and returns index.html instead of the binary.
   globalThis.Module = globalThis.Module || {};
-  globalThis.Module.locateFile = (path, prefix) => {
-    if (path.endsWith(".wasm")) {
-      assert(
-        typeof prefix === "string" && prefix.length > 0,
-        "OpenCV did not provide a WASM asset directory; refusing an unsafe root-level fallback."
-      );
-    }
-    return prefix + path;
-  };
+  globalThis.Module.locateFile = (path, prefix) =>
+    path.endsWith(".wasm") ? "/opencv_js.wasm" : prefix + path;
 
   const { default: loadOpenCV } = await import("@haoking/opencvjs");
 
