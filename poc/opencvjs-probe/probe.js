@@ -108,7 +108,9 @@ async function runProbe() {
     const keypointsB = new cv.KeyPointVector();
     const descriptorsA = new cv.Mat();
     const descriptorsB = new cv.Mat();
-    const orb = cv.ORB.create(1200);
+    // Embind maps OpenCV's static ORB::create() factory to the JS constructor.
+    // Confirmed against the package's OpenCV 5 binding behavior.
+    const orb = new cv.ORB(1200);
     const matches = new cv.DMatchVectorVector();
     const matcher = new cv.BFMatcher(cv.NORM_HAMMING, false);
     owned.push(matA, matB, grayA, grayB, maskA, maskB, keypointsA, keypointsB, descriptorsA, descriptorsB, orb, matches, matcher);
