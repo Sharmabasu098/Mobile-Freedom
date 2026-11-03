@@ -636,4 +636,11 @@ try {
 runButton.addEventListener("click", runProbe);
 
 const localPhotoButton = document.querySelector("#runPhotoValidation");
+const photoAInput = document.querySelector("#photoA");
+const photoBInput = document.querySelector("#photoB");
+function refreshLocalPhotoButton() {
+  if (localPhotoButton) localPhotoButton.disabled = !runtimeReady || !photoAInput.files.length || !photoBInput.files.length;
+}
+if (photoAInput) photoAInput.addEventListener("change", refreshLocalPhotoButton);
+if (photoBInput) photoBInput.addEventListener("change", refreshLocalPhotoButton);
 if (localPhotoButton) localPhotoButton.addEventListener("click", runLocalPhotoValidation);
