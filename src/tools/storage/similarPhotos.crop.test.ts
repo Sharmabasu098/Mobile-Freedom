@@ -8,6 +8,7 @@ import {
 
 import {
   calculateImageDifferenceHash,
+  countSpatiallyIndependentRegions,
   findSimilarPhotos,
 } from "./similarPhotos";
 
@@ -301,6 +302,34 @@ function createWholeImageDHashCollisionFixtures(): Record<string, Raster> {
     "12_collision_scene_b.png": build(true),
   };
 }
+
+describe("M9 spatial evidence diagnostics", () => {
+  it("counts heavily overlapping windows as one evidence cluster", () => {
+    const count = countSpatiallyIndependentRegions([
+      { x: 0.10, y: 0.10, width: 0.50, height: 0.50 },
+      { x: 0.12, y: 0.11, width: 0.50, height: 0.50 },
+      { x: 0.09, y: 0.13, width: 0.49, height: 0.50 },
+    ]);
+    expect(count).toBe(1);
+  });
+
+  it("keeps spatially separate windows as independent evidence", () => {
+    const count = countSpatiallyIndependentRegions([
+      { x: 0.02, y: 0.02, width: 0.25, height: 0.25 },
+      { x: 0.68, y: 0.68, width: 0.25, height: 0.25 },
+    ]);
+    expect(count).toBe(2);
+  });
+
+  it("clusters mixed windows while preserving a separate region", () => {
+    const count = countSpatiallyIndependentRegions([
+      { x: 0.05, y: 0.05, width: 0.40, height: 0.40 },
+      { x: 0.08, y: 0.07, width: 0.40, height: 0.40 },
+      { x: 0.58, y: 0.58, width: 0.30, height: 0.30 },
+    ]);
+    expect(count).toBe(2);
+  });
+});
 
 describe("M9 crop detection — real pixel-geometry fixtures", () => {
   it("builds crop fixtures from copied regions of the same source raster", () => {
