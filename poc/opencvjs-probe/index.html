@@ -4,37 +4,37 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101827">
-  <title>OpenCV.js Runtime Probe — Mobile Freedom</title>
+  <title>M9 Crop Detection Benchmark — Mobile Freedom</title>
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
   <main>
     <header>
       <p class="eyebrow">M9 · ISOLATED EXPERIMENT</p>
-      <h1>OpenCV.js runtime probe</h1>
-      <p class="intro">Checks the browser WASM runtime, ORB, descriptors, KNN matching, RANSAC and Embind cleanup using generated test images.</p>
+      <h1>Deterministic crop benchmark</h1>
+      <p class="intro">Runs three genuine center-crop cases (50%, 65%, 80% retained area) and one unrelated negative control through ORB, KNN/Lowe and RANSAC.</p>
     </header>
     <section class="card">
       <div class="row">
         <span id="status" class="badge pending">Waiting to start</span>
-        <button id="run" type="button" disabled>Run probe</button>
+        <button id="run" type="button" disabled>Run benchmark</button>
       </div>
       <p id="summary" class="muted">Loading the OpenCV WebAssembly package…</p>
       <ol id="stages" class="stages"></ol>
     </section>
     <section class="card">
-      <h2>Generated test images</h2>
-      <p class="muted">No photo upload is needed. Image B is a crop made from generated image A.</p>
+      <h2>Generated test fixtures</h2>
+      <p class="muted">All images are generated deterministically in the browser. No personal photo upload is needed.</p>
       <div class="previews">
-        <figure><canvas id="imageA" width="320" height="240"></canvas><figcaption>Image A · generated original</figcaption></figure>
-        <figure><canvas id="imageB" width="320" height="240"></canvas><figcaption>Image B · generated crop</figcaption></figure>
+        <figure><canvas id="imageA" width="320" height="240"></canvas><figcaption>Scene A · generated original</figcaption></figure>
+        <figure><canvas id="imageB" width="320" height="240"></canvas><figcaption>Scene A · 50% retained-area center crop</figcaption></figure>
       </div>
     </section>
     <section class="card">
-      <h2>Diagnostic output</h2>
+      <h2>Benchmark diagnostics</h2>
       <pre id="output">Runtime is loading…</pre>
     </section>
-    <footer>Experimental only · No production integration · No automatic file deletion</footer>
+    <footer>Experimental only · No production integration · No automatic file deletion · No acceptance threshold</footer>
   </main>
   <script type="module" src="./probe.js"></script>
 </body>
