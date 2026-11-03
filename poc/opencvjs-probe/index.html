@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>OpenCV.js Runtime Probe — Mobile Freedom</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">M9 · ISOLATED EXPERIMENT</p>
+      <h1>OpenCV.js runtime probe</h1>
+      <p class="intro">Checks the browser WASM runtime, ORB, descriptors, KNN matching, RANSAC and Embind cleanup using generated test images.</p>
+    </header>
+    <section class="card">
+      <div class="row">
+        <span id="status" class="badge pending">Waiting to start</span>
+        <button id="run" type="button" disabled>Run probe</button>
+      </div>
+      <p id="summary" class="muted">Loading the OpenCV WebAssembly package…</p>
+      <ol id="stages" class="stages"></ol>
+    </section>
+    <section class="card">
+      <h2>Generated test images</h2>
+      <p class="muted">No photo upload is needed. Image B is a crop made from generated image A.</p>
+      <div class="previews">
+        <figure><canvas id="imageA" width="320" height="240"></canvas><figcaption>Image A · generated original</figcaption></figure>
+        <figure><canvas id="imageB" width="320" height="240"></canvas><figcaption>Image B · generated crop</figcaption></figure>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Diagnostic output</h2>
+      <pre id="output">Runtime is loading…</pre>
+    </section>
+    <footer>Experimental only · No production integration · No automatic file deletion</footer>
+  </main>
+  <script type="module" src="./probe.js"></script>
+</body>
+</html>
