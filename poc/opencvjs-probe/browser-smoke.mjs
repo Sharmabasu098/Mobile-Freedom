@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 import { writeFile } from "node:fs/promises";
 
 const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
 const pageErrors = [];
 page.on("pageerror", error => pageErrors.push(error.message));
 
@@ -10,36 +10,42 @@ try {
   await page.goto("http://127.0.0.1:5174/", { waitUntil: "networkidle", timeout: 60000 });
   await page.locator("#status").waitFor({ state: "visible" });
   await page.waitForFunction(
-    () => document.querySelector("#status")?.textContent === "WASM runtime ready" ||
-          document.querySelector("#status")?.textContent === "WASM load failed",
+    () => ["WASM runtime ready", "WASM load failed"].includes(document.querySelector("#status")?.textContent),
     { timeout: 90000 }
   );
-
-  const runtimeStatus = await page.locator("#status").innerText();
-  if (runtimeStatus !== "WASM runtime ready") {
+  if (await page.locator("#status").innerText() !== "WASM runtime ready") {
     throw new Error("Browser WASM runtime did not become ready. " + await page.locator("#output").innerText());
   }
 
   await page.locator("#run").click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#output")?.textContent || "";
-    return text.includes("RUNTIME_PIPELINE_PASS") || text.includes("RUNTIME_PIPELINE_ERROR");
-  }, { timeout: 90000 });
+    return text.includes("CROP_BENCHMARK_EXECUTED") ||
+      text.includes("CROP_BENCHMARK_REVIEW_REQUIRED") ||
+      text.includes("CROP_BENCHMARK_ERROR");
+  }, { timeout: 120000 });
 
-  const outputText = await page.locator("#output").innerText();
-  const result = JSON.parse(outputText);
+  const result = JSON.parse(await page.locator("#output").innerText());
   result.pageErrors = pageErrors;
   await writeFile("browser-probe-results.json", JSON.stringify(result, null, 2));
   await page.screenshot({ path: "browser-probe-screenshot.png", fullPage: true });
 
   if (pageErrors.length) throw new Error("Browser page errors: " + pageErrors.join("; "));
-  if (result.status !== "RUNTIME_PIPELINE_PASS") {
-    throw new Error("OpenCV pipeline smoke test failed: " + (result.error?.message || result.status));
+  if (result.productionAcceptance !== false || result.accuracyThresholdsApplied !== false) {
+    throw new Error("Benchmark must remain explicitly non-production and threshold-neutral.");
   }
-  if (result.productionAcceptance !== false) {
-    throw new Error("Probe must remain explicitly non-production.");
+  if (result.status !== "CROP_BENCHMARK_EXECUTED") {
+    throw new Error("Crop benchmark did not execute cleanly: " + (result.error?.message || result.status));
   }
-  console.log("PASS: browser WASM + ORB + KNN/Lowe + RANSAC smoke test. This is not M9 acceptance.");
+  if (result.summary?.totalCases !== 4 ||
+      result.summary?.genuineCropCases !== 3 ||
+      result.summary?.negativeControlCases !== 1) {
+    throw new Error("Expected exactly three crop cases and one unrelated negative control.");
+  }
+  if (result.cases.some(item => !item.orb || !item.matching || !item.ransac || !item.spatialCoverage)) {
+    throw new Error("One or more cases are missing required diagnostics.");
+  }
+  console.log("PASS: deterministic 50/65/80% genuine crops + unrelated control benchmark executed. No M9 acceptance implied.");
 } finally {
   await browser.close();
 }
