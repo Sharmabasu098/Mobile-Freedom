@@ -3,7 +3,7 @@
 **Project:** Mobile Freedom — The Essential Mobile Toolkit  
 **Milestone:** M9 — Duplicate Photo & Video Analyzer  
 **Branch:** `m9-crop-detection-tests`  
-**Status:** Multi-scale region hashing implemented; positive crop regression cases are enforced as normal tests. CI verification pending.
+**Status:** Multi-scale region hashing implemented; positive crop regression cases and an equal-whole-image-dHash negative control are represented in automated tests. Full CI, actual JPEG encoder coverage, manual A1–A7 evidence, and Android verification remain separate acceptance items.
 
 ## Purpose
 
@@ -24,7 +24,7 @@ The automated crop regression tests now generate deterministic in-memory rasters
 - `09_unrelated_scene.png` — negative control.
 - `10_tiny_detail_crop.png` — very small detail crop / conservative edge case.
 
-The fixture images are procedurally generated. No personal photos or external images are used.
+The fixture images are procedurally generated. No personal photos or external images are used. The JPEG-named automated fixture currently exercises the JPEG MIME path with a raster mock; it is not a true JPEG encode/decode test.
 
 ## Functional test cases
 
@@ -63,7 +63,7 @@ The fixture images are procedurally generated. No personal photos or external im
 
 ## Current known baseline
 
-The current `similarPhotos.ts` implementation creates one 64-bit dHash from a 9 × 8 downscaled image and compares global hash Hamming distance. It does not currently perform region/patch matching, so cropped variants may not match the original. This is the gap the tests are intended to expose and guide.
+The current `similarPhotos.ts` implementation creates a whole-image 64-bit dHash and average-threshold hash, then samples multi-scale regions from each decoded image. It compares a candidate image against source-image regions using dHash distance, average-hash distance, and relative aspect geometry. The implementation also computes spatially independent candidate regions, but currently accepts a direction based on its single best matching region; the independent-region count is diagnostic rather than an acceptance gate. This is a known false-positive risk that must be resolved against genuine-crop positives and negative controls before production use.
 
 ## Next implementation stage
 
