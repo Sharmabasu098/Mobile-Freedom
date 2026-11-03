@@ -67,6 +67,28 @@ The current `similarPhotos.ts` implementation creates a whole-image 64-bit dHash
 
 
 
+
+## Single-region hard-negative stress experiment — 2026-11-03
+
+**CI run:** `41667454247` — SUCCESS  
+**Automated suite:** 10 test files, 125 tests passed.
+
+Five additional deterministic, independently generated hard-negative pairs were processed through the production descriptor generation and candidate filters:
+
+| Hard-negative scenario | Matching candidate regions | Current one-region decision |
+|---|---:|---|
+| Similar dominant colours, different texture | 0 | Reject |
+| Same broad background, different foreground subjects | 0 | Reject |
+| Different stylized portraits | 0 | Reject |
+| Same object class (mug), different synthetic compositions | 0 | Reject |
+| Unrelated scenes with a small shared local texture patch | 0 | Reject |
+
+**Observed result:** 0/5 hard-negative pairs were accepted by the current single-region rule. Both directions had zero matching regions in all five pairs.
+
+**Interpretation and limitations:** This is a useful synthetic stress result, not a real-photo false-positive rate. The scenes are generated 96×72 rasters and the portrait/object cases are stylized approximations. The shared patch test checks a small repeated local texture but does not represent every possible coincidental region. Real camera photographs, diverse image sizes, compression, blur, rotation, and a broader hard-negative corpus remain untested here. Do not extrapolate 0/5 to a production accuracy guarantee.
+
+**Decision:** Keep the current single-region rule and threshold unchanged for now. The prior positive experiment showed all 7/7 genuine synthetic crop fixtures have only one independent matching region, so a strict two-region rule would reject all those positives. The new 5/5 synthetic hard negatives were rejected even under the current rule. Continue expanding difficult controls and validating the real-photo A1–A7 evidence before considering any classification change.
+
 ## Controlled spatial acceptance experiment — 2026-11-03
 
 **CI run:** `41666038672` — SUCCESS  
