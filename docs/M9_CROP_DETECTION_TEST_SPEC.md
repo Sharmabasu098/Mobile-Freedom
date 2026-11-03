@@ -66,6 +66,33 @@ The fixture images are procedurally generated. No personal photos or external im
 The current `similarPhotos.ts` implementation creates a whole-image 64-bit dHash and average-threshold hash, then samples multi-scale regions from each decoded image. It compares a candidate image against source-image regions using dHash distance, average-hash distance, and relative aspect geometry. The implementation also computes spatially independent candidate regions, but currently accepts a direction based on its single best matching region; the independent-region count is diagnostic rather than an acceptance gate. This is a known false-positive risk that must be resolved against genuine-crop positives and negative controls before production use.
 
 
+
+## Controlled spatial acceptance experiment — 2026-11-03
+
+**CI run:** `41666038672` — SUCCESS  
+**Automated suite:** 10 test files, 124 tests passed.
+
+The experiment uses the exact production descriptor generation, candidate filters, geometry checks, and IoU-based spatial non-maximum suppression. It reports the current one-region decision and a counterfactual two-independent-region decision without changing production acceptance.
+
+| Pair | Current one-region rule | Independent matching regions | Counterfactual ≥2 rule |
+|---|---:|---:|---:|
+| Genuine 25%-named crop fixture | Accept | 1 | Reject |
+| Genuine 50%-named crop fixture | Accept | 1 | Reject |
+| Genuine left-edge crop | Accept | 1 | Reject |
+| Genuine right-edge crop | Accept | 1 | Reject |
+| Genuine resized crop | Accept | 1 | Reject |
+| JPEG-MIME raster mock crop | Accept | 1 | Reject |
+| Brightness-adjusted crop | Accept | 1 | Reject |
+| Unrelated generated scene | Reject | 0 | Reject |
+| Tiny detail crop | Reject | 0 | Reject |
+| A7 equal-whole-image-dHash collision | Reject | 0 | Reject |
+
+**Observed result:** 7/7 synthetic genuine positives have exactly one independent matching region in the current fixture set. The three automated negative controls have zero matching regions; no accidental one-region negative candidate was observed in these controls.
+
+**Decision:** Do not introduce a two-independent-region acceptance requirement. On the current positive fixture set, that rule would reject all 7 genuine positives (7 false negatives). The experiment does not prove that one-region matching is safe in general: only three synthetic negative controls were measured, and real-photo A1–A6 evidence remains separate. Keep the current acceptance behavior unchanged while expanding difficult negative controls and real-photo evidence.
+
+The diagnostic API `analyzeCropPairSpatialEvidence` is measurement-only. It exposes candidate counts and counterfactual decisions for tests; it does not modify `findSimilarPhotos` behavior, thresholds, or selected files.
+
 ## Latest automated verification evidence
 
 **Run:** M9 Storage Regression Suite, commit `8bfb763cf325f975f862b198ab5d4fcc7dbc7221`  
