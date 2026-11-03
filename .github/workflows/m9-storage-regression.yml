@@ -1,0 +1,45 @@
+name: M9 Storage Regression Suite
+
+on:
+  push:
+    branches:
+      - m9-multiview-matching-poc
+  pull_request:
+    branches:
+      - m9-multiview-matching-poc
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m9-storage-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  storage-regression:
+    name: Storage tests, typecheck and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run complete Vitest suite
+        run: npm test
+
+      - name: Run TypeScript and production build
+        run: npm run build
+
+      - name: Verify production artifact
+        run: test -s dist/index.html
