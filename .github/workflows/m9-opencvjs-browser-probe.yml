@@ -1,0 +1,77 @@
+name: M9 OpenCV.js Browser Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - m9-multiview-matching-poc
+    paths:
+      - "poc/opencvjs-probe/**"
+      - ".github/workflows/m9-opencvjs-browser-probe.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m9-opencvjs-browser-probe
+  cancel-in-progress: true
+
+jobs:
+  browser-probe:
+    name: Chromium WASM and ORB pipeline smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out isolated M9 branch
+        uses: actions/checkout@v4
+        with:
+          ref: m9-multiview-matching-poc
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Install isolated probe and browser test dependency
+        working-directory: poc/opencvjs-probe
+        run: |
+          npm install --ignore-scripts
+          npm install --no-save playwright
+
+      - name: Install Chromium
+        working-directory: poc/opencvjs-probe
+        run: npx playwright install --with-deps chromium
+
+      - name: Start isolated Vite probe
+        working-directory: poc/opencvjs-probe
+        run: |
+          npm run dev > /tmp/m9-opencv-vite.log 2>&1 &
+          echo $! > /tmp/m9-opencv-vite.pid
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5174/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/m9-opencv-vite.log
+          exit 1
+
+      - name: Run browser WASM and feature pipeline probe
+        working-directory: poc/opencvjs-probe
+        run: node browser-smoke.mjs
+
+      - name: Upload browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m9-opencvjs-browser-diagnostics
+          path: |
+            poc/opencvjs-probe/browser-probe-results.json
+            poc/opencvjs-probe/browser-probe-screenshot.png
+            /tmp/m9-opencv-vite.log
+          if-no-files-found: warn
+          retention-days: 14
