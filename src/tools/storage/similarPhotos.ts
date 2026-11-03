@@ -98,6 +98,18 @@ function selectSpatiallyIndependentRegions<T extends { region: RegionHash }>(
   return selected;
 }
 
+/**
+ * Diagnostic-only helper for verifying spatial evidence clustering.
+ * It does not participate in crop classification or change match acceptance.
+ */
+export function countSpatiallyIndependentRegions(
+  regions: Array<Pick<RegionHash, "x" | "y" | "width" | "height">>,
+  maximumOverlap = 0.25,
+): number {
+  const candidates = regions.map(region => ({ region: { ...region } as RegionHash }));
+  return selectSpatiallyIndependentRegions(candidates, maximumOverlap).length;
+}
+
 export function calculateDifferenceHashFromPixels(
   pixels: ArrayLike<number>,
   width = HASH_WIDTH,
