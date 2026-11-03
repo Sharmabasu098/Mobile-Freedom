@@ -234,6 +234,12 @@ try {
   // A static ES-module import runs before this file body, which caused
   // "Module is not defined" in the browser bundle.
   globalThis.Module = globalThis.Module || {};
+  // Vite does not serve package-internal WASM URLs as static assets.
+  // Route the Emscripten loader to a dedicated same-origin endpoint served
+  // by vite.config.js from this package's installed baseline WASM binary.
+  globalThis.Module.locateFile = (path, prefix) =>
+    path.endsWith("opencv_js.wasm") ? "/opencv_js.wasm" : prefix + path;
+
   const { default: loadOpenCV } = await import("@haoking/opencvjs");
 
   const started = performance.now();
