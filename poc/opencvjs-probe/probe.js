@@ -8,6 +8,7 @@ const canvasB = document.querySelector("#imageB");
 
 let cv = null;
 let runtimeReady = false;
+let lastBenchmarkResult = null;
 const CONFIG = Object.freeze({
   seedOriginal: 87321,
   unrelatedSeeds: [99217, 33109, 77123, 44017, 61891],
@@ -440,6 +441,9 @@ async function runProbe() {
     summaryEl.textContent = "The expanded benchmark could not complete. Diagnostics are recorded below.";
     addStage("Benchmark execution", "error", error?.message || String(error));
   } finally {
+    lastBenchmarkResult = result;
+    const downloadButton = document.querySelector("#downloadBenchmarkReport");
+    if (downloadButton) downloadButton.disabled = false;
     writeOutput(result);
     runButton.disabled = !runtimeReady;
   }
@@ -646,3 +650,17 @@ if (photoBInput) photoBInput.addEventListener("change", refreshLocalPhotoButton)
 if (localPhotoButton) localPhotoButton.addEventListener("click", runLocalPhotoValidation);
 
 refreshLocalPhotoButton();
+
+const downloadBenchmarkButton = document.querySelector("#downloadBenchmarkReport");
+if (downloadBenchmarkButton) {
+  downloadBenchmarkButton.addEventListener("click", () => {
+    if (!lastBenchmarkResult) return;
+    const blob = new Blob([JSON.stringify(lastBenchmarkResult, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "m9-expanded-crop-benchmark.json";
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+}
