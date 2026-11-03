@@ -644,3 +644,5 @@ function refreshLocalPhotoButton() {
 if (photoAInput) photoAInput.addEventListener("change", refreshLocalPhotoButton);
 if (photoBInput) photoBInput.addEventListener("change", refreshLocalPhotoButton);
 if (localPhotoButton) localPhotoButton.addEventListener("click", runLocalPhotoValidation);
+
+refreshLocalPhotoButton();
