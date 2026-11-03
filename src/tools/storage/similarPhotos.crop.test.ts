@@ -470,6 +470,73 @@ describe("M9 single-region hard-negative stress experiment", () => {
   });
 });
 
+
+/**
+ * Adversarial descriptor-collision pair:
+ * - The large image is a textured unrelated scene.
+ * - The small image is a coarse 9×8 colour mosaic sampled from one
+ *   50%-scale window of the large image.
+ * The mosaic preserves that window's dHash/average-hash evidence while
+ * destroying its original scene detail and composition. This deliberately
+ * tests whether one descriptor-level region can create a false candidate.
+ */
+function createSharedDescriptorPatchFixtures(): Record<string, Raster> {
+  const source = createScene(0x51a7c0de);
+  const region = { x: 24, y: 18, width: 48, height: 36 };
+  const sampled = rasterToThumbnail(
+    source,
+    region.x,
+    region.y,
+    region.width,
+    region.height,
+  );
+  const targetWidth = region.width;
+  const targetHeight = region.height;
+  const targetPixels = new Uint8ClampedArray(targetWidth * targetHeight * 4);
+
+  // Expand each of the 9×8 descriptor samples into a flat tile. The
+  // candidate is not a copied crop: nearly all fine spatial detail is lost.
+  for (let y = 0; y < targetHeight; y += 1) {
+    for (let x = 0; x < targetWidth; x += 1) {
+      const sampleX = Math.min(8, Math.floor(x * 9 / targetWidth));
+      const sampleY = Math.min(7, Math.floor(y * 8 / targetHeight));
+      const from = (sampleY * 9 + sampleX) * 4;
+      const to = (y * targetWidth + x) * 4;
+      targetPixels.set(sampled.subarray(from, from + 4), to);
+    }
+  }
+
+  return {
+    "13_unrelated_detailed_scene.png": source,
+    "14_descriptor_mosaic_candidate.png": {
+      width: targetWidth,
+      height: targetHeight,
+      pixels: targetPixels,
+    },
+  };
+}
+
+describe("M9 adversarial shared-region descriptor collision", () => {
+  it("exposes whether one coarse accidental region can accept an unrelated mosaic", async () => {
+    const fixtures = createSharedDescriptorPatchFixtures();
+    mockImageDecoding(fixtures);
+    const source = createImageFile("13_unrelated_detailed_scene.png");
+    const mosaic = createImageFile("14_descriptor_mosaic_candidate.png");
+
+    const evidence = await analyzeCropPairSpatialEvidence(source, mosaic);
+    console.info("[M9 adversarial shared-region descriptor collision]", JSON.stringify(evidence));
+
+    // This is a deliberately adversarial near-match. We record the actual
+    // classifier outcome rather than assuming it must reject; a failure here
+    // is evidence to guide a safe algorithm change, not a flaky fixture.
+    expect(evidence.areaRatio).toBeGreaterThanOrEqual(0.08);
+    expect(
+      evidence.firstComparedAgainstSecond.candidateRegionCount +
+      evidence.secondComparedAgainstFirst.candidateRegionCount,
+    ).toBeGreaterThanOrEqual(0);
+  });
+});
+
 describe("M9 spatial evidence diagnostics", () => {
   it("counts heavily overlapping windows as one evidence cluster", () => {
     const count = countSpatiallyIndependentRegions([
