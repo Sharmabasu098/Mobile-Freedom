@@ -445,6 +445,169 @@ async function runProbe() {
   }
 }
 
+
+function loadLocalImage(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const canvas = makeCanvas();
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      const scale = Math.min(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+      const width = Math.max(1, Math.round(image.naturalWidth * scale));
+      const height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const x = Math.floor((canvas.width - width) / 2);
+      const y = Math.floor((canvas.height - height) / 2);
+      context.drawImage(image, x, y, width, height);
+      URL.revokeObjectURL(objectUrl);
+      resolve({
+        canvas,
+        dimensions: { width: image.naturalWidth, height: image.naturalHeight },
+        normalizedDimensions: { width: canvas.width, height: canvas.height }
+      });
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Selected image could not be decoded by this browser."));
+    };
+    image.src = objectUrl;
+  });
+}
+function getDeviceDiagnostics() {
+  const memory = performance.memory;
+  return {
+    userAgent: navigator.userAgent,
+    platform: navigator.platform || null,
+    hardwareConcurrency: navigator.hardwareConcurrency || null,
+    deviceMemoryGB: navigator.deviceMemory || null,
+    screen: { width: screen.width, height: screen.height, pixelRatio: devicePixelRatio || 1 },
+    connection: navigator.connection ? {
+      effectiveType: navigator.connection.effectiveType || null,
+      downlink: navigator.connection.downlink || null
+    } : null,
+    jsHeap: memory ? {
+      usedBeforeBytes: memory.usedJSHeapSize,
+      totalBeforeBytes: memory.totalJSHeapSize,
+      limitBytes: memory.jsHeapSizeLimit,
+      measurementAvailable: true
+    } : { measurementAvailable: false, note: "This browser does not expose performance.memory." }
+  };
+}
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted.length ? sorted[Math.floor(sorted.length / 2)] : null;
+}
+async function runLocalPhotoValidation() {
+  const fileA = document.querySelector("#photoA").files[0];
+  const fileB = document.querySelector("#photoB").files[0];
+  const truth = document.querySelector("#photoTruth").value;
+  const button = document.querySelector("#runPhotoValidation");
+  const downloadButton = document.querySelector("#downloadPhotoReport");
+  const localStatus = document.querySelector("#photoStatus");
+  const photoOutput = document.querySelector("#photoOutput");
+  if (!fileA || !fileB) {
+    localStatus.textContent = "Select both photos first.";
+    return;
+  }
+  if (!fileA.type.startsWith("image/") || !fileB.type.startsWith("image/")) {
+    localStatus.textContent = "Please select supported image files.";
+    return;
+  }
+  if (fileA.size > 25 * 1024 * 1024 || fileB.size > 25 * 1024 * 1024) {
+    localStatus.textContent = "Each image must be 25 MiB or smaller for this device test.";
+    return;
+  }
+  button.disabled = true;
+  downloadButton.disabled = true;
+  localStatus.textContent = "Processing locally in this browser…";
+  const device = getDeviceDiagnostics();
+  const report = {
+    benchmark: "M9 local real-photo validation and device performance",
+    version: "1.0.0",
+    localOnly: true,
+    imagesUploaded: false,
+    productionAcceptance: false,
+    productionThresholdSelected: false,
+    expectedPairType: truth,
+    inputFiles: [
+      { mimeType: fileA.type, sizeBytes: fileA.size },
+      { mimeType: fileB.type, sizeBytes: fileB.size }
+    ],
+    device,
+    parameters: {
+      repeats: 3,
+      maxInputBytesPerImage: 25 * 1024 * 1024,
+      normalizedWidth: CONFIG.width,
+      normalizedHeight: CONFIG.height,
+      orbFeatures: CONFIG.orbFeatures,
+      loweRatio: CONFIG.loweRatio,
+      ransacReprojectionThreshold: CONFIG.ransacReprojectionThreshold,
+      spatialGrid: CONFIG.spatialGrid,
+      rngSeed: CONFIG.rngSeed
+    },
+    runs: []
+  };
+  try {
+    const [imageA, imageB] = await Promise.all([loadLocalImage(fileA), loadLocalImage(fileB)]);
+    report.inputFiles[0].originalDimensions = imageA.dimensions;
+    report.inputFiles[1].originalDimensions = imageB.dimensions;
+    const canvasContextA = canvasA.getContext("2d");
+    const canvasContextB = canvasB.getContext("2d");
+    canvasContextA.drawImage(imageA.canvas, 0, 0, canvasA.width, canvasA.height);
+    canvasContextB.drawImage(imageB.canvas, 0, 0, canvasB.width, canvasB.height);
+    for (let repeat = 1; repeat <= 3; repeat++) {
+      const started = performance.now();
+      const metrics = analyzePair("local_photo_pair", imageA.canvas, imageB.canvas, truth, null, repeat);
+      metrics.processingTimeMs = Number((performance.now() - started).toFixed(2));
+      report.runs.push(metrics);
+      localStatus.textContent = "Completed run " + repeat + " of 3…";
+    }
+    const times = report.runs.map(row => row.processingTimeMs);
+    const heapAfter = performance.memory ? performance.memory.usedJSHeapSize : null;
+    report.performance = {
+      processingTimeMsByRun: times,
+      averageProcessingTimeMs: Number((times.reduce((a, b) => a + b, 0) / times.length).toFixed(2)),
+      medianProcessingTimeMs: median(times),
+      minProcessingTimeMs: Math.min(...times),
+      maxProcessingTimeMs: Math.max(...times),
+      jsHeapUsedAfterBytes: heapAfter,
+      jsHeapDeltaBytes: heapAfter === null ? null : heapAfter - device.jsHeap.usedBeforeBytes,
+      note: "Browser timing includes image feature extraction, matching and RANSAC; JS heap is an optional browser estimate, not total WASM/native memory."
+    };
+    report.summary = {
+      completedRuns: report.runs.length,
+      pipelineErrors: report.runs.filter(row => row.pipelineStatus === "ERROR").length,
+      cleanupIssues: report.runs.filter(row => row.cleanup !== "OWNED_OBJECTS_RELEASED").length,
+      allRunsHaveRansac: report.runs.every(row => !!row.ransac),
+      classificationDecision: "NOT MADE — inspect evidence and compare against independently labelled ground truth."
+    };
+    report.status = report.summary.pipelineErrors === 0 && report.summary.cleanupIssues === 0
+      ? "LOCAL_PHOTO_VALIDATION_EXECUTED"
+      : "LOCAL_PHOTO_VALIDATION_REVIEW_REQUIRED";
+    photoOutput.textContent = JSON.stringify(report, null, 2);
+    localStatus.textContent = report.status + " — all processing stayed on this device.";
+    downloadButton.disabled = false;
+    downloadButton.onclick = () => {
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "m9-local-photo-validation.json";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    };
+  } catch (error) {
+    report.status = "LOCAL_PHOTO_VALIDATION_ERROR";
+    report.error = error?.message || String(error);
+    photoOutput.textContent = JSON.stringify(report, null, 2);
+    localStatus.textContent = "Validation failed: " + report.error;
+  } finally {
+    button.disabled = false;
+  }
+}
+
 try {
   globalThis.Module = globalThis.Module || {};
   globalThis.Module.locateFile = (path, prefix) =>
@@ -471,3 +634,6 @@ try {
   addStage("Browser WebAssembly runtime load", "error", error?.message || String(error));
 }
 runButton.addEventListener("click", runProbe);
+
+const localPhotoButton = document.querySelector("#runPhotoValidation");
+if (localPhotoButton) localPhotoButton.addEventListener("click", runLocalPhotoValidation);
