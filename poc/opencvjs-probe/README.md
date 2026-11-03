@@ -1,38 +1,47 @@
-# Isolated OpenCV.js Crop Benchmark
+# Isolated OpenCV.js Expanded Crop Benchmark
 
 This experiment is restricted to the `m9-multiview-matching-poc` branch. It does not change production code or the locked roadmap.
 
-## Safety boundaries
+## Safety and interpretation
 
 - All fixtures are generated deterministically in the browser; no personal photos are uploaded or required.
 - No automatic deletion or production integration is performed.
-- The benchmark reports evidence and metrics only. It does not choose a production threshold or declare M9 PASS.
+- The benchmark reports evidence only. No production threshold is selected and no M9 PASS is declared.
 - The root application dependencies are not changed by this isolated probe.
+- Same-object/different-photo cases are hard negatives for **crop detection**: the same illustrated object is rendered into different scenes at different locations, scales and rotations. They are synthetic stress fixtures, not real-world photographs.
 
-## Repeatable benchmark cases
+## Registered test matrix
 
-One deterministic original scene is compared with three center crops made from that exact scene. The percentages mean **retained image area**, not the amount removed:
+### Genuine crops
+A single deterministic original scene is compared with crops retaining 50%, 65%, and 80% of the original image area. Each retained-area level is tested at five positions: center, top-left, top-right, bottom-left, and bottom-right. This creates 15 positive crop cases.
 
-- 50% retained area
-- 65% retained area
-- 80% retained area
+### Negative controls
+- Five unrelated deterministic scenes, each generated with a separate fixed seed.
+- Two same-object/different-photo hard negatives. The same distinctive illustrated object is placed into independently generated scenes with different position, scale, and rotation.
 
-A fourth case compares the original scene with a separately generated deterministic unrelated scene as the negative control.
+There are 22 unique image-pair cases in total. Every case is evaluated three times (66 evaluations).
 
-The generated scenes use fixed seeds, dimensions, and fixture-generation logic. ORB feature count, Lowe ratio, RANSAC reprojection threshold, and spatial grid are recorded in every run. The OpenCV RNG seed is applied before each RANSAC call when the runtime exposes `setRNGSeed`.
+## Fixed parameters
 
-## Metrics recorded per case
+- Image size: 640×480
+- ORB maximum features: 1600
+- Lowe ratio: 0.75
+- RANSAC reprojection threshold: 3.0
+- Spatial grid: 4×4
+- Fixed fixture seeds and OpenCV RNG seed (where supported)
 
-- ORB keypoint counts and descriptor availability
-- KNN group count and Lowe-ratio accepted correspondences
-- RANSAC homography result, inlier count, and inlier ratio
-- 4×4 spatial grid occupancy and inlier bounding-box area for source and target points
-- Cleanup status and per-case errors
+## Metrics and error analysis
 
-## Interpretation
+Each evaluation records ORB keypoints/descriptors, KNN groups, Lowe accepted matches, RANSAC homography/inliers/inlier ratio, source/target spatial coverage, cleanup status, and errors.
 
-A clean workflow means the benchmark executed and produced diagnostics. It does **not** mean genuine crops were correctly classified, unrelated images were rejected, or the M9 acceptance criteria passed. Results must be reviewed across repeated runs and later validated against the project's A1–A7 and Android test evidence.
+An exploratory threshold sweep emits confusion counts (TP/FP/TN/FN), precision, recall, and false-positive rate across a grid of inlier-ratio, inlier-count, and spatial-coverage cutoffs. These configurations are diagnostic probes only. They must not be selected as production thresholds from this synthetic dataset.
 
-## Browser run
+Repeatability output reports per-case values across three runs and the observed inlier-ratio range.
 
-The isolated GitHub Actions workflow installs the pinned package, starts Vite, runs Chromium, and uploads the JSON diagnostics and screenshot as a workflow artifact.
+## What a successful workflow means
+
+A successful workflow means the test matrix executed and diagnostics were produced. It does not establish correct real-world classification, acceptable false-positive/false-negative rates, Android performance, or M9 acceptance. Results must be reviewed and then validated with the project's broader A1–A7 and Android evidence.
+
+## Browser execution
+
+The isolated GitHub Actions workflow installs the pinned package, starts Vite, runs Chromium, and uploads the JSON diagnostics and screenshot as an artifact.
