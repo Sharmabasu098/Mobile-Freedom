@@ -482,6 +482,8 @@ describe("M9 single-region hard-negative stress experiment", () => {
  */
 function createSharedDescriptorPatchFixtures(): Record<string, Raster> {
   const source = createScene(0x51a7c0de);
+  // This is exactly one production sampling window: 50% width × 50% height,
+  // positioned at the centre of the source image (grid step 4 of 8).
   const region = { x: 24, y: 18, width: 48, height: 36 };
   const sampled = rasterToThumbnail(
     source,
@@ -490,19 +492,27 @@ function createSharedDescriptorPatchFixtures(): Record<string, Raster> {
     region.width,
     region.height,
   );
-  const targetWidth = region.width;
-  const targetHeight = region.height;
-  const targetPixels = new Uint8ClampedArray(targetWidth * targetHeight * 4);
 
-  // Expand each of the 9×8 descriptor samples into a flat tile. The
-  // candidate is not a copied crop: nearly all fine spatial detail is lost.
+  // Make a 4:3 mosaic candidate whose own 9×8 sampling coordinates map
+  // exactly to the 9×8 values sampled from the source region. The candidate
+  // has flat colour tiles, so it does not retain the source's fine texture
+  // or original scene detail, but its production dHash and averageHash
+  // descriptor values are identical to the selected source region.
+  const targetWidth = 36;
+  const targetHeight = 27;
+  const pixels = new Uint8ClampedArray(targetWidth * targetHeight * 4);
+  const sampledColumnForPixel = (x: number) =>
+    Math.min(8, Math.floor(x * 9 / targetWidth));
+  const sampledRowForPixel = (y: number) =>
+    Math.min(7, Math.floor(y * 8 / targetHeight));
+
   for (let y = 0; y < targetHeight; y += 1) {
     for (let x = 0; x < targetWidth; x += 1) {
-      const sampleX = Math.min(8, Math.floor(x * 9 / targetWidth));
-      const sampleY = Math.min(7, Math.floor(y * 8 / targetHeight));
+      const sampleX = sampledColumnForPixel(x);
+      const sampleY = sampledRowForPixel(y);
       const from = (sampleY * 9 + sampleX) * 4;
       const to = (y * targetWidth + x) * 4;
-      targetPixels.set(sampled.subarray(from, from + 4), to);
+      pixels.set(sampled.subarray(from, from + 4), to);
     }
   }
 
@@ -511,13 +521,13 @@ function createSharedDescriptorPatchFixtures(): Record<string, Raster> {
     "14_descriptor_mosaic_candidate.png": {
       width: targetWidth,
       height: targetHeight,
-      pixels: targetPixels,
+      pixels,
     },
   };
 }
 
 describe("M9 adversarial shared-region descriptor collision", () => {
-  it("exposes whether one coarse accidental region can accept an unrelated mosaic", async () => {
+  it("records an exact coarse descriptor collision and the one-region matcher decision", async () => {
     const fixtures = createSharedDescriptorPatchFixtures();
     mockImageDecoding(fixtures);
     const source = createImageFile("13_unrelated_detailed_scene.png");
@@ -526,14 +536,19 @@ describe("M9 adversarial shared-region descriptor collision", () => {
     const evidence = await analyzeCropPairSpatialEvidence(source, mosaic);
     console.info("[M9 adversarial shared-region descriptor collision]", JSON.stringify(evidence));
 
-    // This is a deliberately adversarial near-match. We record the actual
-    // classifier outcome rather than assuming it must reject; a failure here
-    // is evidence to guide a safe algorithm change, not a flaky fixture.
-    expect(evidence.areaRatio).toBeGreaterThanOrEqual(0.08);
-    expect(
-      evidence.firstComparedAgainstSecond.candidateRegionCount +
-      evidence.secondComparedAgainstFirst.candidateRegionCount,
-    ).toBeGreaterThanOrEqual(0);
+    // Preconditions: the candidate has the same 4:3 geometry and at least
+    // 8% area ratio, and a source region has an exact dHash distance of 0.
+    expect(evidence.areaRatio).toBe(0.25);
+    expect(evidence.firstComparedAgainstSecond.bestDistance).toBeNull();
+    expect(evidence.secondComparedAgainstFirst.bestDistance).toBe(0);
+    expect(evidence.secondComparedAgainstFirst.candidateRegionCount).toBeGreaterThan(0);
+
+    // This is deliberately unrelated at pixel/scene level, but its coarse
+    // descriptor is identical to one sampled source region. If the current
+    // single-region rule accepts it, that is an observed false-positive
+    // vulnerability—not a passing safety result.
+    expect(evidence.currentMatcherWouldAccept).toBe(true);
+    expect(evidence.secondComparedAgainstFirst.acceptedBySingleRegionRule).toBe(true);
   });
 });
 
