@@ -234,11 +234,20 @@ try {
   // A static ES-module import runs before this file body, which caused
   // "Module is not defined" in the browser bundle.
   globalThis.Module = globalThis.Module || {};
-  // Vite does not serve package-internal WASM URLs as static assets.
-  // Route the Emscripten loader to a dedicated same-origin endpoint served
-  // by vite.config.js from this package's installed baseline WASM binary.
   globalThis.Module.locateFile = (path, prefix) =>
-    path.endsWith("opencv_js.wasm") ? "/opencv_js.wasm" : prefix + path;
+    path.endsWith(".wasm") ? "/opencv_js.wasm" : prefix + path;
+
+  // Preflight the exact WASM URL before invoking Emscripten. This catches
+  // HTML fallback pages and incorrect asset paths with a concise diagnostic.
+  const wasmResponse = await fetch("/opencv_js.wasm", { cache: "no-store" });
+  assert(wasmResponse.ok, "WASM asset request failed: HTTP " + wasmResponse.status);
+  const wasmBytes = new Uint8Array(await wasmResponse.arrayBuffer());
+  const wasmMagic = [0x00, 0x61, 0x73, 0x6d];
+  assert(
+    wasmBytes.length >= 8 && wasmMagic.every((byte, index) => wasmBytes[index] === byte),
+    "WASM asset URL did not return a WebAssembly binary (expected magic bytes 00 61 73 6d)."
+  );
+  addStage("WASM asset URL and binary signature", "pass", wasmBytes.length + " bytes; valid WebAssembly magic");
 
   const { default: loadOpenCV } = await import("@haoking/opencvjs");
 
