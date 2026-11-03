@@ -1,37 +1,38 @@
-# Isolated OpenCV.js Runtime Probe
+# Isolated OpenCV.js Crop Benchmark
 
-This directory is a standalone experiment on the `m9-multiview-matching-poc` branch.
+This experiment is restricted to the `m9-multiview-matching-poc` branch. It does not change production code or the locked roadmap.
 
 ## Safety boundaries
 
-- The root `package.json` and root `package-lock.json` are not used for this experiment.
-- Install the pinned OpenCV package from this directory only.
-- Do not copy this dependency into the production application.
-- Test images are generated in the browser; no personal photos are required.
-- This is an API/runtime probe, not an M9 acceptance result.
+- All fixtures are generated deterministically in the browser; no personal photos are uploaded or required.
+- No automatic deletion or production integration is performed.
+- The benchmark reports evidence and metrics only. It does not choose a production threshold or declare M9 PASS.
+- The root application dependencies are not changed by this isolated probe.
 
-## Setup in Codespaces
+## Repeatable benchmark cases
 
-From the repository root:
+One deterministic original scene is compared with three center crops made from that exact scene. The percentages mean **retained image area**, not the amount removed:
 
-```bash
-cd poc/opencvjs-probe
-npm install --ignore-scripts
-npm run dev
-```
+- 50% retained area
+- 65% retained area
+- 80% retained area
 
-The dev server uses the repository's already-installed Vite executable and listens on port 5174. Open the forwarded port 5174.
+A fourth case compares the original scene with a separately generated deterministic unrelated scene as the negative control.
 
-## Probe stages
+The generated scenes use fixed seeds, dimensions, and fixture-generation logic. ORB feature count, Lowe ratio, RANSAC reprojection threshold, and spatial grid are recorded in every run. The OpenCV RNG seed is applied before each RANSAC call when the runtime exposes `setRNGSeed`.
 
-The page reports each stage independently:
+## Metrics recorded per case
 
-1. Load the package's WebAssembly runtime.
-2. Verify the required OpenCV symbols.
-3. Allocate and release basic Embind objects.
-4. Run ORB feature detection and descriptor generation on deterministic synthetic images.
-5. Run BFMatcher KNN matching and the Lowe ratio filter.
-6. Run RANSAC homography estimation when enough correspondences exist.
-7. Release every created Embind object.
+- ORB keypoint counts and descriptor availability
+- KNN group count and Lowe-ratio accepted correspondences
+- RANSAC homography result, inlier count, and inlier ratio
+- 4×4 spatial grid occupancy and inlier bounding-box area for source and target points
+- Cleanup status and per-case errors
 
-A browser result is required. Node-only success does not prove browser compatibility.
+## Interpretation
+
+A clean workflow means the benchmark executed and produced diagnostics. It does **not** mean genuine crops were correctly classified, unrelated images were rejected, or the M9 acceptance criteria passed. Results must be reviewed across repeated runs and later validated against the project's A1–A7 and Android test evidence.
+
+## Browser run
+
+The isolated GitHub Actions workflow installs the pinned package, starts Vite, runs Chromium, and uploads the JSON diagnostics and screenshot as a workflow artifact.
