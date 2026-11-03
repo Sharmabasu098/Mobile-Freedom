@@ -30,6 +30,24 @@
         <figure><canvas id="imageB" width="320" height="240"></canvas><figcaption>Scene A · 50% center crop</figcaption></figure>
       </div>
     </section>
+    <section class="card" id="local-photo-validation">
+      <h2>Real photo validation · on-device only</h2>
+      <p class="muted">Choose two photos already on this device. Images are decoded and processed locally in this browser; no upload or server transfer occurs. Use a known pair and label it honestly.</p>
+      <label for="photoA">Photo A — original / reference</label>
+      <input id="photoA" type="file" accept="image/*">
+      <label for="photoB">Photo B — crop or comparison</label>
+      <input id="photoB" type="file" accept="image/*">
+      <label for="photoTruth">Known relationship between the two photos</label>
+      <select id="photoTruth">
+        <option value="genuine_crop">B is a crop of A</option>
+        <option value="unrelated_negative_control">Unrelated photos</option>
+        <option value="same_object_different_photo_negative">Same object, different photo</option>
+      </select>
+      <button id="runPhotoValidation" type="button" disabled>Run local validation ×3</button>
+      <button id="downloadPhotoReport" type="button" disabled>Download JSON diagnostics</button>
+      <p id="photoStatus" class="muted">Waiting for two local image selections. Maximum 25 MiB per image.</p>
+      <pre id="photoOutput">No local photo has been processed.</pre>
+    </section>
     <section class="card">
       <h2>Benchmark diagnostics</h2>
       <pre id="output">Runtime is loading…</pre>
