@@ -1,4 +1,3 @@
-import loadOpenCV from "@haoking/opencvjs";
 
 const statusEl = document.querySelector("#status");
 const summaryEl = document.querySelector("#summary");
@@ -231,6 +230,12 @@ async function runProbe() {
 makeSyntheticImages();
 
 try {
+  // Initialize the Emscripten global before evaluating the OpenCV package.
+  // A static ES-module import runs before this file body, which caused
+  // "Module is not defined" in the browser bundle.
+  globalThis.Module = globalThis.Module || {};
+  const { default: loadOpenCV } = await import("@haoking/opencvjs");
+
   const started = performance.now();
   cv = await loadOpenCV();
   assert(typeof cv.Mat === "function", "OpenCV loaded but cv.Mat is unavailable.");
