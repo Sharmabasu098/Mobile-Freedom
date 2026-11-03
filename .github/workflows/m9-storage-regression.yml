@@ -35,6 +35,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Install Playwright for real-browser verification
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+
       - name: Run complete Vitest suite
         run: npm test
 
@@ -43,3 +48,26 @@ jobs:
 
       - name: Verify production artifact
         run: test -s dist/index.html
+
+      - name: Start Vite for browser JPEG test
+        run: |
+          npm run dev -- --host 127.0.0.1 > /tmp/m9-crop-vite.log 2>&1 &
+          echo $! > /tmp/m9-crop-vite.pid
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5173/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/m9-crop-vite.log
+          exit 1
+
+      - name: Run real JPEG encode-decode crop test in Chromium
+        run: node poc/crop-browser-tests/jpeg-crop-smoke.mjs
+
+      - name: Stop Vite
+        if: always()
+        run: |
+          if [ -f /tmp/m9-crop-vite.pid ]; then
+            kill "$(cat /tmp/m9-crop-vite.pid)" || true
+          fi
