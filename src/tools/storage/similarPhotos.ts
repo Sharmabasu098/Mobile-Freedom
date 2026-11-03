@@ -435,25 +435,8 @@ function compareHashSets(
     const best = candidates[0];
     if (!best) return undefined;
 
-    console.info("[M9 crop geometry evidence]", {
-      candidate: candidateImage.file.name,
-      source: sourceImage.file.name,
-      wholeImageHash: candidateImage.wholeImageHash,
-      matchingRegions: candidates.length,
-      spatiallyIndependentRegions: independentCandidates.length,
-      bestMatches: independentCandidates.slice(0, 5).map(match => ({
-        distance: match.distance,
-        averageDistance: match.averageDistance,
-        x: Number(match.region.x.toFixed(3)),
-        y: Number(match.region.y.toFixed(3)),
-        width: Number(match.region.width.toFixed(3)),
-        height: Number(match.region.height.toFixed(3)),
-        regionAspect: Number(match.regionAspect.toFixed(4)),
-        candidateAspect: Number(candidateAspect.toFixed(4)),
-        relativeAspectError: Number(match.relativeAspectError.toFixed(4)),
-      })),
-    });
-
+    // Do not log filenames or image-derived diagnostics to the console.
+    // Detailed evidence belongs in an explicit, user-initiated local report.
     return { distance: best.distance, matches: 1 };
   };
 
