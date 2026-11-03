@@ -31,6 +31,16 @@ try {
   await page.screenshot({ path: "browser-probe-screenshot.png", fullPage: true });
 
   if (pageErrors.length) throw new Error("Browser page errors: " + pageErrors.join("; "));
+  if (!(await page.locator("#photoA").count()) ||
+      !(await page.locator("#photoB").count()) ||
+      !(await page.locator("#photoTruth").count()) ||
+      !(await page.locator("#runPhotoValidation").count()) ||
+      !(await page.locator("#downloadPhotoReport").count())) {
+    throw new Error("Local-only real-photo validation controls are missing.");
+  }
+  if (await page.locator("#runPhotoValidation").isEnabled()) {
+    throw new Error("Local photo validation must remain disabled until two images are selected.");
+  }
   if (result.productionAcceptance !== false || result.productionThresholdSelected !== false) {
     throw new Error("Benchmark must remain explicitly non-production and threshold-neutral.");
   }
