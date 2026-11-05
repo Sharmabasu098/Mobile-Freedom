@@ -46,6 +46,7 @@ The browser probe now records per-RANSAC-inlier source/target coordinates, ORB k
 - Bounding-box area ratio and median nearest-neighbour distance.
 - A diagnostic spatial-cluster count using a 24 px connectivity radius, including cluster-size distribution and largest-cluster share.
 - Close-pair ratio within 12 px and overlapping-keypoint-window pair ratio based on keypoint scale.
+- A scale-aware greedy non-maximum-suppression estimate of non-overlapping feature windows, including retained feature count, ratio, and coordinates.
 - A separate 3×3 multi-region profile: occupied regions, match counts per region, pairs of regions separated by at least one intervening region, effective region count (inverse Simpson concentration), and largest-region share. This makes spatially distributed evidence visible without treating cell occupancy as proof of semantic independence.
 - An inlier coordinate overlay on both hard-negative fixture images.
 - The same diagnostics in the local-only real-photo JSON report when enough matches exist to estimate a homography.
