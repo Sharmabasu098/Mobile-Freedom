@@ -32,7 +32,7 @@
     </section>
     <section class="card" id="hn01-spatial-diagnostics">
       <h2>HN-01 · Inlier spatial distribution</h2>
-      <p class="muted">After the deterministic benchmark or local real-photo validation runs, the corresponding pair is overlaid with its RANSAC inlier keypoints. The JSON report includes 4×4, 8×8 and 16×16 occupancy, spatial clusters, nearest-neighbour distances and overlapping-window pair ratios. These are diagnostic measurements, not a classification rule.</p>
+      <p class="muted">After the deterministic benchmark or local real-photo validation runs, the corresponding pair is overlaid with its RANSAC inlier keypoints. The JSON report includes 4×4, 8×8 and 16×16 occupancy, cluster-size distribution, nearest-neighbour distances, overlapping-window pair ratios, and a 3×3 multi-region evidence profile (occupied regions, separated region pairs, effective region count and largest-region share). These are diagnostic measurements, not a classification rule.</p>
       <div class="previews">
         <figure><canvas id="hnMapA" width="640" height="480"></canvas><figcaption>Hard-negative A · source inliers</figcaption></figure>
         <figure><canvas id="hnMapB" width="640" height="480"></canvas><figcaption>Hard-negative B · target inliers</figcaption></figure>
