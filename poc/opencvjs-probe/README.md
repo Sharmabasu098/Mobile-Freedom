@@ -38,6 +38,19 @@ An exploratory threshold sweep emits confusion counts (TP/FP/TN/FN), precision, 
 
 Repeatability output reports per-case values across three runs and the observed inlier-ratio range.
 
+## HN-01 — Spatially Independent Evidence diagnostics
+
+The browser probe now records per-RANSAC-inlier source/target coordinates, ORB keypoint scale and orientation, and descriptor distance. For each side it reports:
+
+- Occupied-cell metrics at 4×4, 8×8 and 16×16 resolutions.
+- Bounding-box area ratio and median nearest-neighbour distance.
+- A diagnostic spatial-cluster count using a 24 px connectivity radius.
+- Close-pair ratio within 12 px and overlapping-keypoint-window pair ratio based on keypoint scale.
+- An inlier coordinate overlay on both hard-negative fixture images.
+- The same diagnostics in the local-only real-photo JSON report when enough matches exist to estimate a homography.
+
+These measurements help determine whether a high RANSAC inlier count is concentrated around one small shared logo. They do not prove statistical independence: cluster radius and overlap heuristics are diagnostic only. No grid size, minimum cluster count, or production classification threshold is selected automatically. Review the actual coordinate overlays and compare them with independently labelled ground truth before changing the matcher.
+
 ## What a successful workflow means
 
 A successful workflow means the test matrix executed and diagnostics were produced. It does not establish correct real-world classification, acceptable false-positive/false-negative rates, Android performance, or M9 acceptance. Results must be reviewed and then validated with the project's broader A1–A7 and Android evidence.
