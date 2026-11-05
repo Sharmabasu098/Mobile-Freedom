@@ -172,6 +172,72 @@ function spatialCoverage(points, width, height, gridSize) {
     boundingBoxAreaRatio: Number((bbox / (width * height)).toFixed(4))
   };
 }
+
+function spatialIndependenceDiagnostics(points, width, height) {
+  const gridSizes = [4, 8, 16];
+  const gridMetrics = gridSizes.map(gridSize => ({
+    gridSize: gridSize + "x" + gridSize,
+    ...spatialCoverage(points.map(p => [p.x, p.y]), width, height, gridSize)
+  }));
+  if (!points.length) return {
+    gridMetrics, clusterRadiusPx: 24, spatialClusterCount: 0,
+    nearestNeighborDistancePx: null, closePairRatioWithin12Px: 0,
+    overlappingWindowPairRatio: 0, pointCount: 0, points: []
+  };
+  let closePairs = 0, overlappingPairs = 0, pairCount = 0;
+  const nearest = new Array(points.length).fill(Infinity);
+  const parent = points.map((_, i) => i);
+  const find = x => parent[x] === x ? x : (parent[x] = find(parent[x]));
+  const unite = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[rb] = ra; };
+  const clusterRadiusPx = 24;
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      const d = Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y);
+      pairCount++;
+      nearest[i] = Math.min(nearest[i], d);
+      nearest[j] = Math.min(nearest[j], d);
+      if (d <= 12) closePairs++;
+      if (d <= clusterRadiusPx) unite(i, j);
+      const r1 = Math.max(1, points[i].size || 1) / 2;
+      const r2 = Math.max(1, points[j].size || 1) / 2;
+      if (d < r1 + r2) overlappingPairs++;
+    }
+  }
+  const finiteNearest = nearest.filter(Number.isFinite).sort((a,b)=>a-b);
+  const roots = new Set(points.map((_, i) => find(i)));
+  return {
+    pointCount: points.length,
+    gridMetrics,
+    clusterRadiusPx,
+    spatialClusterCount: roots.size,
+    nearestNeighborDistancePx: finiteNearest.length
+      ? Number(finiteNearest[Math.floor(finiteNearest.length / 2)].toFixed(2)) : null,
+    closePairRatioWithin12Px: pairCount ? Number((closePairs / pairCount).toFixed(4)) : 0,
+    overlappingWindowPairRatio: pairCount ? Number((overlappingPairs / pairCount).toFixed(4)) : 0,
+    points: points.map(p => ({
+      x: Number(p.x.toFixed(2)), y: Number(p.y.toFixed(2)),
+      size: Number((p.size || 0).toFixed(2)),
+      angle: Number((p.angle || 0).toFixed(2))
+    })),
+    interpretation: "Cluster count and overlap ratios are diagnostics, not proof of statistically independent evidence. Review coordinates and visual overlays."
+  };
+}
+function drawInlierMap(canvas, background, points) {
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.strokeStyle = "#00d084";
+  ctx.fillStyle = "rgba(0,208,132,.25)";
+  for (const p of points) {
+    const x = p.x * canvas.width / CONFIG.width;
+    const y = p.y * canvas.height / CONFIG.height;
+    const r = Math.max(3, Math.min(12, (p.size || 8) * canvas.width / CONFIG.width));
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function analyzePair(label, canvasAInput, canvasBInput, caseType, cropGeometry, repeatIndex) {
   const owned = [];
   const metrics = {
@@ -221,7 +287,13 @@ function analyzePair(label, canvasAInput, canvasBInput, caseType, cropGeometry, 
         const best = group.get(0), second = group.get(1);
         if (best.distance < CONFIG.loweRatio * second.distance) {
           const pA = keypointsA.get(best.queryIdx), pB = keypointsB.get(best.trainIdx);
-          accepted.push({ source: [pA.pt.x, pA.pt.y], target: [pB.pt.x, pB.pt.y], distance: best.distance });
+          accepted.push({
+            source: { x: pA.pt.x, y: pA.pt.y, size: pA.size, angle: pA.angle },
+            target: { x: pB.pt.x, y: pB.pt.y, size: pB.size, angle: pB.angle },
+            distance: best.distance
+          });
+          try { pA.delete(); } catch {}
+          try { pB.delete(); } catch {}
         }
       } finally { group.delete(); }
     }
@@ -244,8 +316,8 @@ function analyzePair(label, canvasAInput, canvasBInput, caseType, cropGeometry, 
     const inlierMask = new cv.Mat();
     owned.push(src, dst, inlierMask);
     accepted.forEach((match, i) => {
-      src.data32F[i * 2] = match.source[0]; src.data32F[i * 2 + 1] = match.source[1];
-      dst.data32F[i * 2] = match.target[0]; dst.data32F[i * 2 + 1] = match.target[1];
+      src.data32F[i * 2] = match.source.x; src.data32F[i * 2 + 1] = match.source.y;
+      dst.data32F[i * 2] = match.target.x; dst.data32F[i * 2 + 1] = match.target.y;
     });
     if (typeof cv.setRNGSeed === "function") cv.setRNGSeed(CONFIG.rngSeed);
     const homography = cv.findHomography(src, dst, cv.RANSAC, CONFIG.ransacReprojectionThreshold, inlierMask);
@@ -259,8 +331,19 @@ function analyzePair(label, canvasAInput, canvasBInput, caseType, cropGeometry, 
       inlierRatio: Number((inliers / accepted.length).toFixed(4))
     };
     metrics.spatialCoverage = {
-      source: spatialCoverage(inlierMatches.map(m => m.source), CONFIG.width, CONFIG.height, CONFIG.spatialGrid),
-      target: spatialCoverage(inlierMatches.map(m => m.target), CONFIG.width, CONFIG.height, CONFIG.spatialGrid)
+      source: spatialCoverage(inlierMatches.map(m => [m.source.x, m.source.y]), CONFIG.width, CONFIG.height, CONFIG.spatialGrid),
+      target: spatialCoverage(inlierMatches.map(m => [m.target.x, m.target.y]), CONFIG.width, CONFIG.height, CONFIG.spatialGrid)
+    };
+    metrics.hn01SpatialDiagnostics = {
+      source: spatialIndependenceDiagnostics(inlierMatches.map(m => m.source), CONFIG.width, CONFIG.height),
+      target: spatialIndependenceDiagnostics(inlierMatches.map(m => m.target), CONFIG.width, CONFIG.height),
+      matchedInlierPairs: inlierMatches.map((m, index) => ({
+        index,
+        source: m.source,
+        target: m.target,
+        descriptorDistance: m.distance
+      })),
+      warning: "RANSAC inliers can be geometrically consistent while concentrated on one repeated/local logo. Inlier count and ratio alone are not independent evidence."
     };
     metrics.pipelineStatus = metrics.ransac.homographyFound ? "RANSAC_COMPLETED" : "HOMOGRAPHY_NOT_FOUND";
     return metrics;
@@ -415,6 +498,24 @@ async function runProbe() {
     const cleanups = result.records.filter(row => row.cleanup !== "OWNED_OBJECTS_RELEASED");
     const errors = result.records.filter(row => row.pipelineStatus === "ERROR");
     result.caseSummary = summarizeRepeatability(result.records, fixtures.cases);
+    const hnCase = result.records.find(row => row.caseType === "same_object_different_photo_negative" && row.repeatIndex === 1 && row.hn01SpatialDiagnostics);
+    if (hnCase) {
+      result.hn01 = {
+        experiment: "HN-01 Spatially Independent Evidence Analysis",
+        selectedCase: hnCase.label,
+        inliers: hnCase.ransac?.inliers ?? 0,
+        source: hnCase.hn01SpatialDiagnostics.source,
+        target: hnCase.hn01SpatialDiagnostics.target,
+        matchedInlierPairs: hnCase.hn01SpatialDiagnostics.matchedInlierPairs,
+        interpretation: "Inspect whether inliers cluster around the shared object/logo. 4x4, 8x8 and 16x16 are reported side-by-side; no grid or production threshold is selected automatically."
+      };
+      const mapA = document.querySelector("#hnMapA");
+      const mapB = document.querySelector("#hnMapB");
+      if (mapA && mapB) {
+        drawInlierMap(mapA, hnCase._fixtureA || fixtures.original, hnCase.hn01SpatialDiagnostics.source.points);
+        drawInlierMap(mapB, hnCase._fixtureB || fixtures.previewCrop, hnCase.hn01SpatialDiagnostics.target.points);
+      }
+    }
     result.exploratoryThresholdSweep = candidateThresholdSweep(result.records);
     result.summary = {
       uniqueCases: fixtures.cases.length,
