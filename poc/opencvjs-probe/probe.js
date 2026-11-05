@@ -212,6 +212,21 @@ function spatialIndependenceDiagnostics(points, width, height) {
   const sortedClusterSizes = [...clusterSizes.values()].sort((a, b) => b - a);
   const largestClusterSize = sortedClusterSizes[0] || 0;
 
+  // Greedy non-maximum suppression: retain a keypoint only when its
+  // scale-sized square window does not overlap a previously retained window.
+  // This is an explicit estimate of non-overlapping local feature support.
+  const byScale = [...points].sort((a, b) => (b.size || 1) - (a.size || 1));
+  const independentWindowPoints = [];
+  for (const candidate of byScale) {
+    const candidateHalf = Math.max(1, candidate.size || 1) / 2;
+    const overlaps = independentWindowPoints.some(selected => {
+      const selectedHalf = Math.max(1, selected.size || 1) / 2;
+      return Math.abs(candidate.x - selected.x) < candidateHalf + selectedHalf &&
+        Math.abs(candidate.y - selected.y) < candidateHalf + selectedHalf;
+    });
+    if (!overlaps) independentWindowPoints.push(candidate);
+  }
+
   // Coarse 3x3 regions are a separate diagnostic from the 4x4/8x8/16x16
   // occupancy grids. Regions separated by at least one intervening region
   // are counted as spatially separated evidence locations, not as a classifier.
@@ -249,6 +264,16 @@ function spatialIndependenceDiagnostics(points, width, height) {
       ? Number(finiteNearest[Math.floor(finiteNearest.length / 2)].toFixed(2)) : null,
     closePairRatioWithin12Px: pairCount ? Number((closePairs / pairCount).toFixed(4)) : 0,
     overlappingWindowPairRatio: pairCount ? Number((overlappingPairs / pairCount).toFixed(4)) : 0,
+    independentWindowEvidence: {
+      method: "greedy_scale_aware_non_maximum_suppression",
+      retainedFeatureCount: independentWindowPoints.length,
+      retainedFeatureRatio: Number((independentWindowPoints.length / points.length).toFixed(4)),
+      coordinates: independentWindowPoints.map(p => ({
+        x: Number(p.x.toFixed(2)), y: Number(p.y.toFixed(2)),
+        size: Number((p.size || 0).toFixed(2))
+      })),
+      note: "A diagnostic estimate of non-overlapping keypoint windows; it does not prove semantic or statistical independence."
+    },
     multiRegionEvidence: {
       grid: "3x3",
       occupiedRegions: occupiedRegions.length,
