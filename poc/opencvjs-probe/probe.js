@@ -512,8 +512,11 @@ async function runProbe() {
       const mapA = document.querySelector("#hnMapA");
       const mapB = document.querySelector("#hnMapB");
       if (mapA && mapB) {
-        drawInlierMap(mapA, hnCase._fixtureA || fixtures.original, hnCase.hn01SpatialDiagnostics.source.points);
-        drawInlierMap(mapB, hnCase._fixtureB || fixtures.previewCrop, hnCase.hn01SpatialDiagnostics.target.points);
+        const hnFixture = fixtures.cases.find(item => item.label === hnCase.label);
+        if (hnFixture) {
+          drawInlierMap(mapA, hnFixture.a, hnCase.hn01SpatialDiagnostics.source.points);
+          drawInlierMap(mapB, hnFixture.b, hnCase.hn01SpatialDiagnostics.target.points);
+        }
       }
     }
     result.exploratoryThresholdSweep = candidateThresholdSweep(result.records);
@@ -680,6 +683,17 @@ async function runLocalPhotoValidation() {
       jsHeapUsedAfterBytes: heapAfter,
       jsHeapDeltaBytes: heapAfter === null ? null : heapAfter - device.jsHeap.usedBeforeBytes,
       note: "Browser timing includes image feature extraction, matching and RANSAC; JS heap is an optional browser estimate, not total WASM/native memory."
+    };
+    report.hn01 = {
+      experiment: "HN-01 Spatially Independent Evidence Analysis",
+      runs: report.runs.map(row => ({
+        repeatIndex: row.repeatIndex,
+        inliers: row.ransac?.inliers ?? 0,
+        source: row.hn01SpatialDiagnostics?.source ?? null,
+        target: row.hn01SpatialDiagnostics?.target ?? null,
+        matchedInlierPairs: row.hn01SpatialDiagnostics?.matchedInlierPairs ?? []
+      })),
+      note: "The expected relationship label is tester-supplied ground truth. Spatial cluster counts and overlapping-window ratios are diagnostic indicators, not an automatic classification."
     };
     report.summary = {
       completedRuns: report.runs.length,
