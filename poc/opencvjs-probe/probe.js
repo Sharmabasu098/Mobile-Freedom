@@ -204,22 +204,66 @@ function spatialIndependenceDiagnostics(points, width, height) {
     }
   }
   const finiteNearest = nearest.filter(Number.isFinite).sort((a,b)=>a-b);
-  const roots = new Set(points.map((_, i) => find(i)));
+  const clusterSizes = new Map();
+  points.forEach((_, index) => {
+    const root = find(index);
+    clusterSizes.set(root, (clusterSizes.get(root) || 0) + 1);
+  });
+  const sortedClusterSizes = [...clusterSizes.values()].sort((a, b) => b - a);
+  const largestClusterSize = sortedClusterSizes[0] || 0;
+
+  // Coarse 3x3 regions are a separate diagnostic from the 4x4/8x8/16x16
+  // occupancy grids. Regions separated by at least one intervening region
+  // are counted as spatially separated evidence locations, not as a classifier.
+  const regionGridSize = 3;
+  const regionCounts = new Array(regionGridSize * regionGridSize).fill(0);
+  for (const point of points) {
+    const gx = Math.min(regionGridSize - 1, Math.max(0, Math.floor(point.x / width * regionGridSize)));
+    const gy = Math.min(regionGridSize - 1, Math.max(0, Math.floor(point.y / height * regionGridSize)));
+    regionCounts[gy * regionGridSize + gx]++;
+  }
+  const occupiedRegions = regionCounts
+    .map((count, index) => ({ index, count, x: index % regionGridSize, y: Math.floor(index / regionGridSize) }))
+    .filter(region => region.count > 0);
+  let spatiallySeparatedRegionPairs = 0;
+  for (let i = 0; i < occupiedRegions.length; i++) {
+    for (let j = i + 1; j < occupiedRegions.length; j++) {
+      const dx = Math.abs(occupiedRegions[i].x - occupiedRegions[j].x);
+      const dy = Math.abs(occupiedRegions[i].y - occupiedRegions[j].y);
+      if (Math.max(dx, dy) >= 2) spatiallySeparatedRegionPairs++;
+    }
+  }
+  const regionProbabilities = regionCounts.filter(Boolean).map(count => count / points.length);
+  const regionConcentration = regionProbabilities.reduce((sum, p) => sum + p * p, 0);
+  const finiteEffectiveRegionCount = regionConcentration > 0 ? 1 / regionConcentration : 0;
+
   return {
     pointCount: points.length,
     gridMetrics,
     clusterRadiusPx,
-    spatialClusterCount: roots.size,
+    spatialClusterCount: sortedClusterSizes.length,
+    clusterSizeDistribution: sortedClusterSizes,
+    largestClusterSize,
+    largestClusterShare: Number((largestClusterSize / points.length).toFixed(4)),
     nearestNeighborDistancePx: finiteNearest.length
       ? Number(finiteNearest[Math.floor(finiteNearest.length / 2)].toFixed(2)) : null,
     closePairRatioWithin12Px: pairCount ? Number((closePairs / pairCount).toFixed(4)) : 0,
     overlappingWindowPairRatio: pairCount ? Number((overlappingPairs / pairCount).toFixed(4)) : 0,
+    multiRegionEvidence: {
+      grid: "3x3",
+      occupiedRegions: occupiedRegions.length,
+      regionMatchCounts: regionCounts,
+      spatiallySeparatedRegionPairs,
+      effectiveRegionCount: Number(finiteEffectiveRegionCount.toFixed(3)),
+      largestRegionShare: Number(Math.max(...regionCounts) / points.length).toFixed(4) * 1,
+      note: "Diagnostic only. Region occupancy does not prove semantic independence; the same repeated logo may span multiple cells."
+    },
     points: points.map(p => ({
       x: Number(p.x.toFixed(2)), y: Number(p.y.toFixed(2)),
       size: Number((p.size || 0).toFixed(2)),
       angle: Number((p.angle || 0).toFixed(2))
     })),
-    interpretation: "Cluster count and overlap ratios are diagnostics, not proof of statistically independent evidence. Review coordinates and visual overlays."
+    interpretation: "Cluster count, overlap ratios and multi-region occupancy are diagnostics, not proof of statistically independent evidence. Review coordinates and visual overlays."
   };
 }
 function drawInlierMap(canvas, background, points) {
