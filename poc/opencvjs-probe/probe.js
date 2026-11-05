@@ -182,7 +182,23 @@ function spatialIndependenceDiagnostics(points, width, height) {
   if (!points.length) return {
     gridMetrics, clusterRadiusPx: 24, spatialClusterCount: 0,
     nearestNeighborDistancePx: null, closePairRatioWithin12Px: 0,
-    overlappingWindowPairRatio: 0, pointCount: 0, points: []
+    overlappingWindowPairRatio: 0,
+    pointCount: 0,
+    points: [],
+    independentWindowEvidence: {
+      method: "greedy_scale_aware_non_maximum_suppression",
+      retainedFeatureCount: 0,
+      retainedFeatureRatio: 0,
+      coordinates: []
+    },
+    multiRegionEvidence: {
+      grid: "3x3",
+      occupiedRegions: 0,
+      regionMatchCounts: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+      spatiallySeparatedRegionPairs: 0,
+      effectiveRegionCount: 0,
+      largestRegionShare: 0
+    }
   };
   let closePairs = 0, overlappingPairs = 0, pairCount = 0;
   const nearest = new Array(points.length).fill(Infinity);
@@ -280,7 +296,7 @@ function spatialIndependenceDiagnostics(points, width, height) {
       regionMatchCounts: regionCounts,
       spatiallySeparatedRegionPairs,
       effectiveRegionCount: Number(finiteEffectiveRegionCount.toFixed(3)),
-      largestRegionShare: Number(Math.max(...regionCounts) / points.length).toFixed(4) * 1,
+      largestRegionShare: Number((Math.max(...regionCounts) / points.length).toFixed(4)),
       note: "Diagnostic only. Region occupancy does not prove semantic independence; the same repeated logo may span multiple cells."
     },
     points: points.map(p => ({
