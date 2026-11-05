@@ -695,6 +695,13 @@ async function runLocalPhotoValidation() {
       })),
       note: "The expected relationship label is tester-supplied ground truth. Spatial cluster counts and overlapping-window ratios are diagnostic indicators, not an automatic classification."
     };
+    const visualRun = report.runs.find(row => row.hn01SpatialDiagnostics);
+    const localMapA = document.querySelector("#hnMapA");
+    const localMapB = document.querySelector("#hnMapB");
+    if (visualRun && localMapA && localMapB) {
+      drawInlierMap(localMapA, imageA.canvas, visualRun.hn01SpatialDiagnostics.source.points);
+      drawInlierMap(localMapB, imageB.canvas, visualRun.hn01SpatialDiagnostics.target.points);
+    }
     report.summary = {
       completedRuns: report.runs.length,
       pipelineErrors: report.runs.filter(row => row.pipelineStatus === "ERROR").length,
