@@ -1,4 +1,4 @@
-import { findSimilarPhotos, type SimilarPhotoDiagnostic } from "./similarPhotos";
+import { findSimilarPhotos } from "./similarPhotos";
 
 const fileInput = document.querySelector<HTMLInputElement>("#m9-files");
 const expectedInput = document.querySelector<HTMLSelectElement>("#m9-expected");
@@ -22,7 +22,7 @@ fileInput.addEventListener("change", () => {
   filesInfo.textContent = files.length
     ? files.map((file, index) =>
         `${index + 1}. ${file.name} — ${file.type || "unknown type"} — ${formatBytes(file.size)}`
-      ).join("\n")
+      ).join("\\n")
     : "No files selected.";
   status.textContent = files.length === 2
     ? "Ready. Choose the expected result and run the regression."
@@ -41,40 +41,40 @@ runButton.addEventListener("click", async () => {
   runButton.disabled = true;
   status.textContent = "Running local image decode and similarity analysis…";
   status.className = "result";
-  diagnostics.textContent = "Collecting region diagnostics…";
+  diagnostics.textContent = "Collecting matcher result…";
 
   const errors: string[] = [];
-  const pairDiagnostics: SimilarPhotoDiagnostic[] = [];
   try {
+    // The production API currently exposes an error callback and a
+    // maxDistance argument only. Do not invent a diagnostics callback.
     const pairs = await findSimilarPhotos(
       files,
-      (file, error) => errors.push(`${file.name}: ${error instanceof Error ? error.message : String(error)}`),
-      undefined,
-      diagnostic => pairDiagnostics.push(diagnostic),
+      (file, error) => errors.push(
+        `${file.name}: ${error instanceof Error ? error.message : String(error)}`
+      ),
     );
 
     const detectedSimilar = pairs.length > 0;
     const expectedSimilar = expectedInput.value === "similar";
     const passed = detectedSimilar === expectedSimilar;
+
     status.textContent = [
       `${passed ? "PASS" : "FAIL"} — ${expectedSimilar ? "SIMILAR" : "NOT SIMILAR"} expected; ${detectedSimilar ? "SIMILAR" : "NOT SIMILAR"} detected.`,
       `Matched pairs: ${pairs.length}`,
       "No files were uploaded, modified, or deleted.",
-    ].join("\n");
+    ].join("\\n");
     status.className = `result ${passed ? "pass" : "fail"}`;
 
     diagnostics.textContent = [
-      ...pairDiagnostics.map((item, index) => [
-        `Direction ${index + 1}: ${item.candidate} → ${item.source}`,
-        `Dimensions: ${item.candidateDimensions.width}×${item.candidateDimensions.height} → ${item.sourceDimensions.width}×${item.sourceDimensions.height}`,
-        `Thresholds: dHash ≤ ${item.activeThresholds.maxDistance}; average hash ≤ ${item.activeThresholds.maxAverageHashDistance}; aspect error ≤ ${(item.activeThresholds.maxRelativeAspectError * 100).toFixed(1)}%`,
-        `Regions examined: ${item.totalRegionsExamined}; accepted: ${item.acceptedRegions}; spatially independent: ${item.spatiallyIndependentAcceptedRegions}`,
-        `Rejections: ${JSON.stringify(item.rejectionCounts)}`,
-        `Nearest regions: ${JSON.stringify(item.nearestRegions)}`,
-      ].join("\n")).join("\n\n"),
+      pairs.length
+        ? pairs.map(pair =>
+            `${pair.first.name} ↔ ${pair.second.name}: distance ${pair.distance}/64; estimated similarity ${pair.similarityPercent}%`
+          ).join("\\n")
+        : "Matcher returned no similar pairs.",
       errors.length ? `Decode errors: ${errors.join("; ")}` : "Decode errors: none",
-      "Note: these are hash-pipeline diagnostics only; ORB/SIFT/RANSAC has not been integrated into production.",
-    ].join("\n\n") || "No pair diagnostics were emitted.";
+      "The current production API does not expose per-region diagnostic objects. The matcher writes its crop-geometry evidence to the browser console.",
+      "This test exercises the existing hash pipeline only; ORB/SIFT/RANSAC is not integrated into production.",
+    ].join("\\n\\n");
   } catch (error) {
     status.textContent = `ERROR — ${error instanceof Error ? error.message : String(error)}`;
     status.className = "result fail";
