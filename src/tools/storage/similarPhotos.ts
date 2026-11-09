@@ -28,6 +28,27 @@ export interface SimilarPhotoPair {
   similarityPercent: number;
 }
 
+
+export interface SimilarPhotoDiagnostic {
+  candidate: string;
+  candidateDimensions: { width: number; height: number };
+  source: string;
+  sourceDimensions: { width: number; height: number };
+  candidateAspect: number;
+  activeThresholds: { maxDistance: number; maxAverageHashDistance: number; maxRelativeAspectError: number };
+  totalRegionsExamined: number;
+  rejectionCounts: Record<string, number>;
+  acceptedRegions: number;
+  spatiallyIndependentAcceptedRegions: number;
+  nearestRegions: Array<{
+    dHashDistance: number; averageHashDistance: number; x: number; y: number;
+    width: number; height: number; regionAspect: number; relativeAspectError: number;
+    checks: { dHash: boolean; averageHash: boolean; aspectRatio: boolean };
+    rejectionReasons: string[];
+  }>;
+}
+export type SimilarPhotoDiagnosticHandler = (diagnostic: SimilarPhotoDiagnostic) => void;
+
 export interface SimilarPhotoError {
   file: File;
   error: unknown;
@@ -382,6 +403,7 @@ function compareHashSets(
   first: ImageHashSet,
   second: ImageHashSet,
   maxDistance: number,
+  onDiagnostic?: SimilarPhotoDiagnosticHandler,
 ): CropMatch | undefined {
   const smallerArea = Math.min(first.width * first.height, second.width * second.height);
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
@@ -450,7 +472,7 @@ function compareHashSets(
       return counts;
     }, {});
 
-    console.info("[M9 RP-02 region rejection diagnostics]", {
+    onDiagnostic?.({
       candidate: candidateImage.file.name,
       candidateDimensions: { width: candidateImage.width, height: candidateImage.height },
       source: sourceImage.file.name,
@@ -510,6 +532,7 @@ export async function findSimilarPhotos(
   files: File[],
   onError?: SimilarPhotoErrorHandler,
   maxDistance = DEFAULT_SIMILARITY_DISTANCE,
+  onDiagnostic?: SimilarPhotoDiagnosticHandler,
 ): Promise<SimilarPhotoPair[]> {
   if (
     !Number.isInteger(maxDistance) ||
@@ -545,6 +568,7 @@ export async function findSimilarPhotos(
         first,
         second,
         maxDistance,
+        onDiagnostic,
       );
 
       if (match) {
