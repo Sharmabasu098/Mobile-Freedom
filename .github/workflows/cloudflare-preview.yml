@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  deployments: write
 
 concurrency:
   group: cloudflare-preview-pr-${{ github.event.pull_request.number }}
@@ -45,11 +46,12 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           command: pages deploy dist --project-name=${{ secrets.CLOUDFLARE_PAGES_PROJECT }} --branch=${{ github.event.pull_request.head.ref }}
 
-      - name: Publish preview URL
+      - name: Report preview deployment
         run: |
           echo "Cloudflare Pages preview deployment finished."
           echo "Project: ${{ secrets.CLOUDFLARE_PAGES_PROJECT }}"
           echo "Branch: ${{ github.event.pull_request.head.ref }}"
-          echo "Open the deployment URL shown in the Cloudflare Pages deployment details."
+          echo "Deployment URL is available in Cloudflare Pages deployments and the PR deployment status."
