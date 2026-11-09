@@ -302,6 +302,30 @@ function createWholeImageDHashCollisionFixtures(): Record<string, Raster> {
   };
 }
 
+/**
+ * Adds the same compact, high-contrast synthetic logo to unrelated scenes.
+ * The logo is deliberately small relative to the full image.
+ */
+function createLogoScene(seed: number, x: number, y: number, size: number): Raster {
+  const raster = createScene(seed);
+  for (let row = 0; row < size; row += 1) {
+    for (let column = 0; column < size; column += 1) {
+      const border = row === 0 || column === 0 || row === size - 1 || column === size - 1;
+      const diagonal = column === row || column === size - row - 1;
+      const value = border ? 245 : diagonal ? 18 : ((row + column) % 2 === 0 ? 210 : 45);
+      const px = x + column;
+      const py = y + row;
+      if (px < 0 || py < 0 || px >= raster.width || py >= raster.height) continue;
+      const offset = (py * raster.width + px) * 4;
+      raster.pixels[offset] = value;
+      raster.pixels[offset + 1] = value;
+      raster.pixels[offset + 2] = value;
+      raster.pixels[offset + 3] = 255;
+    }
+  }
+  return raster;
+}
+
 describe("M9 crop detection — real pixel-geometry fixtures", () => {
   it("builds crop fixtures from copied regions of the same source raster", () => {
     const fixtures = createFixtures();
@@ -338,6 +362,45 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     );
 
     expect(errors).toHaveLength(0);
+    expect(result).toHaveLength(0);
+  });
+
+  it("rejects unrelated scenes containing the same small logo at the same position (HN-02-L1)", async () => {
+    const fixtures = {
+      "13_logo_scene_a.png": createLogoScene(0x13572468, 42, 30, 10),
+      "14_logo_scene_b.png": createLogoScene(0x24681357, 42, 30, 10),
+    };
+    mockImageDecoding(fixtures);
+    const result = await findSimilarPhotos([
+      createImageFile("13_logo_scene_a.png"),
+      createImageFile("14_logo_scene_b.png"),
+    ]);
+    expect(result).toHaveLength(0);
+  });
+
+  it("rejects unrelated scenes containing the same small logo at different positions (HN-02-L2)", async () => {
+    const fixtures = {
+      "15_logo_left.png": createLogoScene(0x31415926, 8, 8, 10),
+      "16_logo_right.png": createLogoScene(0x27182818, 76, 54, 10),
+    };
+    mockImageDecoding(fixtures);
+    const result = await findSimilarPhotos([
+      createImageFile("15_logo_left.png"),
+      createImageFile("16_logo_right.png"),
+    ]);
+    expect(result).toHaveLength(0);
+  });
+
+  it("rejects unrelated scenes containing the same logo at different scales (HN-02-L3)", async () => {
+    const fixtures = {
+      "17_logo_small.png": createLogoScene(0x10293847, 40, 28, 8),
+      "18_logo_large.png": createLogoScene(0x56473829, 38, 26, 14),
+    };
+    mockImageDecoding(fixtures);
+    const result = await findSimilarPhotos([
+      createImageFile("17_logo_small.png"),
+      createImageFile("18_logo_large.png"),
+    ]);
     expect(result).toHaveLength(0);
   });
 
