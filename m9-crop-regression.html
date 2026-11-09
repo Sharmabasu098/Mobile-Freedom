@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f7f7fb" />
+  <title>M9 Browser Crop Regression — Mobile Freedom</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #202033; background: #f7f7fb; }
+    body { margin: 0; padding: 20px 14px 40px; }
+    main { max-width: 760px; margin: 0 auto; }
+    .card { background: white; border: 1px solid #e4e4ec; border-radius: 16px; padding: 18px; margin: 14px 0; }
+    h1 { font-size: 1.45rem; margin: 0 0 8px; }
+    p { line-height: 1.5; color: #626274; }
+    label { display: block; font-weight: 600; margin: 14px 0 7px; }
+    input, select, button { width: 100%; box-sizing: border-box; font: inherit; padding: 12px; border: 1px solid #d8d8e2; border-radius: 10px; background: white; }
+    button { margin-top: 16px; color: white; background: #5145df; border: 0; font-weight: 700; }
+    button:disabled { opacity: .55; }
+    .result { padding: 12px; border-radius: 10px; background: #f0f0f6; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .pass { background: #e8f7ed; color: #145b2a; }
+    .fail { background: #fff0ed; color: #8c2618; }
+    .small { font-size: .88rem; }
+    .notice { border-left: 4px solid #e2a52c; padding-left: 12px; }
+    .muted { color: #77778a; }
+  </style>
+</head>
+<body>
+<main>
+  <section class="card">
+    <h1>M9 — Browser Crop Regression</h1>
+    <p>Runs the current Mobile Freedom Similar Photos matcher directly in this browser using the two files you select. Files stay on this device; this page does not upload, change, or delete them.</p>
+    <p class="notice small">This is a diagnostic regression harness, not a production algorithm change. A genuine crop is expected to be SIMILAR; a hard-negative pair is expected to be NOT SIMILAR.</p>
+    <label for="m9-files">Choose exactly two photos</label>
+    <input id="m9-files" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+    <label for="m9-expected">Regression case</label>
+    <select id="m9-expected">
+      <option value="similar">Genuine crop positive control — expect SIMILAR</option>
+      <option value="different">Hard negative — expect NOT SIMILAR</option>
+    </select>
+    <button id="m9-run" type="button">Run browser regression</button>
+  </section>
+  <section class="card">
+    <h2>Result</h2>
+    <div id="m9-status" class="result" role="status" aria-live="polite">Waiting for two images.</div>
+    <h3>Pair diagnostics</h3>
+    <div id="m9-diagnostics" class="result small">No diagnostics yet.</div>
+    <h3>File details</h3>
+    <div id="m9-files-info" class="result small">No files selected.</div>
+  </section>
+  <p class="small muted">M9 remains NOT PASS until genuine-crop positives, repeated-logo hard negatives, real-photo validation, and Android/browser performance checks all meet acceptance criteria.</p>
+</main>
+<script type="module" src="/src/tools/storage/m9BrowserRegression.ts"></script>
+</body>
+</html>
