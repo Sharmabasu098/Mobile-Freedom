@@ -444,8 +444,8 @@ function compareHashSets(
         counts[reason] = (counts[reason] ?? 0) + 1;
       }
       if (item.rejectionReasons.length === 0) {
-        counts.ACCEPTED ??= 0;
-        counts.ACCEPTED += 1;
+        counts['ACCEPTED'] ??= 0;
+        counts['ACCEPTED'] += 1;
       }
       return counts;
     }, {});
