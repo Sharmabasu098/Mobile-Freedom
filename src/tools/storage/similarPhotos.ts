@@ -21,6 +21,17 @@ const SUPPORTED_SIMILARITY_TYPES = new Set([
   "image/webp",
 ]);
 
+export interface SimilarPhotoDirectionalDiagnostic {
+ candidate:string; source:string; totalGeneratedRegions:number;
+ thresholds:{dHash:number;averageHash:number;aspectRatioErrorPercent:number};
+ dHashPass:number;dHashFail:number;averageHashPass:number;averageHashFail:number;
+ aspectRatioPass:number;aspectRatioFail:number;allConditionsPass:number;
+ bestRejectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number;failedChecks:string[]};
+ selectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number};
+ decision:"ACCEPT"|"REJECT";
+}
+export type SimilarPhotoDiagnosticHandler=(diagnostic:SimilarPhotoDirectionalDiagnostic)=>void;
+
 export interface SimilarPhotoPair {
   first: File;
   second: File;
@@ -382,6 +393,7 @@ function compareHashSets(
   first: ImageHashSet,
   second: ImageHashSet,
   maxDistance: number,
+  onDiagnostic?: SimilarPhotoDiagnosticHandler,
 ): CropMatch | undefined {
   const smallerArea = Math.min(first.width * first.height, second.width * second.height);
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
@@ -398,61 +410,47 @@ function compareHashSets(
   ): CropMatch | undefined => {
     const candidateRegions = sourceImage.regions;
     const candidateAspect = candidateImage.width / candidateImage.height;
-    const candidates = candidateRegions
-      .map(region => {
-        const regionAspect =
-          (region.width * sourceImage.width) / (region.height * sourceImage.height);
-        const relativeAspectError =
-          Math.abs(regionAspect - candidateAspect) / candidateAspect;
-        return {
-          region,
-          distance: calculateHashDistance(candidateImage.wholeImageHash, region.hash),
-          averageDistance: calculateAverageHashDistance(
-            candidateImage.wholeImageAverageHash,
-            region.averageHash,
-          ),
-          regionAspect,
-          relativeAspectError,
-        };
-      })
-      .filter(candidate =>
-        candidate.distance <= maxDistance &&
-        candidate.averageDistance <= MAX_AVERAGE_HASH_DISTANCE &&
-        candidate.relativeAspectError <= MAX_RELATIVE_ASPECT_ERROR
-      )
-      .sort((a, b) =>
-        a.distance - b.distance ||
-        a.relativeAspectError - b.relativeAspectError
-      );
-
-    // A crop candidate must match both dHash and average-threshold hash,
-    // with compatible pixel geometry. Position is retained for diagnostics.
-    const independentCandidates = selectSpatiallyIndependentRegions(candidates);
-
-    // The dHash and average-threshold hash must both agree for every
-    // accepted region. Spatially independent counts remain diagnostic;
-    // do not require multiple separate regions, which rejects genuine crops.
-    const best = candidates[0];
-    if (!best) return undefined;
-
-    console.info("[M9 crop geometry evidence]", {
-      candidate: candidateImage.file.name,
-      source: sourceImage.file.name,
-      wholeImageHash: candidateImage.wholeImageHash,
-      matchingRegions: candidates.length,
-      spatiallyIndependentRegions: independentCandidates.length,
-      bestMatches: independentCandidates.slice(0, 5).map(match => ({
-        distance: match.distance,
-        averageDistance: match.averageDistance,
-        x: Number(match.region.x.toFixed(3)),
-        y: Number(match.region.y.toFixed(3)),
-        width: Number(match.region.width.toFixed(3)),
-        height: Number(match.region.height.toFixed(3)),
-        regionAspect: Number(match.regionAspect.toFixed(4)),
-        candidateAspect: Number(candidateAspect.toFixed(4)),
-        relativeAspectError: Number(match.relativeAspectError.toFixed(4)),
-      })),
+    const measured = candidateRegions.map(region => {
+      const regionAspect=(region.width*sourceImage.width)/(region.height*sourceImage.height);
+      const relativeAspectError=Math.abs(regionAspect-candidateAspect)/candidateAspect;
+      const distance=calculateHashDistance(candidateImage.wholeImageHash,region.hash);
+      const averageDistance=calculateAverageHashDistance(candidateImage.wholeImageAverageHash,region.averageHash);
+      return {region,distance,averageDistance,regionAspect,relativeAspectError,
+        dHashPass:distance<=maxDistance,averageHashPass:averageDistance<=MAX_AVERAGE_HASH_DISTANCE,
+        aspectRatioPass:relativeAspectError<=MAX_RELATIVE_ASPECT_ERROR};
     });
+    const candidates=measured.filter(v=>v.dHashPass&&v.averageHashPass&&v.aspectRatioPass)
+      .sort((a,b)=>a.distance-b.distance||a.relativeAspectError-b.relativeAspectError);
+    const rejected=measured.filter(v=>!(v.dHashPass&&v.averageHashPass&&v.aspectRatioPass));
+    const bestRejected=rejected.map(v=>({...v,rejectionScore:
+      Math.max(0,v.distance-maxDistance)/Math.max(1,maxDistance)+
+      Math.max(0,v.averageDistance-MAX_AVERAGE_HASH_DISTANCE)/MAX_AVERAGE_HASH_DISTANCE+
+      Math.max(0,v.relativeAspectError-MAX_RELATIVE_ASPECT_ERROR)/MAX_RELATIVE_ASPECT_ERROR
+    })).sort((a,b)=>a.rejectionScore-b.rejectionScore)[0];
+    const independentCandidates=selectSpatiallyIndependentRegions(candidates);
+    const best=candidates[0];
+    const summary=(v:typeof measured[number])=>({x:Number(v.region.x.toFixed(4)),y:Number(v.region.y.toFixed(4)),
+      width:Number(v.region.width.toFixed(4)),height:Number(v.region.height.toFixed(4)),
+      dHashDistance:v.distance,averageHashDistance:v.averageDistance,
+      aspectRatioErrorPercent:Number((v.relativeAspectError*100).toFixed(2))});
+    onDiagnostic?.({
+      candidate:candidateImage.file.name,source:sourceImage.file.name,totalGeneratedRegions:measured.length,
+      thresholds:{dHash:maxDistance,averageHash:MAX_AVERAGE_HASH_DISTANCE,aspectRatioErrorPercent:MAX_RELATIVE_ASPECT_ERROR*100},
+      dHashPass:measured.filter(v=>v.dHashPass).length,dHashFail:measured.filter(v=>!v.dHashPass).length,
+      averageHashPass:measured.filter(v=>v.averageHashPass).length,averageHashFail:measured.filter(v=>!v.averageHashPass).length,
+      aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,aspectRatioFail:measured.filter(v=>!v.aspectRatioPass).length,
+      allConditionsPass:candidates.length,
+      bestRejectedCandidate:bestRejected?{...summary(bestRejected),failedChecks:[
+        ...(!bestRejected.dHashPass?["dHash"]:[]),...(!bestRejected.averageHashPass?["Average Hash"]:[]),
+        ...(!bestRejected.aspectRatioPass?["Aspect ratio"]:[])
+      ]}:undefined,
+      selectedCandidate:best?summary(best):undefined,decision:best?"ACCEPT":"REJECT"
+    });
+    console.info("[M9 crop geometry evidence]",{candidate:candidateImage.file.name,source:sourceImage.file.name,
+      totalGeneratedRegions:measured.length,dHashPass:measured.filter(v=>v.dHashPass).length,
+      averageHashPass:measured.filter(v=>v.averageHashPass).length,
+      aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,allConditionsPass:candidates.length,
+      spatiallyIndependentRegions:independentCandidates.length,decision:best?"ACCEPT":"REJECT"});
 
     return { distance: best.distance, matches: 1 };
   };
@@ -476,6 +474,7 @@ export async function findSimilarPhotos(
   files: File[],
   onError?: SimilarPhotoErrorHandler,
   maxDistance = DEFAULT_SIMILARITY_DISTANCE,
+  onDiagnostic?: SimilarPhotoDiagnosticHandler,
 ): Promise<SimilarPhotoPair[]> {
   if (
     !Number.isInteger(maxDistance) ||
@@ -511,6 +510,7 @@ export async function findSimilarPhotos(
         first,
         second,
         maxDistance,
+        onDiagnostic,
       );
 
       if (match) {
