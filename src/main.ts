@@ -3817,7 +3817,7 @@ function openFileAnalysis(): void {
           const table = document.createElement("div");
           diagnostic.nearestRegions.forEach((region, index) => {
             const row = document.createElement("p");
-            row.textContent = `Region ${index+1}: dHash ${region.dHashDistance} (${region.checks.dHash ? "PASS" : "FAIL"}); average ${region.averageHashDistance} (${region.checks.averageHash ? "PASS" : "FAIL"}); aspect ${(region.relativeAspectError*100).toFixed(2)}% (${region.checks.aspectRatio ? "PASS" : "FAIL"}); rejected: ${region.rejectionReasons.join("+") || "none"}`;
+            row.textContent = `Region ${index+1}: position x=${(region.x*100).toFixed(1)}%, y=${(region.y*100).toFixed(1)}%; size w=${(region.width*100).toFixed(1)}%, h=${(region.height*100).toFixed(1)}%; region aspect=${region.regionAspect.toFixed(4)}. dHash ${region.dHashDistance} (${region.checks.dHash ? "PASS" : "FAIL"}); average ${region.averageHashDistance} (${region.checks.averageHash ? "PASS" : "FAIL"}); aspect error ${(region.relativeAspectError*100).toFixed(2)}% (${region.checks.aspectRatio ? "PASS" : "FAIL"}); rejected: ${region.rejectionReasons.join("+") || "none"}`;
             table.append(row);
           });
           card.append(title, dimensions, thresholds, summary, rejected, table);
