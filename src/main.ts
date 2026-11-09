@@ -3178,6 +3178,12 @@ function openFileAnalysis(): void {
 ></p>
 
 <div id="file-similar-results" hidden>
+  <section id="file-similar-diagnostics" hidden style="margin-top:16px;">
+    <h3>${language === "en" ? "Crop rejection diagnostics" : "क्रॉप रिजेक्शन डायग्नोस्टिक्स"}</h3>
+    <p style="color:var(--muted);">${language === "en" ? "Diagnostic evidence only. Thresholds and matching decisions are unchanged." : "यह केवल जाँच रिपोर्ट है। Threshold और matching नियम नहीं बदले गए हैं।"}</p>
+    <div id="file-similar-diagnostics-list"></div>
+  </section>
+
   <h3>
     ${
       language === "en"
@@ -3356,6 +3362,8 @@ function openFileAnalysis(): void {
     screen.querySelector<HTMLDivElement>(
       "#file-similar-errors"
     );
+  const similarDiagnostics = screen.querySelector<HTMLElement>("#file-similar-diagnostics");
+  const similarDiagnosticsList = screen.querySelector<HTMLDivElement>("#file-similar-diagnostics-list");
 
   const selectionStatus =
     screen.querySelector<HTMLParagraphElement>(
@@ -3404,6 +3412,8 @@ function openFileAnalysis(): void {
     !similarSummary ||
     !similarList ||
     !similarErrors ||
+    !similarDiagnostics ||
+    !similarDiagnosticsList ||
     !selectionStatus ||
     !status ||
     !results ||
@@ -3742,6 +3752,8 @@ function openFileAnalysis(): void {
     similarResults.hidden = true;
     similarList.replaceChildren();
     similarErrors.replaceChildren();
+    similarDiagnosticsList.replaceChildren();
+    similarDiagnostics.hidden = true;
     similarSummary.textContent = "";
     similarStatus.textContent = "";
 
@@ -3786,6 +3798,30 @@ function openFileAnalysis(): void {
         imageFiles,
         (file, error) => {
           failedFiles.push({ file, error });
+        },
+        undefined,
+        (diagnostic) => {
+          const card = document.createElement("article");
+          card.className = "tool-card";
+          card.style.marginTop = "12px";
+          const title = document.createElement("h4");
+          title.textContent = `${diagnostic.candidate} → ${diagnostic.source}`;
+          const dimensions = document.createElement("p");
+          dimensions.textContent = `Candidate: ${diagnostic.candidateDimensions.width}×${diagnostic.candidateDimensions.height}px | Source: ${diagnostic.sourceDimensions.width}×${diagnostic.sourceDimensions.height}px`;
+          const thresholds = document.createElement("p");
+          thresholds.textContent = `Thresholds — dHash ≤ ${diagnostic.activeThresholds.maxDistance}; average hash ≤ ${diagnostic.activeThresholds.maxAverageHashDistance}; aspect error ≤ ${(diagnostic.activeThresholds.maxRelativeAspectError * 100).toFixed(1)}%`;
+          const summary = document.createElement("p");
+          summary.textContent = `Regions: ${diagnostic.totalRegionsExamined} | Accepted: ${diagnostic.acceptedRegions} | Spatially independent: ${diagnostic.spatiallyIndependentAcceptedRegions}`;
+          const rejected = document.createElement("p");
+          rejected.textContent = `Rejection counts: ${Object.entries(diagnostic.rejectionCounts).map(([k,v]) => `${k}=${v}`).join(", ") || "none"}`;
+          const table = document.createElement("div");
+          diagnostic.nearestRegions.forEach((region, index) => {
+            const row = document.createElement("p");
+            row.textContent = `Region ${index+1}: dHash ${region.dHashDistance} (${region.checks.dHash ? "PASS" : "FAIL"}); average ${region.averageHashDistance} (${region.checks.averageHash ? "PASS" : "FAIL"}); aspect ${(region.relativeAspectError*100).toFixed(2)}% (${region.checks.aspectRatio ? "PASS" : "FAIL"}); rejected: ${region.rejectionReasons.join("+") || "none"}`;
+            table.append(row);
+          });
+          card.append(title, dimensions, thresholds, summary, rejected, table);
+          similarDiagnosticsList.append(card);
         },
       );
 
@@ -3870,6 +3906,7 @@ function openFileAnalysis(): void {
         });
       }
 
+      similarDiagnostics.hidden = similarDiagnosticsList.childElementCount === 0;
       similarResults.hidden = false;
 
       similarStatus.textContent =
