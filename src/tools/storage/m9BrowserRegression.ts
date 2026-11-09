@@ -1,4 +1,4 @@
-import { findSimilarPhotos } from "./similarPhotos";
+import { findSimilarPhotos, type SimilarPhotoDirectionalDiagnostic } from "./similarPhotos";
 
 const fileInput = document.querySelector<HTMLInputElement>("#m9-files");
 const expectedInput = document.querySelector<HTMLSelectElement>("#m9-expected");
@@ -43,7 +43,7 @@ runButton.addEventListener("click", async () => {
   status.className = "result";
   diagnostics.textContent = "Collecting matcher result…";
 
-  const errors: string[] = [];
+  const errors: string[] = [];\n  const pairDiagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
   try {
     // The production API currently exposes an error callback and a
     // maxDistance argument only. Do not invent a diagnostics callback.
@@ -66,14 +66,21 @@ runButton.addEventListener("click", async () => {
     status.className = `result ${passed ? "pass" : "fail"}`;
 
     diagnostics.textContent = [
-      pairs.length
-        ? pairs.map(pair =>
-            `${pair.first.name} ↔ ${pair.second.name}: distance ${pair.distance}/64; estimated similarity ${pair.similarityPercent}%`
-          ).join("\\n")
-        : "Matcher returned no similar pairs.",
-      errors.length ? `Decode errors: ${errors.join("; ")}` : "Decode errors: none",
-      "The current production API does not expose per-region diagnostic objects. The matcher writes its crop-geometry evidence to the browser console.",
-      "This test exercises the existing hash pipeline only; ORB/SIFT/RANSAC is not integrated into production.",
+      pairs.length ? pairs.map(pair => `${pair.first.name} ↔ ${pair.second.name}: distance ${pair.distance}/64; estimated similarity ${pair.similarityPercent}%`).join("\\n") : "Matcher returned no similar pairs.",
+      ...pairDiagnostics.map((item,index)=>[
+        `Direction ${index+1}: ${item.candidate} → ${item.source}`,
+        `Total generated regions: ${item.totalGeneratedRegions}`,
+        `dHash pass/fail: ${item.dHashPass}/${item.dHashFail} (≤ ${item.thresholds.dHash})`,
+        `Average Hash pass/fail: ${item.averageHashPass}/${item.averageHashFail} (≤ ${item.thresholds.averageHash})`,
+        `Aspect ratio pass/fail: ${item.aspectRatioPass}/${item.aspectRatioFail} (≤ ${item.thresholds.aspectRatioErrorPercent}%)`,
+        `All three conditions passed: ${item.allConditionsPass}`,
+        `Best rejected candidate: ${item.bestRejectedCandidate?JSON.stringify(item.bestRejectedCandidate):"none"}`,
+        `Selected candidate: ${item.selectedCandidate?JSON.stringify(item.selectedCandidate):"none"}`,
+        `Candidate selection: ${item.decision}`
+      ].join("\\n")).join("\\n\\n"),
+      errors.length?`Decode errors: ${errors.join("; ")}`:"Decode errors: none",
+      "Diagnostic-only counters; thresholds and matching decisions are unchanged.",
+      "ORB/SIFT/RANSAC is not integrated into production."
     ].join("\\n\\n");
   } catch (error) {
     status.textContent = `ERROR — ${error instanceof Error ? error.message : String(error)}`;
