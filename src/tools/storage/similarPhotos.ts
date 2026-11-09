@@ -452,6 +452,7 @@ function compareHashSets(
       aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,allConditionsPass:candidates.length,
       spatiallyIndependentRegions:independentCandidates.length,decision:best?"ACCEPT":"REJECT"});
 
+    if (!best) return undefined;
     return { distance: best.distance, matches: 1 };
   };
 
