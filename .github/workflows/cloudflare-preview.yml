@@ -1,0 +1,55 @@
+name: Cloudflare PR Preview
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-preview-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Build and deploy isolated PR preview
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run automated tests
+        run: npm test
+
+      - name: Build preview
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages preview
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=${{ secrets.CLOUDFLARE_PAGES_PROJECT }} --branch=${{ github.event.pull_request.head.ref }}
+
+      - name: Publish preview URL
+        run: |
+          echo "Cloudflare Pages preview deployment finished."
+          echo "Project: ${{ secrets.CLOUDFLARE_PAGES_PROJECT }}"
+          echo "Branch: ${{ github.event.pull_request.head.ref }}"
+          echo "Open the deployment URL shown in the Cloudflare Pages deployment details."
