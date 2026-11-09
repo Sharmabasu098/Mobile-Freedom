@@ -43,7 +43,8 @@ runButton.addEventListener("click", async () => {
   status.className = "result";
   diagnostics.textContent = "Collecting matcher result…";
 
-  const errors: string[] = [];\n  const pairDiagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+  const errors: string[] = [];
+  const pairDiagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
   try {
     // The production API currently exposes an error callback and a
     // maxDistance argument only. Do not invent a diagnostics callback.
