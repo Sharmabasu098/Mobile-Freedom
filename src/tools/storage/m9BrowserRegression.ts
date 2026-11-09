@@ -22,7 +22,7 @@ fileInput.addEventListener("change", () => {
   filesInfo.textContent = files.length
     ? files.map((file, index) =>
         `${index + 1}. ${file.name} — ${file.type || "unknown type"} — ${formatBytes(file.size)}`
-      ).join("\\n")
+      ).join("\n")
     : "No files selected.";
   status.textContent = files.length === 2
     ? "Ready. Choose the expected result and run the regression."
@@ -64,11 +64,11 @@ runButton.addEventListener("click", async () => {
       `${passed ? "PASS" : "FAIL"} — ${expectedSimilar ? "SIMILAR" : "NOT SIMILAR"} expected; ${detectedSimilar ? "SIMILAR" : "NOT SIMILAR"} detected.`,
       `Matched pairs: ${pairs.length}`,
       "No files were uploaded, modified, or deleted.",
-    ].join("\\n");
+    ].join("\n");
     status.className = `result ${passed ? "pass" : "fail"}`;
 
     diagnostics.textContent = [
-      pairs.length ? pairs.map(pair => `${pair.first.name} ↔ ${pair.second.name}: distance ${pair.distance}/64; estimated similarity ${pair.similarityPercent}%`).join("\\n") : "Matcher returned no similar pairs.",
+      pairs.length ? pairs.map(pair => `${pair.first.name} ↔ ${pair.second.name}: distance ${pair.distance}/64; estimated similarity ${pair.similarityPercent}%`).join("\n") : "Matcher returned no similar pairs.",
       ...pairDiagnostics.map((item,index)=>[
         `Direction ${index+1}: ${item.candidate} → ${item.source}`,
         `Total generated regions: ${item.totalGeneratedRegions}`,
@@ -79,11 +79,11 @@ runButton.addEventListener("click", async () => {
         `Best rejected candidate: ${item.bestRejectedCandidate?JSON.stringify(item.bestRejectedCandidate):"none"}`,
         `Selected candidate: ${item.selectedCandidate?JSON.stringify(item.selectedCandidate):"none"}`,
         `Candidate selection: ${item.decision}`
-      ].join("\\n")).join("\\n\\n"),
+      ].join("\n")).join("\n\n"),
       errors.length?`Decode errors: ${errors.join("; ")}`:"Decode errors: none",
       "Diagnostic-only counters; thresholds and matching decisions are unchanged.",
       "ORB/SIFT/RANSAC is not integrated into production."
-    ].join("\\n\\n");
+    ].join("\n\n");
   } catch (error) {
     status.textContent = `ERROR — ${error instanceof Error ? error.message : String(error)}`;
     status.className = "result fail";
