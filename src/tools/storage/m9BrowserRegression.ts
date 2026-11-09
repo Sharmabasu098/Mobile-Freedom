@@ -52,6 +52,8 @@ runButton.addEventListener("click", async () => {
       (file, error) => errors.push(
         `${file.name}: ${error instanceof Error ? error.message : String(error)}`
       ),
+      undefined,
+      diagnostic => pairDiagnostics.push(diagnostic),
     );
 
     const detectedSimilar = pairs.length > 0;
