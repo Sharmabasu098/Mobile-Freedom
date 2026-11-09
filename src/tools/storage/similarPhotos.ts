@@ -398,62 +398,96 @@ function compareHashSets(
   ): CropMatch | undefined => {
     const candidateRegions = sourceImage.regions;
     const candidateAspect = candidateImage.width / candidateImage.height;
-    const candidates = candidateRegions
-      .map(region => {
-        const regionAspect =
-          (region.width * sourceImage.width) / (region.height * sourceImage.height);
-        const relativeAspectError =
-          Math.abs(regionAspect - candidateAspect) / candidateAspect;
-        return {
-          region,
-          distance: calculateHashDistance(candidateImage.wholeImageHash, region.hash),
-          averageDistance: calculateAverageHashDistance(
-            candidateImage.wholeImageAverageHash,
-            region.averageHash,
-          ),
-          regionAspect,
-          relativeAspectError,
-        };
-      })
-      .filter(candidate =>
-        candidate.distance <= maxDistance &&
-        candidate.averageDistance <= MAX_AVERAGE_HASH_DISTANCE &&
-        candidate.relativeAspectError <= MAX_RELATIVE_ASPECT_ERROR
-      )
+    const diagnostics = candidateRegions.map(region => {
+      const regionAspect =
+        (region.width * sourceImage.width) / (region.height * sourceImage.height);
+      const relativeAspectError =
+        Math.abs(regionAspect - candidateAspect) / candidateAspect;
+      const distance = calculateHashDistance(candidateImage.wholeImageHash, region.hash);
+      const averageDistance = calculateAverageHashDistance(
+        candidateImage.wholeImageAverageHash,
+        region.averageHash,
+      );
+      const checks = {
+        dHash: distance <= maxDistance,
+        averageHash: averageDistance <= MAX_AVERAGE_HASH_DISTANCE,
+        aspectRatio: relativeAspectError <= MAX_RELATIVE_ASPECT_ERROR,
+      };
+      const rejectionReasons = Object.entries(checks)
+        .filter(([, passed]) => !passed)
+        .map(([name]) => name === "dHash" ? "DHASH_REJECTED"
+          : name === "averageHash" ? "AVERAGE_HASH_REJECTED"
+          : "ASPECT_RATIO_REJECTED");
+      return {
+        region,
+        distance,
+        averageDistance,
+        regionAspect,
+        relativeAspectError,
+        checks,
+        rejectionReasons,
+      };
+    });
+
+    const candidates = diagnostics
+      .filter(candidate => candidate.rejectionReasons.length === 0)
       .sort((a, b) =>
         a.distance - b.distance ||
         a.relativeAspectError - b.relativeAspectError
       );
 
-    // A crop candidate must match both dHash and average-threshold hash,
-    // with compatible pixel geometry. Position is retained for diagnostics.
+    // Preserve all production acceptance thresholds. This log explains
+    // which existing condition accepted or rejected each candidate region.
     const independentCandidates = selectSpatiallyIndependentRegions(candidates);
+    const rejectionCounts = diagnostics.reduce<Record<string, number>>((counts, item) => {
+      for (const reason of item.rejectionReasons) {
+        counts[reason] = (counts[reason] ?? 0) + 1;
+      }
+      if (item.rejectionReasons.length === 0) {
+        counts.ACCEPTED ??= 0;
+        counts.ACCEPTED += 1;
+      }
+      return counts;
+    }, {});
 
-    // The dHash and average-threshold hash must both agree for every
-    // accepted region. Spatially independent counts remain diagnostic;
-    // do not require multiple separate regions, which rejects genuine crops.
-    const best = candidates[0];
-    if (!best) return undefined;
-
-    console.info("[M9 crop geometry evidence]", {
+    console.info("[M9 RP-02 region rejection diagnostics]", {
       candidate: candidateImage.file.name,
+      candidateDimensions: { width: candidateImage.width, height: candidateImage.height },
       source: sourceImage.file.name,
-      wholeImageHash: candidateImage.wholeImageHash,
-      matchingRegions: candidates.length,
-      spatiallyIndependentRegions: independentCandidates.length,
-      bestMatches: independentCandidates.slice(0, 5).map(match => ({
-        distance: match.distance,
-        averageDistance: match.averageDistance,
-        x: Number(match.region.x.toFixed(3)),
-        y: Number(match.region.y.toFixed(3)),
-        width: Number(match.region.width.toFixed(3)),
-        height: Number(match.region.height.toFixed(3)),
-        regionAspect: Number(match.regionAspect.toFixed(4)),
-        candidateAspect: Number(candidateAspect.toFixed(4)),
-        relativeAspectError: Number(match.relativeAspectError.toFixed(4)),
-      })),
+      sourceDimensions: { width: sourceImage.width, height: sourceImage.height },
+      candidateAspect: Number(candidateAspect.toFixed(5)),
+      activeThresholds: {
+        maxDistance,
+        maxAverageHashDistance: MAX_AVERAGE_HASH_DISTANCE,
+        maxRelativeAspectError: MAX_RELATIVE_ASPECT_ERROR,
+      },
+      totalRegionsExamined: diagnostics.length,
+      rejectionCounts,
+      acceptedRegions: candidates.length,
+      spatiallyIndependentAcceptedRegions: independentCandidates.length,
+      nearestRegions: [...diagnostics]
+        .sort((a, b) =>
+          a.distance - b.distance ||
+          a.averageDistance - b.averageDistance ||
+          a.relativeAspectError - b.relativeAspectError
+        )
+        .slice(0, 8)
+        .map(item => ({
+          dHashDistance: item.distance,
+          averageHashDistance: item.averageDistance,
+          x: Number(item.region.x.toFixed(3)),
+          y: Number(item.region.y.toFixed(3)),
+          width: Number(item.region.width.toFixed(3)),
+          height: Number(item.region.height.toFixed(3)),
+          regionAspect: Number(item.regionAspect.toFixed(5)),
+          relativeAspectError: Number(item.relativeAspectError.toFixed(5)),
+          checks: item.checks,
+          rejectionReasons: item.rejectionReasons,
+        })),
     });
 
+    const best = candidates[0];
+    if (!best) return undefined;
     return { distance: best.distance, matches: 1 };
   };
 
