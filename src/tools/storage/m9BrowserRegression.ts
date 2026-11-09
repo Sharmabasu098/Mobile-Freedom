@@ -22,7 +22,7 @@ fileInput.addEventListener("change", () => {
   filesInfo.textContent = files.length
     ? files.map((file, index) =>
         `${index + 1}. ${file.name} — ${file.type || "unknown type"} — ${formatBytes(file.size)}`
-      ).join("\\n")
+      ).join("\n")
     : "No files selected.";
   status.textContent = files.length === 2
     ? "Ready. Choose the expected result and run the regression."
@@ -60,7 +60,7 @@ runButton.addEventListener("click", async () => {
       `${passed ? "PASS" : "FAIL"} — ${expectedSimilar ? "SIMILAR" : "NOT SIMILAR"} expected; ${detectedSimilar ? "SIMILAR" : "NOT SIMILAR"} detected.`,
       `Matched pairs: ${pairs.length}`,
       "No files were uploaded, modified, or deleted.",
-    ].join("\\n");
+    ].join("\n");
     status.className = `result ${passed ? "pass" : "fail"}`;
 
     diagnostics.textContent = [
@@ -71,10 +71,10 @@ runButton.addEventListener("click", async () => {
         `Regions examined: ${item.totalRegionsExamined}; accepted: ${item.acceptedRegions}; spatially independent: ${item.spatiallyIndependentAcceptedRegions}`,
         `Rejections: ${JSON.stringify(item.rejectionCounts)}`,
         `Nearest regions: ${JSON.stringify(item.nearestRegions)}`,
-      ].join("\\n")).join("\\n\\n"),
+      ].join("\n")).join("\n\n"),
       errors.length ? `Decode errors: ${errors.join("; ")}` : "Decode errors: none",
       "Note: these are hash-pipeline diagnostics only; ORB/SIFT/RANSAC has not been integrated into production.",
-    ].join("\\n\\n") || "No pair diagnostics were emitted.";
+    ].join("\n\n") || "No pair diagnostics were emitted.";
   } catch (error) {
     status.textContent = `ERROR — ${error instanceof Error ? error.message : String(error)}`;
     status.className = "result fail";
