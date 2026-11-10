@@ -133,6 +133,51 @@ async function runDHashAlignmentInvestigation(
       const positions=Array.from({length:64},(_,i)=>i).filter(i=>c.hash[i]!==r.hash[i]);
       return {...method,candidate:c,region:r,distance:positions.length,positions};
     });
+    // D — Orientation-aware 9×12 dHash. This is diagnostic only and uses
+    // 8 horizontal comparisons × 12 rows = 96 bits for portrait geometry.
+    const samplePortrait = (bitmap: ImageBitmap, x: number, y: number, width: number, height: number) => {
+      const portraitCanvas=document.createElement("canvas");
+      portraitCanvas.width=9; portraitCanvas.height=12;
+      const portraitContext=portraitCanvas.getContext("2d",{willReadFrequently:true});
+      if(!portraitContext) throw new Error("Could not create 9×12 orientation-aware sample.");
+      portraitContext.drawImage(bitmap,x,y,width,height,0,0,9,12);
+      const rgba=portraitContext.getImageData(0,0,9,12).data, gray:number[]=[];
+      for(let i=0;i<rgba.length;i+=4) gray.push(Math.round(.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2]));
+      let hash="";
+      for(let yIndex=0;yIndex<12;yIndex++) for(let xIndex=0;xIndex<8;xIndex++) {
+        hash += gray[yIndex*9+xIndex]>gray[yIndex*9+xIndex+1]?"1":"0";
+      }
+      return {gray,hash};
+    };
+    const portraitCandidate=samplePortrait(candidate,0,0,candidate.width,candidate.height);
+    const portraitRegion=samplePortrait(source,sx,sy,sw,sh);
+    const portraitPositions=Array.from({length:96},(_,i)=>i)
+      .filter(i=>portraitCandidate.hash[i]!==portraitRegion.hash[i]);
+    const portraitDistance=portraitPositions.length;
+    const portraitCanvas=document.querySelector<HTMLCanvasElement>("#m9-orientation-preview");
+    if(portraitCanvas) {
+      const portraitContext=portraitCanvas.getContext("2d");
+      if(portraitContext) {
+        portraitContext.clearRect(0,0,portraitCanvas.width,portraitCanvas.height);
+        portraitContext.fillStyle="#f4f4f8"; portraitContext.fillRect(0,0,portraitCanvas.width,portraitCanvas.height);
+        const tile=9, top=34, lefts=[12,190,368];
+        portraitContext.font="12px system-ui"; portraitContext.fillStyle="#202033";
+        portraitContext.fillText("Candidate 9×12",lefts[0],18);
+        portraitContext.fillText("Region 9×12",lefts[1],18);
+        portraitContext.fillText("96-bit differences",lefts[2],18);
+        [portraitCandidate.gray,portraitRegion.gray].forEach((values,panel)=>values.forEach((value,index)=>{
+          portraitContext.fillStyle="rgb("+value+","+value+","+value+")";
+          portraitContext.fillRect(lefts[panel]+(index%9)*tile,top+Math.floor(index/9)*tile,tile-1,tile-1);
+        }));
+        for(let index=0;index<96;index++) {
+          portraitContext.fillStyle=portraitCandidate.hash[index]===portraitRegion.hash[index]?"#b9c8bd":"#d94841";
+          portraitContext.fillRect(lefts[2]+(index%8)*tile,top+Math.floor(index/8)*tile,tile-1,tile-1);
+        }
+        portraitContext.fillStyle="#202033";
+        portraitContext.fillText("Distance: "+portraitDistance+"/96",lefts[2],top+12*tile+14);
+        portraitCanvas.hidden=false;
+      }
+    }
     const canvas=document.querySelector<HTMLCanvasElement>("#m9-normalized-preview");
     if(canvas){const ctx=canvas.getContext("2d");if(ctx){
       ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -179,6 +224,12 @@ async function runDHashAlignmentInvestigation(
       "Sweep rows dy −2%, −1%, 0%, +1%, +2%; columns dx −2%, −1%, 0%, +1%, +2%:",
       ...shifts.map(dy=>(dy*100)+"%: "+shifts.map(dx=>sweep.find(v=>v.dx===dx&&v.dy===dy)!.d).join(" / ")),
       "Letterbox uses neutral gray (127) padding; Center Crop fills 9×8 while preserving aspect ratio.",
+      "D — Orientation-Aware dHash (9×12 portrait grid; 96 comparisons)",
+      "Candidate dHash (96-bit): "+portraitCandidate.hash,
+      "Region dHash (96-bit): "+portraitRegion.hash,
+      "Hamming distance: "+portraitDistance+"/96",
+      "Different bit positions (0–95): "+(portraitPositions.length?portraitPositions.join(", "):"none"),
+      "D uses 9 columns × 12 rows (8 horizontal comparisons per row). Its 96-bit distance is not directly comparable to the 64-bit A/B/C distances; no threshold is inferred.",
       "Diagnostic only: production matcher, thresholds, and matching decisions are unchanged."
     ].join("\n");
   } finally {candidate.close();source.close();}
