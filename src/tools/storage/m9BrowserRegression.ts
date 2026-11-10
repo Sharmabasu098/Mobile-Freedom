@@ -731,6 +731,114 @@ async function runSamplingParityInvestigation(candidateFile: File, sourceFile: F
   } finally { candidate.close(); source.close(); }
 }
 
+
+/** H7 — trace normalization, region extraction, and final 9×8 sampling separately. Diagnostic only. */
+async function runTwoStagePixelTrace(
+  candidateFile: File,
+  sourceFile: File,
+  region: NonNullable<SimilarPhotoDirectionalDiagnostic["bestRejectedCandidate"]>,
+): Promise<string[]> {
+  const lines: string[] = ["H7 — TWO-STAGE RESAMPLING PIXEL TRACE"];
+  const [candidate, source] = await Promise.all([
+    createImageBitmap(candidateFile), createImageBitmap(sourceFile),
+  ]);
+  const quality: ImageSmoothingQuality = "medium";
+  const makeCanvas = (width: number, height: number) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width));
+    canvas.height = Math.max(1, Math.round(height));
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("H7 canvas context unavailable.");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = quality;
+    return { canvas, ctx };
+  };
+  const sample = (bitmap: CanvasImageSource, sx: number, sy: number, sw: number, sh: number) => {
+    const { canvas, ctx } = makeCanvas(9, 8);
+    ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, 9, 8);
+    const rgba = ctx.getImageData(0, 0, 9, 8).data;
+    const gray: number[] = [];
+    for (let i = 0; i < rgba.length; i += 4) gray.push(Math.round(.299 * rgba[i] + .587 * rgba[i + 1] + .114 * rgba[i + 2]));
+    let hash = "";
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) hash += gray[y * 9 + x] > gray[y * 9 + x + 1] ? "1" : "0";
+    return { gray, hash };
+  };
+  const metrics = (a: {gray:number[];hash:string}, b: {gray:number[];hash:string}) => {
+    const delta = a.gray.map((v,i) => Math.abs(v-b.gray[i]));
+    return {
+      mae: delta.reduce((sum,v)=>sum+v,0)/72,
+      changed: delta.filter(v=>v!==0).length,
+      d: Array.from({length:64},(_,i)=>i).filter(i=>a.hash[i]!==b.hash[i]).length,
+    };
+  };
+  const rows = (values:number[]) => Array.from({length:8},(_,y)=>values.slice(y*9,y*9+9).join(",")).join(" | ");
+  try {
+    const sx=region.sourcePixelX, sy=region.sourcePixelY, sw=region.sourcePixelWidth, sh=region.sourcePixelHeight;
+    if (![sx,sy,sw,sh].every(Number.isFinite) || sx<0 || sy<0 || sw<=0 || sh<=0 || sx+sw>source.width || sy+sh>source.height) {
+      throw new Error("H7 selected source rectangle is outside the decoded source.");
+    }
+    const W=candidate.width, H=candidate.height;
+    const scaleX=W/source.width, scaleY=H/source.height;
+    const mapped={x:sx*scaleX,y:sy*scaleY,w:sw*scaleX,h:sh*scaleY};
+    lines.push("Decoded candidate="+candidate.width+"×"+candidate.height+"; source="+source.width+"×"+source.height);
+    lines.push("Fixed control: normalized grid="+W+"×"+H+"; smoothing=true; quality=medium; same decoded bitmaps for all paths.");
+    lines.push("Original source rect: x="+sx+", y="+sy+", w="+sw+", h="+sh);
+    lines.push("Mapped normalized rect: x="+mapped.x.toFixed(4)+", y="+mapped.y.toFixed(4)+", w="+mapped.w.toFixed(4)+", h="+mapped.h.toFixed(4));
+    // Path 0: direct sampling from original decoded frames (one resampling stage).
+    const directCandidate=sample(candidate,0,0,candidate.width,candidate.height);
+    const directRegion=sample(source,sx,sy,sw,sh);
+    const direct=metrics(directCandidate,directRegion);
+    lines.push("PATH 0 — DIRECT ORIGINAL → 9×8 (one sampling stage)");
+    lines.push("candidate gray: "+rows(directCandidate.gray));
+    lines.push("source-region gray: "+rows(directRegion.gray));
+    lines.push("pair: dHash="+direct.d+"/64; MAE="+direct.mae.toFixed(3)+"/255; changed="+direct.changed+"/72");
+    // Stage 1: normalize each full image to the exact common grid.
+    const cNorm=makeCanvas(W,H), sNorm=makeCanvas(W,H);
+    cNorm.ctx.drawImage(candidate,0,0,candidate.width,candidate.height,0,0,W,H);
+    sNorm.ctx.drawImage(source,0,0,source.width,source.height,0,0,W,H);
+    const cNormRaster=cNorm.ctx.getImageData(0,0,W,H);
+    const sNormRaster=sNorm.ctx.getImageData(0,0,W,H);
+    let normChanged=0,normSum=0,normMax=0;
+    for(let i=0;i<cNormRaster.data.length;i+=4){
+      const d=Math.round(.299*Math.abs(cNormRaster.data[i]-sNormRaster.data[i])+
+        .587*Math.abs(cNormRaster.data[i+1]-sNormRaster.data[i+1])+
+        .114*Math.abs(cNormRaster.data[i+2]-sNormRaster.data[i+2]));
+      if(d) normChanged++; normSum+=d; normMax=Math.max(normMax,d);
+    }
+    const normPixels=W*H;
+    lines.push("STAGE 1 — FULL-FRAME NORMALIZATION");
+    lines.push("candidate and source full-frame rasters share dimensions; differing pixel locations="+normChanged+"/"+normPixels+
+      "; mean absolute grayscale delta="+(normSum/normPixels).toFixed(3)+"/255; max="+normMax+"/255.");
+    // Stage 2: sample candidate normalized frame and mapped region from normalized source.
+    const normCandidate=sample(cNorm.canvas,0,0,W,H);
+    const normRegion=sample(sNorm.canvas,mapped.x,mapped.y,mapped.w,mapped.h);
+    const normalized=metrics(normCandidate,normRegion);
+    lines.push("PATH 1 — NORMALIZE FULL FRAMES → EXTRACT MAPPED REGION → 9×8");
+    lines.push("candidate gray: "+rows(normCandidate.gray));
+    lines.push("mapped-region gray: "+rows(normRegion.gray));
+    lines.push("pair: dHash="+normalized.d+"/64; MAE="+normalized.mae.toFixed(3)+"/255; changed="+normalized.changed+"/72");
+    // Stage 2 alternate: extract the original source rectangle to an integer-sized
+    // intermediate raster, then perform the final 9×8 sampling.
+    const extracted=makeCanvas(mapped.w,mapped.h);
+    extracted.ctx.drawImage(source,sx,sy,sw,sh,0,0,extracted.canvas.width,extracted.canvas.height);
+    const extractedRegion=sample(extracted.canvas,0,0,extracted.canvas.width,extracted.canvas.height);
+    const extractedMetrics=metrics(directCandidate,extractedRegion);
+    lines.push("PATH 2 — EXTRACT ORIGINAL SOURCE RECT → INTERMEDIATE RASTER → 9×8");
+    lines.push("intermediate extraction dimensions="+extracted.canvas.width+"×"+extracted.canvas.height);
+    lines.push("candidate gray: "+rows(directCandidate.gray));
+    lines.push("extracted-region gray: "+rows(extractedRegion.gray));
+    lines.push("pair: dHash="+extractedMetrics.d+"/64; MAE="+extractedMetrics.mae.toFixed(3)+"/255; changed="+extractedMetrics.changed+"/72");
+    lines.push("CROSS-PATH REGION COMPARISON");
+    lines.push("direct-original vs normalized-mapped region: "+JSON.stringify(metrics(directRegion,normRegion)));
+    lines.push("direct-original vs extracted-intermediate region: "+JSON.stringify(metrics(directRegion,extractedRegion)));
+    lines.push("normalized-mapped vs extracted-intermediate region: "+JSON.stringify(metrics(normRegion,extractedRegion)));
+    lines.push("Interpretation guard: a path difference proves pipeline/resampling sensitivity only. It does not validate the selected rectangle as the true crop.");
+    lines.push("Geometry guard: original source rectangle and normalized coordinate mapping are held fixed; no alignment search is performed.");
+    lines.push("Diagnostic only: production matcher, thresholds, selected region, and files are unchanged.");
+    return lines;
+  } finally { candidate.close(); source.close(); }
+}
+
 fileInput.addEventListener("change", () => {
   const files = Array.from(fileInput.files ?? []);
   filesInfo.textContent = files.length
@@ -870,6 +978,21 @@ runButton.addEventListener("click", async () => {
           diagnostics.textContent += ["", ...report, ""].join("\n");
         } catch (error) {
           diagnostics.textContent += "\nH5 investigation error: " + (error instanceof Error ? error.message : String(error));
+        }
+      }
+    }
+
+
+    for (const direction of pairDiagnostics) {
+      const candidateFile = files.find(file => file.name === direction.candidate);
+      const sourceFile = files.find(file => file.name === direction.source);
+      const rejected = direction.bestRejectedCandidate;
+      if (candidateFile && sourceFile && rejected) {
+        try {
+          const report = await runTwoStagePixelTrace(candidateFile, sourceFile, rejected);
+          diagnostics.textContent += ["", ...report, ""].join("\\n");
+        } catch (error) {
+          diagnostics.textContent += "\\nH7 investigation error: " + (error instanceof Error ? error.message : String(error));
         }
       }
     }
