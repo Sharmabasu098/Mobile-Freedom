@@ -487,6 +487,73 @@ async function runCropContentAlignmentInvestigation(
   } finally { candidate.close();source.close(); }
 }
 
+/** H — exact sampler parity and controlled alignment comparison; diagnostic only. */
+async function runSamplingParityInvestigation(candidateFile: File, sourceFile: File, region: NonNullable<SimilarPhotoDirectionalDiagnostic["bestRejectedCandidate"]>): Promise<string[]> {
+  const lines: string[] = ["H — EXACT SAMPLING PARITY VERIFICATION"];
+  const [candidate, source] = await Promise.all([createImageBitmap(candidateFile), createImageBitmap(sourceFile)]);
+  type Mode = "default" | "high";
+  const sample = (bitmap: ImageBitmap, x: number, y: number, w: number, h: number, mode: Mode) => {
+    const canvas = document.createElement("canvas"); canvas.width = 9; canvas.height = 8;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("H sample canvas unavailable.");
+    ctx.imageSmoothingEnabled = true;
+    if (mode === "high") ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(bitmap, x, y, w, h, 0, 0, 9, 8);
+    const rgba = ctx.getImageData(0, 0, 9, 8).data, gray: number[] = [];
+    for (let i = 0; i < rgba.length; i += 4) gray.push(Math.round(.299 * rgba[i] + .587 * rgba[i + 1] + .114 * rgba[i + 2]));
+    let hash = "";
+    for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) hash += gray[row * 9 + col] > gray[row * 9 + col + 1] ? "1" : "0";
+    return { gray, hash, smoothing: ctx.imageSmoothingEnabled, quality: ctx.imageSmoothingQuality };
+  };
+  const mae = (a: number[], b: number[]) => a.reduce((sum, v, i) => sum + Math.abs(v - b[i]), 0) / 72;
+  const changed = (a: number[], b: number[]) => a.filter((v, i) => v !== b[i]).length;
+  const distance = (a: string, b: string) => Array.from({ length: 64 }, (_, i) => i).filter(i => a[i] !== b[i]).length;
+  try {
+    const sx = region.sourcePixelX, sy = region.sourcePixelY, sw = region.sourcePixelWidth, sh = region.sourcePixelHeight;
+    const modes: { name: string; mode: Mode }[] = [
+      { name: "Production default", mode: "default" },
+      { name: "F explicit smoothing=true; quality omitted", mode: "default" },
+      { name: "G smoothing=true; quality=high", mode: "high" },
+    ];
+    const results = modes.map(m => {
+      const c = sample(candidate, 0, 0, candidate.width, candidate.height, m.mode);
+      const r = sample(source, sx, sy, sw, sh, m.mode);
+      return { ...m, c, r, mae: mae(c.gray, r.gray), changed: changed(c.gray, r.gray), d: distance(c.hash, r.hash) };
+    });
+    lines.push("H1 — Canvas settings: " + results.map(v => v.name + " [smoothing=" + v.c.smoothing + ", quality=" + v.c.quality + "]").join(" | "));
+    lines.push("Production vs F candidate arrays identical: " + (results[0].c.gray.every((v,i)=>v===results[1].c.gray[i]) ? "YES" : "NO"));
+    lines.push("Production vs F region arrays identical: " + (results[0].r.gray.every((v,i)=>v===results[1].r.gray[i]) ? "YES" : "NO"));
+    lines.push("Production vs G candidate arrays identical: " + (results[0].c.gray.every((v,i)=>v===results[2].c.gray[i]) ? "YES" : "NO"));
+    lines.push("Production vs G region arrays identical: " + (results[0].r.gray.every((v,i)=>v===results[2].r.gray[i]) ? "YES" : "NO"));
+    lines.push("H2 — 9×8 grayscale arrays (rows separated by |)");
+    for (const v of results) {
+      lines.push(v.name + " candidate: " + Array.from({length:8},(_,row)=>v.c.gray.slice(row*9,row*9+9).join(",")).join(" | "));
+      lines.push(v.name + " region: " + Array.from({length:8},(_,row)=>v.r.gray.slice(row*9,row*9+9).join(",")).join(" | "));
+    }
+    lines.push("H3 — Hashes and MAE on identical inputs");
+    for (const v of results) lines.push(v.name + ": candidateHash=" + v.c.hash + "; regionHash=" + v.r.hash + "; dHash=" + v.d + "/64; MAE=" + v.mae.toFixed(3) + "/255; changed=" + v.changed + "/72");
+    lines.push("H4 — Bounded alignment search at production-default and G-high settings");
+    for (const mode of ["default", "high"] as const) {
+      const c = sample(candidate, 0, 0, candidate.width, candidate.height, mode);
+      const measure = (x:number,y:number,w:number,h:number) => {
+        const r = sample(source,x,y,w,h,mode);
+        return {x,y,w,h,mae:mae(c.gray,r.gray),d:distance(c.hash,r.hash)};
+      };
+      const base = measure(sx,sy,sw,sh); let best = base, tested = 0;
+      for (const scale of [.96,.98,1,1.02,1.04]) for (const oy of [-.02,-.01,0,.01,.02]) for (const ox of [-.02,-.01,0,.01,.02]) {
+        const w=sw*scale,h=sh*scale,x=sx+sw*ox+(sw-w)/2,y=sy+sh*oy+(sh-h)/2;
+        if(x<0||y<0||x+w>source.width||y+h>source.height) continue;
+        const v=measure(x,y,w,h); tested++;
+        if(v.mae<best.mae||(v.mae===best.mae&&v.d<best.d)) best=v;
+      }
+      lines.push(mode + ": tested=" + tested + "; baseline MAE=" + base.mae.toFixed(3) + ", dHash=" + base.d + "; best MAE=" + best.mae.toFixed(3) + ", dHash=" + best.d + "; MAE gain=" + (base.mae-best.mae).toFixed(3) + "; dHash gain=" + (base.d-best.d) + "; best box=" + [best.x,best.y,best.w,best.h].map(v=>v.toFixed(2)).join(","));
+    }
+    lines.push("Interpretation: an improvement present only with G-high sampling is a resampling effect, not proof of improved crop geometry.");
+    lines.push("Diagnostic only: production matcher, thresholds, selected region, and files are unchanged.");
+    return lines;
+  } finally { candidate.close(); source.close(); }
+}
+
 fileInput.addEventListener("change", () => {
   const files = Array.from(fileInput.files ?? []);
   filesInfo.textContent = files.length
@@ -581,6 +648,21 @@ runButton.addEventListener("click", async () => {
           diagnostics.textContent += ["", ...report, ""].join("\n");
         } catch (error) {
           diagnostics.textContent += "\nG investigation error: "+(error instanceof Error?error.message:String(error));
+        }
+      }
+    }
+
+
+    for (const direction of pairDiagnostics) {
+      const candidateFile = files.find(file => file.name === direction.candidate);
+      const sourceFile = files.find(file => file.name === direction.source);
+      const rejected = direction.bestRejectedCandidate;
+      if (candidateFile && sourceFile && rejected) {
+        try {
+          const report = await runSamplingParityInvestigation(candidateFile, sourceFile, rejected);
+          diagnostics.textContent += ["", ...report, ""].join("\n");
+        } catch (error) {
+          diagnostics.textContent += "\nH investigation error: " + (error instanceof Error ? error.message : String(error));
         }
       }
     }
