@@ -238,69 +238,83 @@ async function runDHashAlignmentInvestigation(
 
 /** E — Decode/orientation/pixel-sampling consistency probe. Diagnostic only. */
 async function runDecodeSamplingInvestigation(file: File): Promise<string[]> {
-  const fingerprint = (source: CanvasImageSource, width: number, height: number) => {
-    const canvas=document.createElement("canvas"); canvas.width=32; canvas.height=32;
+  const raster = (source: CanvasImageSource, width: number, height: number): Uint8ClampedArray => {
+    const canvas=document.createElement("canvas"); canvas.width=width; canvas.height=height;
     const context=canvas.getContext("2d",{willReadFrequently:true});
-    if(!context) throw new Error("Could not create pixel fingerprint canvas.");
+    if(!context) throw new Error("Could not create pixel comparison canvas.");
     context.imageSmoothingEnabled=true;
     context.imageSmoothingQuality="high";
-    context.drawImage(source,0,0,width,height,0,0,32,32);
-    const rgba=context.getImageData(0,0,32,32).data;
-    let hash=2166136261;
-    for(let i=0;i<rgba.length;i+=4) {
-      const gray=Math.round(.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2]);
-      hash^=gray;
-      hash=Math.imul(hash,16777619);
+    context.drawImage(source,0,0,width,height,0,0,width,height);
+    return context.getImageData(0,0,width,height).data;
+  };
+  const compare = (a:Uint8ClampedArray,b:Uint8ClampedArray,width:number,height:number):string[] => {
+    let changedPixels=0, sum=0, max=0;
+    const differences:number[]=[];
+    for(let i=0;i<a.length;i+=4) {
+      const dr=Math.abs(a[i]-b[i]), dg=Math.abs(a[i+1]-b[i+1]), db=Math.abs(a[i+2]-b[i+2]);
+      const delta=Math.round((.299*dr+.587*dg+.114*db)*100)/100;
+      if(dr||dg||db) changedPixels++;
+      sum+=delta; max=Math.max(max,delta); differences.push(delta);
     }
-    return (hash>>>0).toString(16).padStart(8,"0");
+    differences.sort((x,y)=>x-y);
+    const count=width*height;
+    const p95=differences[Math.min(count-1,Math.floor((count-1)*.95))];
+    return [
+      "Compared raster: "+width+"×"+height,
+      "Pixels with any RGB difference: "+changedPixels+"/"+count+" ("+(100*changedPixels/count).toFixed(2)+"%)",
+      "Mean absolute grayscale difference: "+(sum/count).toFixed(3)+"/255",
+      "95th percentile grayscale difference: "+p95.toFixed(2)+"/255",
+      "Maximum grayscale difference: "+max.toFixed(2)+"/255"
+    ];
   };
   const lines:string[]=["E — IMAGE DECODE & PIXEL SAMPLING ("+file.name+")"];
-  let fromImage:ImageBitmap|undefined, withoutOrientation:ImageBitmap|undefined;
+  let bitmap:ImageBitmap|undefined, rawBitmap:ImageBitmap|undefined, imageElement:HTMLImageElement|undefined;
   try {
-    fromImage=await createImageBitmap(file);
-    const first=fingerprint(fromImage,fromImage.width,fromImage.height);
-    const repeatedBitmap=await createImageBitmap(file);
+    bitmap=await createImageBitmap(file);
+    const repeated=await createImageBitmap(file);
     try {
-      const repeated=fingerprint(repeatedBitmap,repeatedBitmap.width,repeatedBitmap.height);
-      lines.push("createImageBitmap default dimensions: "+fromImage.width+"×"+fromImage.height);
-      lines.push("Default decode 32×32 grayscale fingerprint: "+first);
-      lines.push("Repeated default decode fingerprint: "+repeated);
-      lines.push("Repeated decode deterministic: "+(first===repeated?"YES":"NO"));
-    } finally { repeatedBitmap.close(); }
+      lines.push("createImageBitmap default dimensions: "+bitmap.width+"×"+bitmap.height);
+      lines.push("Repeated default decode dimensions: "+repeated.width+"×"+repeated.height);
+      for(const size of [32,128]) {
+        const a=raster(bitmap,size,size), b=raster(repeated,size,size);
+        lines.push("Repeated default decode — "+size+"×"+size+":");
+        lines.push(...compare(a,b,size,size));
+      }
+    } finally { repeated.close(); }
   } catch(error) {
     lines.push("Default createImageBitmap decode: ERROR — "+(error instanceof Error?error.message:String(error)));
   }
   try {
-    withoutOrientation=await createImageBitmap(file,{imageOrientation:"none"});
-    lines.push("EXIF-orientation-ignored dimensions: "+withoutOrientation.width+"×"+withoutOrientation.height);
-    if(fromImage) {
-      const defaultHash=fingerprint(fromImage,fromImage.width,fromImage.height);
-      const rawHash=fingerprint(withoutOrientation,withoutOrientation.width,withoutOrientation.height);
-      lines.push("Default vs orientation-none dimensions differ: "+(fromImage.width!==withoutOrientation.width||fromImage.height!==withoutOrientation.height?"YES":"NO"));
-      lines.push("Default vs orientation-none fingerprints: "+defaultHash+" / "+rawHash);
-      lines.push("Default vs orientation-none pixels differ: "+(defaultHash!==rawHash?"YES":"NO"));
+    rawBitmap=await createImageBitmap(file,{imageOrientation:"none"});
+    lines.push("EXIF-orientation-ignored dimensions: "+rawBitmap.width+"×"+rawBitmap.height);
+    if(bitmap) {
+      lines.push("Default bitmap vs orientation-none dimensions differ: "+(bitmap.width!==rawBitmap.width||bitmap.height!==rawBitmap.height?"YES":"NO"));
+      for(const size of [32,128]) {
+        lines.push("Default bitmap vs orientation-none — "+size+"×"+size+":");
+        lines.push(...compare(raster(bitmap,size,size),raster(rawBitmap,size,size),size,size));
+      }
     }
   } catch(error) {
     lines.push("imageOrientation:none decode unavailable: "+(error instanceof Error?error.message:String(error)));
   }
   const objectUrl=URL.createObjectURL(file);
   try {
-    const imageElement=new Image();
+    imageElement=new Image();
     imageElement.src=objectUrl;
     await imageElement.decode();
-    const imageHash=fingerprint(imageElement,imageElement.naturalWidth,imageElement.naturalHeight);
     lines.push("HTMLImageElement natural dimensions: "+imageElement.naturalWidth+"×"+imageElement.naturalHeight);
-    lines.push("HTMLImageElement 32×32 grayscale fingerprint: "+imageHash);
-    if(fromImage) {
-      const bitmapHash=fingerprint(fromImage,fromImage.width,fromImage.height);
-      lines.push("Default bitmap vs HTML image fingerprint equal: "+(bitmapHash===imageHash?"YES":"NO"));
+    if(bitmap) {
+      for(const size of [32,128]) {
+        lines.push("Default bitmap vs HTMLImageElement — "+size+"×"+size+":");
+        lines.push(...compare(raster(bitmap,size,size),raster(imageElement,size,size),size,size));
+      }
     }
   } catch(error) {
     lines.push("HTMLImageElement decode: ERROR — "+(error instanceof Error?error.message:String(error)));
   } finally { URL.revokeObjectURL(objectUrl); }
-  lines.push("Fingerprint is a deterministic 32×32 grayscale sampling checksum, not a cryptographic file hash.");
+  lines.push("Direct raster comparison uses the same canvas dimensions and smoothing settings; it measures decoded sampling differences, not file-byte differences.");
   lines.push("No source file, production matcher, threshold, or matching decision is changed.");
-  fromImage?.close(); withoutOrientation?.close();
+  bitmap?.close(); rawBitmap?.close();
   return lines;
 }
 
