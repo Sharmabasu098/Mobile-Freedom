@@ -22,6 +22,8 @@
     .small { font-size: .88rem; }
     .notice { border-left: 4px solid #e2a52c; padding-left: 12px; }
     .muted { color: #77778a; }
+    #m9-visual-preview { width: 100%; display: block; border: 1px solid #ddd; border-radius: 10px; background: #f4f4f8; }
+    .preview-note { font-size: .82rem; color: #626274; }
   </style>
 </head>
 <body>
@@ -44,6 +46,10 @@
     <div id="m9-status" class="result" role="status" aria-live="polite">Waiting for two images.</div>
     <h3>Pair diagnostics</h3>
     <div id="m9-diagnostics" class="result small">No diagnostics yet.</div>
+    <h3>Visual dHash evidence</h3>
+    <p class="preview-note">The candidate crop is shown beside the source image. The red rectangle marks the best rejected source region; it is diagnostic evidence only.</p>
+    <canvas id="m9-visual-preview" width="720" height="360" hidden></canvas>
+    <div id="m9-visual-caption" class="result small">No visual evidence yet.</div>
     <h3>File details</h3>
     <div id="m9-files-info" class="result small">No files selected.</div>
   </section>
