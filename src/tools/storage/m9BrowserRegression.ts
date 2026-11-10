@@ -407,6 +407,7 @@ async function runCropContentAlignmentInvestigation(
     if(!canvas) throw new Error("G1 alignment preview canvas missing.");
     if(![sx,sy,sw,sh].every(Number.isFinite)||sx<0||sy<0||sw<=0||sh<=0||sx+sw>source.width||sy+sh>source.height)
       throw new Error("G region geometry is outside the decoded source bitmap.");
+    canvas.hidden=false;
     const ctx=canvas.getContext("2d");
     if(!ctx) throw new Error("G1 canvas context unavailable.");
     const panelW=canvas.width/3, panelH=canvas.height-28;
