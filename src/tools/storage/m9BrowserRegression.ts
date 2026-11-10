@@ -487,6 +487,110 @@ async function runCropContentAlignmentInvestigation(
   } finally { candidate.close();source.close(); }
 }
 
+
+/** H5 — same normalized geometry, controlled low/medium/high resampling; diagnostic only. */
+async function runSameGeometryResamplingInvestigation(
+  candidateFile: File,
+  sourceFile: File,
+  region: NonNullable<SimilarPhotoDirectionalDiagnostic["bestRejectedCandidate"]>,
+): Promise<string[]> {
+  const lines: string[] = ["H5 — SAME GEOMETRY, DIFFERENT RESAMPLING CONTROLS"];
+  const [candidateBitmap, sourceBitmap] = await Promise.all([
+    createImageBitmap(candidateFile),
+    createImageBitmap(sourceFile),
+  ]);
+  type Quality = "low" | "medium" | "high";
+  const qualities: Quality[] = ["low", "medium", "high"];
+  const commonWidth = candidateBitmap.width;
+  const commonHeight = candidateBitmap.height;
+  const sx = region.sourcePixelX, sy = region.sourcePixelY;
+  const sw = region.sourcePixelWidth, sh = region.sourcePixelHeight;
+  if (![sx, sy, sw, sh].every(Number.isFinite) || sx < 0 || sy < 0 || sw <= 0 || sh <= 0 ||
+      sx + sw > sourceBitmap.width || sy + sh > sourceBitmap.height) {
+    candidateBitmap.close(); sourceBitmap.close();
+    throw new Error("H5 source region is outside the decoded source image.");
+  }
+  const makeNormalized = (bitmap: ImageBitmap, quality: Quality): HTMLCanvasElement => {
+    const canvas = document.createElement("canvas");
+    canvas.width = commonWidth; canvas.height = commonHeight;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("H5 normalization canvas unavailable.");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = quality;
+    ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height, 0, 0, commonWidth, commonHeight);
+    return canvas;
+  };
+  const sample9x8 = (
+    canvas: HTMLCanvasElement, x: number, y: number, w: number, h: number, quality: Quality,
+  ) => {
+    const sampleCanvas = document.createElement("canvas");
+    sampleCanvas.width = 9; sampleCanvas.height = 8;
+    const ctx = sampleCanvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("H5 9×8 sampling canvas unavailable.");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = quality;
+    ctx.drawImage(canvas, x, y, w, h, 0, 0, 9, 8);
+    const rgba = ctx.getImageData(0, 0, 9, 8).data;
+    const gray: number[] = [];
+    for (let i = 0; i < rgba.length; i += 4) {
+      gray.push(Math.round(.299 * rgba[i] + .587 * rgba[i + 1] + .114 * rgba[i + 2]));
+    }
+    let hash = "";
+    for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
+      hash += gray[row * 9 + col] > gray[row * 9 + col + 1] ? "1" : "0";
+    }
+    return { gray, hash };
+  };
+  const distance = (a: string, b: string) =>
+    Array.from({ length: 64 }, (_, i) => i).filter(i => a[i] !== b[i]).length;
+  try {
+    const scaleX = commonWidth / sourceBitmap.width;
+    const scaleY = commonHeight / sourceBitmap.height;
+    const mapped = { x: sx * scaleX, y: sy * scaleY, w: sw * scaleX, h: sh * scaleY };
+    lines.push("Original decoded dimensions: candidate=" + candidateBitmap.width + "×" + candidateBitmap.height +
+      "; source=" + sourceBitmap.width + "×" + sourceBitmap.height);
+    lines.push("Common normalized dimensions: " + commonWidth + "×" + commonHeight +
+      " (source mapped with independent x/y scale factors; candidate dimensions are the reference grid).");
+    lines.push("Original source region: x=" + sx + ", y=" + sy + ", width=" + sw + ", height=" + sh);
+    lines.push("Mapped source region on common grid: x=" + mapped.x.toFixed(3) + ", y=" + mapped.y.toFixed(3) +
+      ", width=" + mapped.w.toFixed(3) + ", height=" + mapped.h.toFixed(3));
+    lines.push("Both full images are normalized first; candidate full frame and the same mapped source rectangle are then sampled to 9×8.");
+    const results = qualities.map(quality => {
+      const candidateNormalized = makeNormalized(candidateBitmap, quality);
+      const sourceNormalized = makeNormalized(sourceBitmap, quality);
+      const c = sample9x8(candidateNormalized, 0, 0, commonWidth, commonHeight, quality);
+      const r = sample9x8(sourceNormalized, mapped.x, mapped.y, mapped.w, mapped.h, quality);
+      const deltas = c.gray.map((v, i) => Math.abs(v - r.gray[i]));
+      return {
+        quality, c, r,
+        mae: deltas.reduce((sum, v) => sum + v, 0) / 72,
+        changed: deltas.filter(v => v !== 0).length,
+        d: distance(c.hash, r.hash),
+      };
+    });
+    lines.push("Resampling controls: imageSmoothingEnabled=true; imageSmoothingQuality=low|medium|high on BOTH normalization and 9×8 sampling stages.");
+    for (const result of results) {
+      lines.push(result.quality.toUpperCase() + ": candidateHash=" + result.c.hash +
+        "; regionHash=" + result.r.hash + "; dHash=" + result.d + "/64; MAE=" +
+        result.mae.toFixed(3) + "/255; changed cells=" + result.changed + "/72");
+      lines.push(result.quality.toUpperCase() + " candidate 9×8 grayscale: " +
+        Array.from({length:8},(_,row)=>result.c.gray.slice(row*9,row*9+9).join(",")).join(" | "));
+      lines.push(result.quality.toUpperCase() + " region 9×8 grayscale: " +
+        Array.from({length:8},(_,row)=>result.r.gray.slice(row*9,row*9+9).join(",")).join(" | "));
+    }
+    lines.push("Cross-quality candidate arrays identical: " +
+      (qualities.every(q => results[0].c.gray.every((v,i)=>v===results.find(r=>r.quality===q)!.c.gray[i])) ? "YES" : "NO"));
+    lines.push("Cross-quality region arrays identical: " +
+      (qualities.every(q => results[0].r.gray.every((v,i)=>v===results.find(r=>r.quality===q)!.r.gray[i])) ? "YES" : "NO"));
+    lines.push("Interpretation guard: a dHash/MAE change across quality modes with fixed normalized geometry demonstrates resampling sensitivity. It does not demonstrate that the source rectangle is the correct crop geometry.");
+    lines.push("Geometry control: the source rectangle's normalized x/y/width/height is held constant across all three quality modes; only resampling quality changes.");
+    lines.push("Diagnostic only: production matcher, thresholds, selected region, and source files are unchanged.");
+    return lines;
+  } finally {
+    candidateBitmap.close(); sourceBitmap.close();
+  }
+}
+
 /** H — exact sampler parity and controlled alignment comparison; diagnostic only. */
 async function runSamplingParityInvestigation(candidateFile: File, sourceFile: File, region: NonNullable<SimilarPhotoDirectionalDiagnostic["bestRejectedCandidate"]>): Promise<string[]> {
   const lines: string[] = ["H — EXACT SAMPLING PARITY VERIFICATION"];
@@ -663,6 +767,21 @@ runButton.addEventListener("click", async () => {
           diagnostics.textContent += ["", ...report, ""].join("\n");
         } catch (error) {
           diagnostics.textContent += "\nH investigation error: " + (error instanceof Error ? error.message : String(error));
+        }
+      }
+    }
+
+
+    for (const direction of pairDiagnostics) {
+      const candidateFile = files.find(file => file.name === direction.candidate);
+      const sourceFile = files.find(file => file.name === direction.source);
+      const rejected = direction.bestRejectedCandidate;
+      if (candidateFile && sourceFile && rejected) {
+        try {
+          const report = await runSameGeometryResamplingInvestigation(candidateFile, sourceFile, rejected);
+          diagnostics.textContent += ["", ...report, ""].join("\\n");
+        } catch (error) {
+          diagnostics.textContent += "\\nH5 investigation error: " + (error instanceof Error ? error.message : String(error));
         }
       }
     }
