@@ -70,17 +70,19 @@ runButton.addEventListener("click", async () => {
 
     diagnostics.textContent = [
       pairs.length ? pairs.map(pair => `${pair.first.name} ↔ ${pair.second.name}: distance ${pair.distance}/64; estimated similarity ${pair.similarityPercent}%`).join("\n") : "Matcher returned no similar pairs.",
-      ...pairDiagnostics.map((item,index)=>[
-        `Direction ${index+1}: ${item.candidate} → ${item.source}`,
-        `Total generated regions: ${item.totalGeneratedRegions}`,
-        `dHash pass/fail: ${item.dHashPass}/${item.dHashFail} (≤ ${item.thresholds.dHash})`,
-        `Average Hash pass/fail: ${item.averageHashPass}/${item.averageHashFail} (≤ ${item.thresholds.averageHash})`,
-        `Aspect ratio pass/fail: ${item.aspectRatioPass}/${item.aspectRatioFail} (≤ ${item.thresholds.aspectRatioErrorPercent}%)`,
-        `All three conditions passed: ${item.allConditionsPass}`,
-        `Best rejected candidate: ${item.bestRejectedCandidate?JSON.stringify(item.bestRejectedCandidate):"none"}`,
-        `Selected candidate: ${item.selectedCandidate?JSON.stringify(item.selectedCandidate):"none"}`,
-        `Candidate selection: ${item.decision}`
-      ].join("\n")).join("\n\n"),
+      pairDiagnostics.length
+        ? pairDiagnostics.map((item,index)=>[
+            `Direction ${index+1}: ${item.candidate} → ${item.source}`,
+            `Total generated regions: ${item.totalGeneratedRegions}`,
+            `dHash pass/fail: ${item.dHashPass}/${item.dHashFail} (≤ ${item.thresholds.dHash})`,
+            `Average Hash pass/fail: ${item.averageHashPass}/${item.averageHashFail} (≤ ${item.thresholds.averageHash})`,
+            `Aspect ratio pass/fail: ${item.aspectRatioPass}/${item.aspectRatioFail} (≤ ${item.thresholds.aspectRatioErrorPercent}%)`,
+            `All three conditions passed: ${item.allConditionsPass}`,
+            `Best rejected candidate: ${item.bestRejectedCandidate?JSON.stringify(item.bestRejectedCandidate):"none"}`,
+            `Selected candidate: ${item.selectedCandidate?JSON.stringify(item.selectedCandidate):"none"}`,
+            `Candidate selection: ${item.decision}`
+          ].join("\n")).join("\n\n")
+        : "No directional matcher diagnostics were emitted.",
       errors.length?`Decode errors: ${errors.join("; ")}`:"Decode errors: none",
       "Diagnostic-only counters; thresholds and matching decisions are unchanged.",
       "ORB/SIFT/RANSAC is not integrated into production."
