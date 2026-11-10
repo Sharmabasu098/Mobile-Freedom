@@ -488,6 +488,79 @@ async function runCropContentAlignmentInvestigation(
 }
 
 
+
+/** H6 — isolate normalization and 9×8 sampling resampling stages; diagnostic only. */
+async function runTwoStageResamplingIsolation(
+  candidateFile: File,
+  sourceFile: File,
+  region: NonNullable<SimilarPhotoDirectionalDiagnostic["bestRejectedCandidate"]>,
+): Promise<string[]> {
+  const lines: string[] = ["H6 — TWO-STAGE RESAMPLING ISOLATION"];
+  const [candidate, source] = await Promise.all([createImageBitmap(candidateFile), createImageBitmap(sourceFile)]);
+  type Quality = "low" | "medium" | "high";
+  const fixed: Quality = "medium";
+  const qualities: Quality[] = ["low", "medium", "high"];
+  const width = candidate.width, height = candidate.height;
+  const sx = region.sourcePixelX, sy = region.sourcePixelY;
+  const sw = region.sourcePixelWidth, sh = region.sourcePixelHeight;
+  if (![sx,sy,sw,sh].every(Number.isFinite) || sx < 0 || sy < 0 || sw <= 0 || sh <= 0 ||
+      sx + sw > source.width || sy + sh > source.height) {
+    candidate.close(); source.close();
+    throw new Error("H6 source region is outside the decoded source image.");
+  }
+  const normalize = (bitmap: ImageBitmap, quality: Quality): HTMLCanvasElement => {
+    const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext("2d", {willReadFrequently:true});
+    if (!ctx) throw new Error("H6 normalization canvas unavailable.");
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = quality;
+    ctx.drawImage(bitmap,0,0,bitmap.width,bitmap.height,0,0,width,height);
+    return canvas;
+  };
+  const sample = (canvas: HTMLCanvasElement,x:number,y:number,w:number,h:number,quality:Quality) => {
+    const out=document.createElement("canvas"); out.width=9; out.height=8;
+    const ctx=out.getContext("2d",{willReadFrequently:true});
+    if(!ctx) throw new Error("H6 sample canvas unavailable.");
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality=quality;
+    ctx.drawImage(canvas,x,y,w,h,0,0,9,8);
+    const rgba=ctx.getImageData(0,0,9,8).data, gray:number[]=[];
+    for(let i=0;i<rgba.length;i+=4) gray.push(Math.round(.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2]));
+    let hash="";
+    for(let row=0;row<8;row++) for(let col=0;col<8;col++) hash+=gray[row*9+col]>gray[row*9+col+1]?"1":"0";
+    return {gray,hash};
+  };
+  const compare=(normalization:Quality,sampling:Quality,label:string)=>{
+    const candidateCanvas=normalize(candidate,normalization), sourceCanvas=normalize(source,normalization);
+    const mapped={x:sx*width/source.width,y:sy*height/source.height,w:sw*width/source.width,h:sh*height/source.height};
+    const c=sample(candidateCanvas,0,0,width,height,sampling);
+    const r=sample(sourceCanvas,mapped.x,mapped.y,mapped.w,mapped.h,sampling);
+    const deltas=c.gray.map((v,i)=>Math.abs(v-r.gray[i]));
+    const mae=deltas.reduce((sum,v)=>sum+v,0)/72;
+    const d=[...c.hash].reduce((sum,v,i)=>sum+Number(v!==r.hash[i]),0);
+    return {label,normalization,sampling,c,r,mae,d,changed:deltas.filter(v=>v!==0).length};
+  };
+  try {
+    const mapped={x:sx*width/source.width,y:sy*height/source.height,w:sw*width/source.width,h:sh*height/source.height};
+    lines.push("Decoded dimensions: candidate="+candidate.width+"×"+candidate.height+"; source="+source.width+"×"+source.height);
+    lines.push("Common normalized grid: "+width+"×"+height+"; mapped fixed source rectangle x="+mapped.x.toFixed(3)+", y="+mapped.y.toFixed(3)+", width="+mapped.w.toFixed(3)+", height="+mapped.h.toFixed(3));
+    lines.push("All tests use the same decoded inputs, normalized dimensions, source rectangle, 9×8 output, and grayscale/dHash calculation.");
+    lines.push("H6-A/B/C vary ONLY normalization quality; 9×8 sampling quality is FIXED at MEDIUM.");
+    const normalizationResults=qualities.map(q=>compare(q,fixed,"H6-"+({low:"A",medium:"B",high:"C"} as const)[q]));
+    lines.push("H6-D/E/F vary ONLY 9×8 sampling quality; normalization quality is FIXED at MEDIUM.");
+    const samplingResults=qualities.map(q=>compare(fixed,q,"H6-"+({low:"D",medium:"E",high:"F"} as const)[q]));
+    const emit=(r:typeof normalizationResults[number])=>{
+      lines.push(r.label+" [normalization="+r.normalization+", 9×8 sampling="+r.sampling+"]: candidateHash="+r.c.hash+"; regionHash="+r.r.hash+"; dHash="+r.d+"/64; MAE="+r.mae.toFixed(3)+"/255; changed cells="+r.changed+"/72");
+      lines.push(r.label+" candidate grayscale rows: "+Array.from({length:8},(_,row)=>r.c.gray.slice(row*9,row*9+9).join(",")).join(" | "));
+      lines.push(r.label+" region grayscale rows: "+Array.from({length:8},(_,row)=>r.r.gray.slice(row*9,row*9+9).join(",")).join(" | "));
+    };
+    normalizationResults.forEach(emit); samplingResults.forEach(emit);
+    lines.push("H6-B and H6-E are the shared MEDIUM/MEDIUM control; their candidate arrays identical: "+(normalizationResults[1].c.gray.every((v,i)=>v===samplingResults[1].c.gray[i])?"YES":"NO")+"; region arrays identical: "+(normalizationResults[1].r.gray.every((v,i)=>v===samplingResults[1].r.gray[i])?"YES":"NO"));
+    lines.push("Stage interpretation: variation across H6-A/B/C isolates normalization-stage sensitivity with sampler fixed. Variation across H6-D/E/F isolates 9×8 sampling-stage sensitivity with normalization fixed.");
+    lines.push("Geometry guard: source rectangle and normalized coordinate mapping are held constant in all six tests. This isolates resampling stages but does not prove that the chosen rectangle is the true crop geometry.");
+    lines.push("Diagnostic only: production matcher, thresholds, selected region, and source files are unchanged.");
+    return lines;
+  } finally { candidate.close(); source.close(); }
+}
+
 /** H5 — same normalized geometry, controlled low/medium/high resampling; diagnostic only. */
 async function runSameGeometryResamplingInvestigation(
   candidateFile: File,
@@ -731,6 +804,21 @@ runButton.addEventListener("click", async () => {
 
     const decodeReports=await Promise.all(files.map(file=>runDecodeSamplingInvestigation(file)));
     diagnostics.textContent += ["", ...decodeReports.flatMap(lines=>["",...lines])].join("\n");
+
+
+    for (const direction of pairDiagnostics) {
+      const candidateFile = files.find(file => file.name === direction.candidate);
+      const sourceFile = files.find(file => file.name === direction.source);
+      const rejected = direction.bestRejectedCandidate;
+      if (candidateFile && sourceFile && rejected) {
+        try {
+          const report = await runTwoStageResamplingIsolation(candidateFile, sourceFile, rejected);
+          diagnostics.textContent += ["", ...report, ""].join("\n");
+        } catch (error) {
+          diagnostics.textContent += "\nH6 investigation error: " + (error instanceof Error ? error.message : String(error));
+        }
+      }
+    }
 
     for (const direction of pairDiagnostics) {
       const candidateFile = files.find(file => file.name === direction.candidate);
