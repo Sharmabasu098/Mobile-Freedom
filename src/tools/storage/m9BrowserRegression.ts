@@ -13,6 +13,11 @@ if (!fileInput || !expectedInput || !runButton || !status || !diagnostics || !fi
   throw new Error("M9 browser regression page failed to initialize.");
 }
 
+// Capture the validated DOM elements in non-null constants. TypeScript does
+// not preserve nullable-variable narrowing inside nested async functions.
+const previewCanvas = visualPreview;
+const previewCaption = visualCaption;
+
 function formatBytes(bytes: number): string {
   return bytes < 1024 * 1024
     ? `${(bytes / 1024).toFixed(1)} KiB`
@@ -26,11 +31,11 @@ async function drawRejectedRegionPreview(
 ): Promise<void> {
   const candidateBitmap = await createImageBitmap(candidateFile);
   const sourceBitmap = await createImageBitmap(sourceFile);
-  const context = visualPreview.getContext("2d");
+  const context = previewCanvas.getContext("2d");
   if (!context) throw new Error("Visual diagnostic canvas is unavailable.");
 
-  const panelWidth = visualPreview.width / 2;
-  const panelHeight = visualPreview.height - 34;
+  const panelWidth = previewCanvas.width / 2;
+  const panelHeight = previewCanvas.height - 34;
   const drawContained = (bitmap: ImageBitmap, x: number): { x: number; y: number; width: number; height: number } => {
     const scale = Math.min((panelWidth - 20) / bitmap.width, (panelHeight - 20) / bitmap.height);
     const width = bitmap.width * scale;
@@ -42,9 +47,9 @@ async function drawRejectedRegionPreview(
   };
 
   try {
-    context.clearRect(0, 0, visualPreview.width, visualPreview.height);
+    context.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
     context.fillStyle = "#f4f4f8";
-    context.fillRect(0, 0, visualPreview.width, visualPreview.height);
+    context.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
     context.fillStyle = "#202033";
     context.font = "14px system-ui";
     context.fillText("Candidate crop", 10, 18);
@@ -63,10 +68,10 @@ async function drawRejectedRegionPreview(
     context.lineWidth = 1;
     context.beginPath();
     context.moveTo(panelWidth, 0);
-    context.lineTo(panelWidth, visualPreview.height);
+    context.lineTo(panelWidth, previewCanvas.height);
     context.stroke();
-    visualPreview.hidden = false;
-    visualCaption.textContent =
+    previewCanvas.hidden = false;
+    previewCaption.textContent =
       `Red box = best rejected source region. Normalized bounds: x=${region.x}, y=${region.y}, width=${region.width}, height=${region.height}. Candidate display size: ${Math.round(candidateRect.width)}×${Math.round(candidateRect.height)} px.`;
   } finally {
     candidateBitmap.close();
@@ -161,8 +166,8 @@ runButton.addEventListener("click", async () => {
         `Total differing bits: ${rejected.dHashDifferenceBitPositions.length}`
       ].join("\n");
     } else {
-      visualPreview.hidden = true;
-      visualCaption.textContent = "No rejected candidate region was available to draw.";
+      previewCanvas.hidden = true;
+      previewCaption.textContent = "No rejected candidate region was available to draw.";
     }
   } catch (error) {
     status.textContent = `ERROR — ${error instanceof Error ? error.message : String(error)}`;
