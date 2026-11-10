@@ -79,6 +79,62 @@ async function drawRejectedRegionPreview(
   }
 }
 
+
+/** Diagnostic-only reproduction of production 9×8 dHash sampling plus a small translation sweep. */
+async function runDHashAlignmentInvestigation(
+  candidateFile: File, sourceFile: File,
+  region: NonNullable<SimilarPhotoDirectionalDiagnostic["bestRejectedCandidate"]>,
+): Promise<string> {
+  const [candidate, source] = await Promise.all([createImageBitmap(candidateFile), createImageBitmap(sourceFile)]);
+  const sample = (bitmap: ImageBitmap, sx: number, sy: number, sw: number, sh: number) => {
+    const canvas = document.createElement("canvas"); canvas.width = 9; canvas.height = 8;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("Could not create normalized dHash sample.");
+    ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, 9, 8);
+    const rgba = ctx.getImageData(0, 0, 9, 8).data, gray: number[] = [];
+    for (let i=0;i<rgba.length;i+=4) gray.push(Math.round(.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2]));
+    let hash=""; for(let y=0;y<8;y++) for(let x=0;x<8;x++) hash += gray[y*9+x]>gray[y*9+x+1]?"1":"0";
+    return {gray,hash};
+  };
+  try {
+    const c=sample(candidate,0,0,candidate.width,candidate.height);
+    const sx=Math.round(region.x*source.width), sy=Math.round(region.y*source.height);
+    const sw=Math.round(region.width*source.width), sh=Math.round(region.height*source.height);
+    const r=sample(source,sx,sy,sw,sh);
+    const distance=(a:string,b:string)=>[...a].reduce((n,v,i)=>n+Number(v!==b[i]),0);
+    const canvas=document.querySelector<HTMLCanvasElement>("#m9-normalized-preview");
+    if(canvas){const ctx=canvas.getContext("2d");if(ctx){
+      ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#f4f4f8";ctx.fillRect(0,0,canvas.width,canvas.height);
+      const tile=18,top=38,lefts=[16,250,484],labels=["Candidate 9×8 grayscale","Region 9×8 grayscale","dHash bit differences"];
+      ctx.font="13px system-ui";ctx.fillStyle="#202033";labels.forEach((v,i)=>ctx.fillText(v,lefts[i],20));
+      [c.gray,r.gray].forEach((values,p)=>values.forEach((v,i)=>{ctx!.fillStyle=`rgb(${v},${v},${v})`;ctx!.fillRect(lefts[p]+i%9*tile,top+Math.floor(i/9)*tile,tile-1,tile-1);}));
+      for(let i=0;i<64;i++){ctx.fillStyle=c.hash[i]===r.hash[i]?"#b9c8bd":"#d94841";ctx.fillRect(lefts[2]+i%8*tile,top+Math.floor(i/8)*tile,tile-1,tile-1);}
+      canvas.hidden=false;
+    }}
+    const shifts=[-.02,-.01,0,.01,.02], sweep:{dx:number;dy:number;d:number}[]=[];
+    for(const dy of shifts)for(const dx of shifts){
+      const nx=Math.max(0,Math.min(1-region.width,region.x+dx)),ny=Math.max(0,Math.min(1-region.height,region.y+dy));
+      const moved=sample(source,Math.round(nx*source.width),Math.round(ny*source.height),sw,sh);
+      sweep.push({dx,dy,d:distance(c.hash,moved.hash)});
+    }
+    const best=[...sweep].sort((a,b)=>a.d-b.d)[0];
+    return [
+      "NORMALIZATION / ALIGNMENT INVESTIGATION (diagnostic only)",
+      `Decoded candidate dimensions: ${candidate.width}×${candidate.height}`,
+      `Decoded source dimensions: ${source.width}×${source.height}`,
+      `Reconstructed region pixels: x=${sx}, y=${sy}, width=${sw}, height=${sh}`,
+      `Independent candidate dHash: ${c.hash}`,`Independent region dHash: ${r.hash}`,
+      `Independent baseline distance: ${distance(c.hash,r.hash)} bits`,
+      `Production-reported baseline: ${region.dHashDistance} bits`,
+      `Translation sweep best: ${best.d} bits at dx=${best.dx}, dy=${best.dy}`,
+      "Sweep rows are dy −2%, −1%, 0%, +1%, +2%; columns are dx −2%, −1%, 0%, +1%, +2%:",
+      ...shifts.map(dy=>`${dy*100}%: ${shifts.map(dx=>sweep.find(v=>v.dx===dx&&v.dy===dy)!.d).join(" / ")}`),
+      "Gray tiles are the normalized 9×8 samples; red cells are differing dHash comparisons.",
+      "Diagnostic only: matcher thresholds and production decisions are unchanged."
+    ].join("\\n");
+  } finally {candidate.close();source.close();}
+}
+
 fileInput.addEventListener("change", () => {
   const files = Array.from(fileInput.files ?? []);
   filesInfo.textContent = files.length
@@ -157,6 +213,8 @@ runButton.addEventListener("click", async () => {
       const sourceFile = files.find(file => file.name === firstDirection.source);
       if (candidateFile && sourceFile) {
         await drawRejectedRegionPreview(candidateFile, sourceFile, rejected);
+        const investigation = await runDHashAlignmentInvestigation(candidateFile, sourceFile, rejected);
+        diagnostics.textContent += ["", investigation, ""].join("\\n");
       }
       diagnostics.textContent += [
         "",
