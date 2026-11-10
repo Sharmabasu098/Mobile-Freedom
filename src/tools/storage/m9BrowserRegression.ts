@@ -779,9 +779,9 @@ runButton.addEventListener("click", async () => {
       if (candidateFile && sourceFile && rejected) {
         try {
           const report = await runSameGeometryResamplingInvestigation(candidateFile, sourceFile, rejected);
-          diagnostics.textContent += ["", ...report, ""].join("\\n");
+          diagnostics.textContent += ["", ...report, ""].join("\n");
         } catch (error) {
-          diagnostics.textContent += "\\nH5 investigation error: " + (error instanceof Error ? error.message : String(error));
+          diagnostics.textContent += "\nH5 investigation error: " + (error instanceof Error ? error.message : String(error));
         }
       }
     }
