@@ -391,6 +391,101 @@ async function runProductionSamplingGeometryInvestigation(
   } finally { candidate.close(); source.close(); }
 }
 
+
+/** G — visual overlay plus bounded translation/scale search; diagnostics only. */
+async function runCropContentAlignmentInvestigation(
+  candidateFile: File,
+  sourceFile: File,
+  region: NonNullable<SimilarPhotoDirectionalDiagnostic["bestRejectedCandidate"]>,
+): Promise<string[]> {
+  const lines:string[]=["G — CROP CONTENT ALIGNMENT INVESTIGATION"];
+  const candidate=await createImageBitmap(candidateFile);
+  const source=await createImageBitmap(sourceFile);
+  const canvas=document.querySelector<HTMLCanvasElement>("#m9-alignment-preview");
+  try {
+    const sx=region.sourcePixelX, sy=region.sourcePixelY, sw=region.sourcePixelWidth, sh=region.sourcePixelHeight;
+    if(!canvas) throw new Error("G1 alignment preview canvas missing.");
+    if(![sx,sy,sw,sh].every(Number.isFinite)||sx<0||sy<0||sw<=0||sh<=0||sx+sw>source.width||sy+sh>source.height)
+      throw new Error("G region geometry is outside the decoded source bitmap.");
+    const ctx=canvas.getContext("2d");
+    if(!ctx) throw new Error("G1 canvas context unavailable.");
+    const panelW=canvas.width/3, panelH=canvas.height-28;
+    const drawContained=(bitmap:CanvasImageSource,w:number,h:number,x:number)=>{
+      const scale=Math.min((panelW-16)/w,(panelH-16)/h);
+      const dw=w*scale, dh=h*scale;
+      ctx.drawImage(bitmap,x+(panelW-dw)/2,22+(panelH-dh)/2,dw,dh);
+    };
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="#f4f4f8";ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="#202033";ctx.font="13px system-ui";
+    ctx.fillText("Candidate",8,16);ctx.fillText("Selected source region",panelW+8,16);ctx.fillText("50% overlay",panelW*2+8,16);
+    drawContained(candidate,candidate.width,candidate.height,0);
+    drawContained(source,sw,sh,panelW);
+    const overlay=document.createElement("canvas");overlay.width=240;overlay.height=320;
+    const octx=overlay.getContext("2d");
+    if(!octx) throw new Error("G1 overlay context unavailable.");
+    octx.drawImage(candidate,0,0,overlay.width,overlay.height);
+    octx.globalAlpha=.5;octx.drawImage(source,sx,sy,sw,sh,0,0,overlay.width,overlay.height);octx.globalAlpha=1;
+    drawContained(overlay,overlay.width,overlay.height,panelW*2);
+    const sample=(x:number,y:number,w:number,h:number)=>{
+      const c=document.createElement("canvas");c.width=9;c.height=8;
+      const cctx=c.getContext("2d",{willReadFrequently:true});
+      if(!cctx) throw new Error("G sample canvas unavailable.");
+      cctx.imageSmoothingEnabled=true;cctx.imageSmoothingQuality="high";
+      cctx.drawImage(source,x,y,w,h,0,0,9,8);
+      const rgba=cctx.getImageData(0,0,9,8).data, gray:number[]=[];
+      for(let i=0;i<rgba.length;i+=4)gray.push(Math.round(.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2]));
+      let hash="";
+      for(let row=0;row<8;row++)for(let col=0;col<8;col++)hash+=gray[row*9+col]>gray[row*9+col+1]?"1":"0";
+      return {gray,hash};
+    };
+    const candidateCanvas=document.createElement("canvas");candidateCanvas.width=9;candidateCanvas.height=8;
+    const cc=candidateCanvas.getContext("2d",{willReadFrequently:true});
+    if(!cc) throw new Error("G candidate canvas unavailable.");
+    cc.imageSmoothingEnabled=true;cc.imageSmoothingQuality="high";
+    cc.drawImage(candidate,0,0,candidate.width,candidate.height,0,0,9,8);
+    const rgba=cc.getImageData(0,0,9,8).data,candidateGray:number[]=[];
+    for(let i=0;i<rgba.length;i+=4)candidateGray.push(Math.round(.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2]));
+    let candidateHash="";
+    for(let row=0;row<8;row++)for(let col=0;col<8;col++)candidateHash+=candidateGray[row*9+col]>candidateGray[row*9+col+1]?"1":"0";
+    const measure=(x:number,y:number,w:number,h:number)=>{
+      const regionSample=sample(x,y,w,h);
+      const deltas=candidateGray.map((v,i)=>Math.abs(v-regionSample.gray[i]));
+      const mae=deltas.reduce((a,b)=>a+b,0)/72;
+      const distance=Array.from({length:64},(_,i)=>i).filter(i=>candidateHash[i]!==regionSample.hash[i]).length;
+      return {x,y,w,h,mae,distance,changed:deltas.filter(v=>v!==0).length,gray:regionSample.gray,hash:regionSample.hash};
+    };
+    const baseline=measure(sx,sy,sw,sh);
+    let best=baseline;
+    const scales=[.96,.98,1,1.02,1.04];
+    const offsets=[-.02,-.01,0,.01,.02];
+    let tested=0;
+    for(const scale of scales)for(const oy of offsets)for(const ox of offsets){
+      const w=sw*scale,h=sh*scale;
+      const x=sx+sw*ox+(sw-w)/2,y=sy+sh*oy+(sh-h)/2;
+      if(x<0||y<0||x+w>source.width||y+h>source.height)continue;
+      const current=measure(x,y,w,h);tested++;
+      if(current.mae<best.mae || (current.mae===best.mae&&current.distance<best.distance))best=current;
+    }
+    lines.push("G1 — Exact Region Visual Overlay");
+    lines.push("Canvas shows candidate, selected source region, and 50% alpha overlay. Overlay is a visual diagnostic, not a registration proof.");
+    lines.push("G2 — Bounded Translation + Scale Search");
+    lines.push("Search space: scales 0.96, 0.98, 1.00, 1.02, 1.04; x/y offsets −2%, −1%, 0%, +1%, +2% of original region; candidates tested: "+tested);
+    lines.push("Baseline: x="+sx.toFixed(2)+", y="+sy.toFixed(2)+", width="+sw.toFixed(2)+", height="+sh.toFixed(2)+", MAE="+baseline.mae.toFixed(3)+"/255, changed cells="+baseline.changed+"/72, dHash="+baseline.distance+"/64");
+    lines.push("Best alignment: x="+best.x.toFixed(2)+", y="+best.y.toFixed(2)+", width="+best.w.toFixed(2)+", height="+best.h.toFixed(2));
+    lines.push("Best alignment scale: "+(best.w/sw).toFixed(4)+"× width, "+(best.h/sh).toFixed(4)+"× height");
+    lines.push("Best alignment MAE: "+best.mae.toFixed(3)+"/255; changed cells: "+best.changed+"/72; dHash distance: "+best.distance+"/64");
+    lines.push("MAE improvement vs baseline: "+(baseline.mae-best.mae).toFixed(3)+"/255; dHash bit improvement: "+(baseline.distance-best.distance));
+    lines.push("Best alignment dHash differing positions: "+Array.from({length:64},(_,i)=>i).filter(i=>candidateHash[i]!==best.hash[i]).join(", "));
+    lines.push("G3 — Best-Aligned Pixel Difference");
+    lines.push("Candidate and best-aligned source region are independently resampled to the same 9×8 grid.");
+    lines.push("Candidate grayscale rows: "+Array.from({length:8},(_,row)=>candidateGray.slice(row*9,row*9+9).join(",")).join(" | "));
+    lines.push("Best-aligned region grayscale rows: "+Array.from({length:8},(_,row)=>best.gray.slice(row*9,row*9+9).join(",")).join(" | "));
+    lines.push("Search is bounded and diagnostic-only; it does not alter production matcher, threshold, or selected region.");
+    return lines;
+  } finally { candidate.close();source.close(); }
+}
+
 fileInput.addEventListener("change", () => {
   const files = Array.from(fileInput.files ?? []);
   filesInfo.textContent = files.length
@@ -472,6 +567,20 @@ runButton.addEventListener("click", async () => {
       if (candidateFile && sourceFile && rejected) {
         const report = await runProductionSamplingGeometryInvestigation(candidateFile, sourceFile, rejected);
         diagnostics.textContent += ["", ...report, ""].join("\n");
+      }
+    }
+
+    for (const direction of pairDiagnostics) {
+      const candidateFile = files.find(file => file.name === direction.candidate);
+      const sourceFile = files.find(file => file.name === direction.source);
+      const rejected = direction.bestRejectedCandidate;
+      if (candidateFile && sourceFile && rejected) {
+        try {
+          const report = await runCropContentAlignmentInvestigation(candidateFile, sourceFile, rejected);
+          diagnostics.textContent += ["", ...report, ""].join("\n");
+        } catch (error) {
+          diagnostics.textContent += "\nG investigation error: "+(error instanceof Error?error.message:String(error));
+        }
       }
     }
 
