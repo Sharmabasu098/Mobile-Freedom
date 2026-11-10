@@ -80,59 +80,107 @@ async function drawRejectedRegionPreview(
 }
 
 
-/** Diagnostic-only reproduction of production 9×8 dHash sampling plus a small translation sweep. */
+/** A/B/C diagnostic: same 9×8 dHash with three explicit aspect-ratio policies. */
 async function runDHashAlignmentInvestigation(
   candidateFile: File, sourceFile: File,
   region: NonNullable<SimilarPhotoDirectionalDiagnostic["bestRejectedCandidate"]>,
 ): Promise<string> {
   const [candidate, source] = await Promise.all([createImageBitmap(candidateFile), createImageBitmap(sourceFile)]);
-  const sample = (bitmap: ImageBitmap, sx: number, sy: number, sw: number, sh: number) => {
+  type Mode = "stretch" | "letterbox" | "center-crop";
+  const sample = (bitmap: ImageBitmap, sx: number, sy: number, sw: number, sh: number, mode: Mode) => {
     const canvas = document.createElement("canvas"); canvas.width = 9; canvas.height = 8;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) throw new Error("Could not create normalized dHash sample.");
-    ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, 9, 8);
+    if (mode === "stretch") {
+      ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, 9, 8);
+    } else {
+      const sourceAspect = sw / sh, targetAspect = 9 / 8;
+      if (mode === "letterbox") {
+        const scale = Math.min(9 / sw, 8 / sh);
+        const width = sw * scale, height = sh * scale;
+        ctx.fillStyle = "rgb(127,127,127)";
+        ctx.fillRect(0, 0, 9, 8);
+        ctx.drawImage(bitmap, sx, sy, sw, sh, (9-width)/2, (8-height)/2, width, height);
+      } else {
+        let cropX = sx, cropY = sy, cropW = sw, cropH = sh;
+        if (sourceAspect > targetAspect) {
+          cropW = sh * targetAspect;
+          cropX = sx + (sw - cropW) / 2;
+        } else {
+          cropH = sw / targetAspect;
+          cropY = sy + (sh - cropH) / 2;
+        }
+        ctx.drawImage(bitmap, cropX, cropY, cropW, cropH, 0, 0, 9, 8);
+      }
+    }
     const rgba = ctx.getImageData(0, 0, 9, 8).data, gray: number[] = [];
     for (let i=0;i<rgba.length;i+=4) gray.push(Math.round(.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2]));
-    let hash=""; for(let y=0;y<8;y++) for(let x=0;x<8;x++) hash += gray[y*9+x]>gray[y*9+x+1]?"1":"0";
+    let hash="";
+    for(let y=0;y<8;y++) for(let x=0;x<8;x++) hash += gray[y*9+x]>gray[y*9+x+1]?"1":"0";
     return {gray,hash};
   };
   try {
-    const c=sample(candidate,0,0,candidate.width,candidate.height);
-    const sx=region.sourcePixelX, sy=region.sourcePixelY;
-    const sw=region.sourcePixelWidth, sh=region.sourcePixelHeight;
-    const r=sample(source,sx,sy,sw,sh);
+    const sx=region.sourcePixelX, sy=region.sourcePixelY, sw=region.sourcePixelWidth, sh=region.sourcePixelHeight;
     const distance=(a:string,b:string)=>[...a].reduce((n,v,i)=>n+Number(v!==b[i]),0);
+    const methods: {mode:Mode;label:string}[] = [
+      {mode:"stretch",label:"A — Current Stretch"},
+      {mode:"letterbox",label:"B — Aspect-Preserving Letterbox"},
+      {mode:"center-crop",label:"C — Aspect-Preserving Center Crop"},
+    ];
+    const results=methods.map(method=>{
+      const c=sample(candidate,0,0,candidate.width,candidate.height,method.mode);
+      const r=sample(source,sx,sy,sw,sh,method.mode);
+      const positions=Array.from({length:64},(_,i)=>i).filter(i=>c.hash[i]!==r.hash[i]);
+      return {...method,candidate:c,region:r,distance:positions.length,positions};
+    });
     const canvas=document.querySelector<HTMLCanvasElement>("#m9-normalized-preview");
     if(canvas){const ctx=canvas.getContext("2d");if(ctx){
-      ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#f4f4f8";ctx.fillRect(0,0,canvas.width,canvas.height);
-      const tile=18,top=38,lefts=[16,250,484],labels=["Candidate 9×8 grayscale","Region 9×8 grayscale","dHash bit differences"];
-      ctx.font="13px system-ui";ctx.fillStyle="#202033";labels.forEach((v,i)=>ctx.fillText(v,lefts[i],20));
-      [c.gray,r.gray].forEach((values,p)=>values.forEach((v,i)=>{ctx!.fillStyle=`rgb(${v},${v},${v})`;ctx!.fillRect(lefts[p]+i%9*tile,top+Math.floor(i/9)*tile,tile-1,tile-1);}));
-      for(let i=0;i<64;i++){ctx.fillStyle=c.hash[i]===r.hash[i]?"#b9c8bd":"#d94841";ctx.fillRect(lefts[2]+i%8*tile,top+Math.floor(i/8)*tile,tile-1,tile-1);}
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle="#f4f4f8";ctx.fillRect(0,0,canvas.width,canvas.height);
+      const tile=12,lefts=[12,190,368],topStart=34,rowGap=104;
+      ctx.font="12px system-ui";ctx.fillStyle="#202033";
+      ctx.fillText("Candidate 9×8",lefts[0],18);ctx.fillText("Source region 9×8",lefts[1],18);ctx.fillText("Different dHash bits",lefts[2],18);
+      results.forEach((result,row)=>{
+        const top=topStart+row*rowGap;
+        ctx.fillStyle="#202033";ctx.font="11px system-ui";ctx.fillText(result.label,lefts[0],top-7);
+        [result.candidate.gray,result.region.gray].forEach((values,panel)=>values.forEach((v,i)=>{
+          ctx.fillStyle="rgb("+v+","+v+","+v+")";
+          ctx.fillRect(lefts[panel]+(i%9)*tile,top+Math.floor(i/9)*tile,tile-1,tile-1);
+        }));
+        for(let i=0;i<64;i++){
+          ctx.fillStyle=result.candidate.hash[i]===result.region.hash[i]?"#b9c8bd":"#d94841";
+          ctx.fillRect(lefts[2]+(i%8)*tile,top+Math.floor(i/8)*tile,tile-1,tile-1);
+        }
+        ctx.fillStyle="#202033";ctx.fillText("Distance: "+result.distance+"/64",lefts[2],top+8*tile+13);
+      });
       canvas.hidden=false;
     }}
     const shifts=[-.02,-.01,0,.01,.02], sweep:{dx:number;dy:number;d:number}[]=[];
+    const stretchCandidate=results[0].candidate.hash;
     for(const dy of shifts)for(const dx of shifts){
-      const baseX=sx/source.width, baseY=sy/source.height;
-      const nx=Math.max(0,Math.min(1-sw/source.width,baseX+dx)),ny=Math.max(0,Math.min(1-sh/source.height,baseY+dy));
-      const moved=sample(source,Math.round(nx*source.width),Math.round(ny*source.height),sw,sh);
-      sweep.push({dx,dy,d:distance(c.hash,moved.hash)});
+      const nx=Math.max(0,Math.min(1-sw/source.width,sx/source.width+dx));
+      const ny=Math.max(0,Math.min(1-sh/source.height,sy/source.height+dy));
+      const moved=sample(source,Math.round(nx*source.width),Math.round(ny*source.height),sw,sh,"stretch");
+      sweep.push({dx,dy,d:distance(stretchCandidate,moved.hash)});
     }
     const best=[...sweep].sort((a,b)=>a.d-b.d)[0];
     return [
-      "NORMALIZATION / ALIGNMENT INVESTIGATION (diagnostic only)",
-      `Decoded candidate dimensions: ${candidate.width}×${candidate.height}`,
-      `Decoded source dimensions: ${source.width}×${source.height}`,
-      `Exact production region pixels: x=${sx}, y=${sy}, width=${sw}, height=${sh}`,
-      `Independent candidate dHash: ${c.hash}`,`Independent region dHash: ${r.hash}`,
-      `Independent baseline distance: ${distance(c.hash,r.hash)} bits`,
-      `Production-reported baseline: ${region.dHashDistance} bits`,
-      `Translation sweep best: ${best.d} bits at dx=${best.dx}, dy=${best.dy}`,
-      "Sweep rows are dy −2%, −1%, 0%, +1%, +2%; columns are dx −2%, −1%, 0%, +1%, +2%:",
-      ...shifts.map(dy=>`${dy*100}%: ${shifts.map(dx=>sweep.find(v=>v.dx===dx&&v.dy===dy)!.d).join(" / ")}`),
-      "Gray tiles are the normalized 9×8 samples; red cells are differing dHash comparisons.",
-      "Diagnostic only: matcher thresholds and production decisions are unchanged."
-    ].join("\\n");
+      "ASPECT-RATIO NORMALIZATION A/B/C (diagnostic only)",
+      "Decoded candidate: "+candidate.width+"×"+candidate.height+"; source: "+source.width+"×"+source.height,
+      "Exact production region: x="+sx+", y="+sy+", width="+sw+", height="+sh,
+      ...results.flatMap(result=>[
+        result.label,
+        "Candidate dHash: "+result.candidate.hash,
+        "Region dHash: "+result.region.hash,
+        "Hamming distance: "+result.distance+"/64",
+        "Different bit positions (0–63): "+(result.positions.length?result.positions.join(", "):"none")
+      ]),
+      "Alignment sweep (Stretch only): best "+best.d+"/64 at dx="+best.dx+", dy="+best.dy,
+      "Sweep rows dy −2%, −1%, 0%, +1%, +2%; columns dx −2%, −1%, 0%, +1%, +2%:",
+      ...shifts.map(dy=>(dy*100)+"%: "+shifts.map(dx=>sweep.find(v=>v.dx===dx&&v.dy===dy)!.d).join(" / ")),
+      "Letterbox uses neutral gray (127) padding; Center Crop fills 9×8 while preserving aspect ratio.",
+      "Diagnostic only: production matcher, thresholds, and matching decisions are unchanged."
+    ].join("\n");
   } finally {candidate.close();source.close();}
 }
 
@@ -215,7 +263,7 @@ runButton.addEventListener("click", async () => {
       if (candidateFile && sourceFile) {
         await drawRejectedRegionPreview(candidateFile, sourceFile, rejected);
         const investigation = await runDHashAlignmentInvestigation(candidateFile, sourceFile, rejected);
-        diagnostics.textContent += ["", investigation, ""].join("\\n");
+        diagnostics.textContent += ["", investigation, ""].join("\n");
       }
       diagnostics.textContent += [
         "",
