@@ -318,6 +318,79 @@ async function runDecodeSamplingInvestigation(file: File): Promise<string[]> {
   return lines;
 }
 
+
+/** F — Reproduce production 9×8 sampling and quantify candidate/region geometry. */
+async function runProductionSamplingGeometryInvestigation(
+  candidateFile: File,
+  sourceFile: File,
+  region: NonNullable<SimilarPhotoDirectionalDiagnostic["bestRejectedCandidate"]>,
+): Promise<string[]> {
+  const lines:string[]=["F — PRODUCTION SAMPLING & CROP GEOMETRY"];
+  const candidate=await createImageBitmap(candidateFile);
+  const source=await createImageBitmap(sourceFile);
+  try {
+    const sample=(bitmap:ImageBitmap,x:number,y:number,w:number,h:number)=>{
+      const canvas=document.createElement("canvas"); canvas.width=9; canvas.height=8;
+      const ctx=canvas.getContext("2d",{willReadFrequently:true});
+      if(!ctx) throw new Error("Could not create production sampling canvas.");
+      ctx.imageSmoothingEnabled=true;
+      ctx.drawImage(bitmap,x,y,w,h,0,0,9,8);
+      const rgba=ctx.getImageData(0,0,9,8).data, gray:number[]=[];
+      for(let i=0;i<rgba.length;i+=4) gray.push(Math.round(.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2]));
+      let hash="";
+      for(let row=0;row<8;row++) for(let col=0;col<8;col++)
+        hash+=gray[row*9+col]>gray[row*9+col+1]?"1":"0";
+      return {gray,hash};
+    };
+    const sx=region.sourcePixelX, sy=region.sourcePixelY;
+    const sw=region.sourcePixelWidth, sh=region.sourcePixelHeight;
+    if(!Number.isFinite(sx)||!Number.isFinite(sy)||!Number.isFinite(sw)||!Number.isFinite(sh)||
+      sx<0||sy<0||sw<=0||sh<=0||sx+sw>source.width||sy+sh>source.height)
+      throw new Error("Rejected region pixel geometry is outside the decoded source bitmap.");
+    const candidateSample=sample(candidate,0,0,candidate.width,candidate.height);
+    const regionSample=sample(source,sx,sy,sw,sh);
+    const bitPositions=Array.from({length:64},(_,i)=>i).filter(i=>candidateSample.hash[i]!==regionSample.hash[i]);
+    const differences=candidateSample.gray.map((value,i)=>Math.abs(value-regionSample.gray[i]));
+    const changed=differences.filter(value=>value!==0).length;
+    const mean=differences.reduce((sum,value)=>sum+value,0)/differences.length;
+    const sorted=[...differences].sort((a,b)=>a-b);
+    const p95=sorted[Math.floor((sorted.length-1)*.95)];
+    const max=Math.max(...differences);
+    const candidateAspect=candidate.width/candidate.height;
+    const regionAspect=sw/sh;
+    const aspectError=Math.abs(regionAspect-candidateAspect)/candidateAspect*100;
+    const productionCandidateHash=region.candidateDHash;
+    const productionRegionHash=region.regionDHash;
+    lines.push("F1 — Exact Production Sampling (9×8 stretch)");
+    lines.push("Candidate decoded dimensions: "+candidate.width+"×"+candidate.height);
+    lines.push("Source decoded dimensions: "+source.width+"×"+source.height);
+    lines.push("Candidate sampled dHash: "+candidateSample.hash);
+    lines.push("Matcher-recorded candidate dHash: "+productionCandidateHash);
+    lines.push("Candidate sampling reproduces matcher: "+(candidateSample.hash===productionCandidateHash?"YES":"NO"));
+    lines.push("Region sampled dHash: "+regionSample.hash);
+    lines.push("Matcher-recorded region dHash: "+productionRegionHash);
+    lines.push("Region sampling reproduces matcher: "+(regionSample.hash===productionRegionHash?"YES":"NO"));
+    lines.push("Reproduced Hamming distance: "+bitPositions.length+"/64; matcher recorded: "+region.dHashDistance+"/64");
+    lines.push("F2 — Crop Geometry");
+    lines.push("Candidate dimensions: "+candidate.width+"×"+candidate.height+"; aspect ratio: "+candidateAspect.toFixed(6));
+    lines.push("Source region pixels: x="+sx+", y="+sy+", width="+sw+", height="+sh);
+    lines.push("Source region aspect ratio: "+regionAspect.toFixed(6));
+    lines.push("Relative aspect-ratio error: "+aspectError.toFixed(4)+"% (matcher field: "+region.aspectRatioErrorPercent+"%)");
+    lines.push("Candidate/source region width ratio: "+(candidate.width/sw).toFixed(6));
+    lines.push("Candidate/source region height ratio: "+(candidate.height/sh).toFixed(6));
+    lines.push("F3 — Production-Normalized Grayscale Sample Difference (both stretched to 9×8)");
+    lines.push("Changed grayscale sample cells: "+changed+"/72");
+    lines.push("Mean absolute grayscale difference: "+mean.toFixed(3)+"/255");
+    lines.push("95th percentile grayscale difference: "+p95+"/255");
+    lines.push("Maximum grayscale difference: "+max+"/255");
+    lines.push("Different dHash bit positions: "+(bitPositions.length?bitPositions.join(", "):"none"));
+    lines.push("Candidate grayscale rows: "+Array.from({length:8},(_,row)=>candidateSample.gray.slice(row*9,row*9+9).join(",")).join(" | "));
+    lines.push("Region grayscale rows: "+Array.from({length:8},(_,row)=>regionSample.gray.slice(row*9,row*9+9).join(",")).join(" | "));
+    lines.push("Diagnostic only: no production matcher, threshold, or file is modified.");
+    return lines;
+  } finally { candidate.close(); source.close(); }
+}
+
 fileInput.addEventListener("change", () => {
   const files = Array.from(fileInput.files ?? []);
   filesInfo.textContent = files.length
@@ -391,6 +464,16 @@ runButton.addEventListener("click", async () => {
 
     const decodeReports=await Promise.all(files.map(file=>runDecodeSamplingInvestigation(file)));
     diagnostics.textContent += ["", ...decodeReports.flatMap(lines=>["",...lines])].join("\n");
+
+    for (const direction of pairDiagnostics) {
+      const candidateFile = files.find(file => file.name === direction.candidate);
+      const sourceFile = files.find(file => file.name === direction.source);
+      const rejected = direction.bestRejectedCandidate;
+      if (candidateFile && sourceFile && rejected) {
+        const report = await runProductionSamplingGeometryInvestigation(candidateFile, sourceFile, rejected);
+        diagnostics.textContent += ["", ...report, ""].join("\n");
+      }
+    }
 
     const firstDirection = pairDiagnostics[0];
     const rejected = firstDirection?.bestRejectedCandidate;
