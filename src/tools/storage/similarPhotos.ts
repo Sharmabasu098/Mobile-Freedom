@@ -26,7 +26,7 @@ export interface SimilarPhotoDirectionalDiagnostic {
  thresholds:{dHash:number;averageHash:number;aspectRatioErrorPercent:number};
  dHashPass:number;dHashFail:number;averageHashPass:number;averageHashFail:number;
  aspectRatioPass:number;aspectRatioFail:number;allConditionsPass:number;
- bestRejectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number;failedChecks:string[];candidateDHash:string;regionDHash:string;dHashDifferenceBitPositions:number[]};
+ bestRejectedCandidate?:{x:number;y:number;width:number;height:number;sourcePixelX:number;sourcePixelY:number;sourcePixelWidth:number;sourcePixelHeight:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number;failedChecks:string[];candidateDHash:string;regionDHash:string;dHashDifferenceBitPositions:number[]};
  selectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number};
  decision:"ACCEPT"|"REJECT";
 }
@@ -440,7 +440,7 @@ function compareHashSets(
       averageHashPass:measured.filter(v=>v.averageHashPass).length,averageHashFail:measured.filter(v=>!v.averageHashPass).length,
       aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,aspectRatioFail:measured.filter(v=>!v.aspectRatioPass).length,
       allConditionsPass:candidates.length,
-      bestRejectedCandidate:bestRejected?{...summary(bestRejected),failedChecks:[
+      bestRejectedCandidate:bestRejected?{...summary(bestRejected),sourcePixelX:Math.round(bestRejected.region.x*sourceImage.width),sourcePixelY:Math.round(bestRejected.region.y*sourceImage.height),sourcePixelWidth:Math.round(bestRejected.region.width*sourceImage.width),sourcePixelHeight:Math.round(bestRejected.region.height*sourceImage.height),failedChecks:[
         ...(!bestRejected.dHashPass?["dHash"]:[]),...(!bestRejected.averageHashPass?["Average Hash"]:[]),
         ...(!bestRejected.aspectRatioPass?["Aspect ratio"]:[])
       ],candidateDHash:candidateImage.wholeImageHash,regionDHash:bestRejected.region.hash,
