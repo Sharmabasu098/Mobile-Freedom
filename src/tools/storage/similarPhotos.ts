@@ -26,7 +26,7 @@ export interface SimilarPhotoDirectionalDiagnostic {
  thresholds:{dHash:number;averageHash:number;aspectRatioErrorPercent:number};
  dHashPass:number;dHashFail:number;averageHashPass:number;averageHashFail:number;
  aspectRatioPass:number;aspectRatioFail:number;allConditionsPass:number;
- bestRejectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number;failedChecks:string[]};
+ bestRejectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number;failedChecks:string[];candidateDHash:string;regionDHash:string;dHashDifferenceBitPositions:number[]};
  selectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number};
  decision:"ACCEPT"|"REJECT";
 }
@@ -443,7 +443,9 @@ function compareHashSets(
       bestRejectedCandidate:bestRejected?{...summary(bestRejected),failedChecks:[
         ...(!bestRejected.dHashPass?["dHash"]:[]),...(!bestRejected.averageHashPass?["Average Hash"]:[]),
         ...(!bestRejected.aspectRatioPass?["Aspect ratio"]:[])
-      ]}:undefined,
+      ],candidateDHash:candidateImage.wholeImageHash,regionDHash:bestRejected.region.hash,
+      dHashDifferenceBitPositions:Array.from({length:64},(_,index)=>index)
+        .filter(index=>candidateImage.wholeImageHash[index]!==bestRejected.region.hash[index])}:undefined,
       selectedCandidate:best?summary(best):undefined,decision:best?"ACCEPT":"REJECT"
     });
     console.info("[M9 crop geometry evidence]",{candidate:candidateImage.file.name,source:sourceImage.file.name,
