@@ -235,6 +235,75 @@ async function runDHashAlignmentInvestigation(
   } finally {candidate.close();source.close();}
 }
 
+
+/** E — Decode/orientation/pixel-sampling consistency probe. Diagnostic only. */
+async function runDecodeSamplingInvestigation(file: File): Promise<string[]> {
+  const fingerprint = (source: CanvasImageSource, width: number, height: number) => {
+    const canvas=document.createElement("canvas"); canvas.width=32; canvas.height=32;
+    const context=canvas.getContext("2d",{willReadFrequently:true});
+    if(!context) throw new Error("Could not create pixel fingerprint canvas.");
+    context.imageSmoothingEnabled=true;
+    context.imageSmoothingQuality="high";
+    context.drawImage(source,0,0,width,height,0,0,32,32);
+    const rgba=context.getImageData(0,0,32,32).data;
+    let hash=2166136261;
+    for(let i=0;i<rgba.length;i+=4) {
+      const gray=Math.round(.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2]);
+      hash^=gray;
+      hash=Math.imul(hash,16777619);
+    }
+    return (hash>>>0).toString(16).padStart(8,"0");
+  };
+  const lines:string[]=["E — IMAGE DECODE & PIXEL SAMPLING ("+file.name+")"];
+  let fromImage:ImageBitmap|undefined, withoutOrientation:ImageBitmap|undefined;
+  try {
+    fromImage=await createImageBitmap(file);
+    const first=fingerprint(fromImage,fromImage.width,fromImage.height);
+    const repeatedBitmap=await createImageBitmap(file);
+    try {
+      const repeated=fingerprint(repeatedBitmap,repeatedBitmap.width,repeatedBitmap.height);
+      lines.push("createImageBitmap default dimensions: "+fromImage.width+"×"+fromImage.height);
+      lines.push("Default decode 32×32 grayscale fingerprint: "+first);
+      lines.push("Repeated default decode fingerprint: "+repeated);
+      lines.push("Repeated decode deterministic: "+(first===repeated?"YES":"NO"));
+    } finally { repeatedBitmap.close(); }
+  } catch(error) {
+    lines.push("Default createImageBitmap decode: ERROR — "+(error instanceof Error?error.message:String(error)));
+  }
+  try {
+    withoutOrientation=await createImageBitmap(file,{imageOrientation:"none"});
+    lines.push("EXIF-orientation-ignored dimensions: "+withoutOrientation.width+"×"+withoutOrientation.height);
+    if(fromImage) {
+      const defaultHash=fingerprint(fromImage,fromImage.width,fromImage.height);
+      const rawHash=fingerprint(withoutOrientation,withoutOrientation.width,withoutOrientation.height);
+      lines.push("Default vs orientation-none dimensions differ: "+(fromImage.width!==withoutOrientation.width||fromImage.height!==withoutOrientation.height?"YES":"NO"));
+      lines.push("Default vs orientation-none fingerprints: "+defaultHash+" / "+rawHash);
+      lines.push("Default vs orientation-none pixels differ: "+(defaultHash!==rawHash?"YES":"NO"));
+    }
+  } catch(error) {
+    lines.push("imageOrientation:none decode unavailable: "+(error instanceof Error?error.message:String(error)));
+  }
+  const objectUrl=URL.createObjectURL(file);
+  try {
+    const imageElement=new Image();
+    imageElement.src=objectUrl;
+    await imageElement.decode();
+    const imageHash=fingerprint(imageElement,imageElement.naturalWidth,imageElement.naturalHeight);
+    lines.push("HTMLImageElement natural dimensions: "+imageElement.naturalWidth+"×"+imageElement.naturalHeight);
+    lines.push("HTMLImageElement 32×32 grayscale fingerprint: "+imageHash);
+    if(fromImage) {
+      const bitmapHash=fingerprint(fromImage,fromImage.width,fromImage.height);
+      lines.push("Default bitmap vs HTML image fingerprint equal: "+(bitmapHash===imageHash?"YES":"NO"));
+    }
+  } catch(error) {
+    lines.push("HTMLImageElement decode: ERROR — "+(error instanceof Error?error.message:String(error)));
+  } finally { URL.revokeObjectURL(objectUrl); }
+  lines.push("Fingerprint is a deterministic 32×32 grayscale sampling checksum, not a cryptographic file hash.");
+  lines.push("No source file, production matcher, threshold, or matching decision is changed.");
+  fromImage?.close(); withoutOrientation?.close();
+  return lines;
+}
+
 fileInput.addEventListener("change", () => {
   const files = Array.from(fileInput.files ?? []);
   filesInfo.textContent = files.length
@@ -305,6 +374,9 @@ runButton.addEventListener("click", async () => {
       "Diagnostic-only counters; thresholds and matching decisions are unchanged.",
       "ORB/SIFT/RANSAC is not integrated into production."
     ].join("\n\n");
+
+    const decodeReports=await Promise.all(files.map(file=>runDecodeSamplingInvestigation(file)));
+    diagnostics.textContent += ["", ...decodeReports.flatMap(lines=>["",...lines])].join("\n");
 
     const firstDirection = pairDiagnostics[0];
     const rejected = firstDirection?.bestRejectedCandidate;
