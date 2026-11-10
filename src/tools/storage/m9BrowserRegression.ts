@@ -98,8 +98,8 @@ async function runDHashAlignmentInvestigation(
   };
   try {
     const c=sample(candidate,0,0,candidate.width,candidate.height);
-    const sx=Math.round(region.x*source.width), sy=Math.round(region.y*source.height);
-    const sw=Math.round(region.width*source.width), sh=Math.round(region.height*source.height);
+    const sx=region.sourcePixelX, sy=region.sourcePixelY;
+    const sw=region.sourcePixelWidth, sh=region.sourcePixelHeight;
     const r=sample(source,sx,sy,sw,sh);
     const distance=(a:string,b:string)=>[...a].reduce((n,v,i)=>n+Number(v!==b[i]),0);
     const canvas=document.querySelector<HTMLCanvasElement>("#m9-normalized-preview");
@@ -113,7 +113,8 @@ async function runDHashAlignmentInvestigation(
     }}
     const shifts=[-.02,-.01,0,.01,.02], sweep:{dx:number;dy:number;d:number}[]=[];
     for(const dy of shifts)for(const dx of shifts){
-      const nx=Math.max(0,Math.min(1-region.width,region.x+dx)),ny=Math.max(0,Math.min(1-region.height,region.y+dy));
+      const baseX=sx/source.width, baseY=sy/source.height;
+      const nx=Math.max(0,Math.min(1-sw/source.width,baseX+dx)),ny=Math.max(0,Math.min(1-sh/source.height,baseY+dy));
       const moved=sample(source,Math.round(nx*source.width),Math.round(ny*source.height),sw,sh);
       sweep.push({dx,dy,d:distance(c.hash,moved.hash)});
     }
@@ -122,7 +123,7 @@ async function runDHashAlignmentInvestigation(
       "NORMALIZATION / ALIGNMENT INVESTIGATION (diagnostic only)",
       `Decoded candidate dimensions: ${candidate.width}×${candidate.height}`,
       `Decoded source dimensions: ${source.width}×${source.height}`,
-      `Reconstructed region pixels: x=${sx}, y=${sy}, width=${sw}, height=${sh}`,
+      `Exact production region pixels: x=${sx}, y=${sy}, width=${sw}, height=${sh}`,
       `Independent candidate dHash: ${c.hash}`,`Independent region dHash: ${r.hash}`,
       `Independent baseline distance: ${distance(c.hash,r.hash)} bits`,
       `Production-reported baseline: ${region.dHashDistance} bits`,
