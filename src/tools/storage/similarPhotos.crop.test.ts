@@ -199,6 +199,37 @@ async function expectPositiveCrop(fileA: string, fileB: string): Promise<void> {
   }
   expect(errors).toHaveLength(0);
   expect(result).toHaveLength(1);
+
+  const acceptedDirections = diagnostics.filter(item => item.decision === "ACCEPT");
+  expect(acceptedDirections.length).toBeGreaterThan(0);
+  expect(acceptedDirections.every(item =>
+    item.independentRegionCount >= item.thresholds.minimumIndependentRegions &&
+    item.selectedCandidate !== undefined &&
+    item.selectedCandidate.spatialTileMatches >= item.thresholds.minimumSpatialTiles &&
+    item.selectedCandidate.spatialTileRows === 2 &&
+    item.selectedCandidate.spatialTileColumns >= 2
+  )).toBe(true);
+}
+
+async function expectHardNegativeRejected(fileA: string, fileB: string): Promise<void> {
+  mockImageDecoding();
+  const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+  const errors: Array<{ file: File; error: unknown }> = [];
+  const result = await findSimilarPhotos(
+    [createImageFile(fileA), createImageFile(fileB)],
+    (file, error) => errors.push({ file, error }),
+    undefined,
+    diagnostic => diagnostics.push(diagnostic),
+  );
+
+  expect(errors).toHaveLength(0);
+  expect(result).toHaveLength(0);
+  expect(diagnostics).toHaveLength(2);
+  expect(diagnostics.every(item =>
+    item.decision === "REJECT" &&
+    item.allConditionsPass === 0 &&
+    item.independentRegionCount === 0
+  )).toBe(true);
 }
 
 function mockImageDecoding(fixtures = createFixtures()): void {
@@ -402,11 +433,16 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
       "14_logo_scene_b.png": createLogoScene(0x24681357, 42, 30, 10),
     };
     mockImageDecoding(fixtures);
-    const result = await findSimilarPhotos([
-      createImageFile("13_logo_scene_a.png"),
-      createImageFile("14_logo_scene_b.png"),
-    ]);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("13_logo_scene_a.png"), createImageFile("14_logo_scene_b.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
     expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT" && item.allConditionsPass === 0)).toBe(true);
   });
 
   it("rejects unrelated scenes containing the same small logo at different positions (HN-02-L2)", async () => {
@@ -415,11 +451,16 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
       "16_logo_right.png": createLogoScene(0x27182818, 76, 54, 10),
     };
     mockImageDecoding(fixtures);
-    const result = await findSimilarPhotos([
-      createImageFile("15_logo_left.png"),
-      createImageFile("16_logo_right.png"),
-    ]);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("15_logo_left.png"), createImageFile("16_logo_right.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
     expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT" && item.allConditionsPass === 0)).toBe(true);
   });
 
   it("rejects unrelated scenes containing the same logo at different scales (HN-02-L3)", async () => {
@@ -428,11 +469,16 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
       "18_logo_large.png": createLogoScene(0x56473829, 38, 26, 14),
     };
     mockImageDecoding(fixtures);
-    const result = await findSimilarPhotos([
-      createImageFile("17_logo_small.png"),
-      createImageFile("18_logo_large.png"),
-    ]);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("17_logo_small.png"), createImageFile("18_logo_large.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
     expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT" && item.allConditionsPass === 0)).toBe(true);
   });
 
   it("keeps an unrelated generated scene separate", async () => {
