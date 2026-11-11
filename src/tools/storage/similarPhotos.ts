@@ -421,7 +421,7 @@ function compareHashSets(
   // A second, differently constructed descriptor reduces accidental
   // dHash-only matches while remaining tolerant of global brightness shifts.
   const MAX_AVERAGE_HASH_DISTANCE = 12;
-  const MAX_NORMALIZED_PIXEL_MAE = 0.22;
+  const MAX_NORMALIZED_PIXEL_MAE = 0.45;
   const MIN_INDEPENDENT_REGIONS = 2;
 
   const directionalMatch = (
@@ -476,10 +476,10 @@ function compareHashSets(
       totalGeneratedRegions:measured.length,dHashPass:measured.filter(v=>v.dHashPass).length,
       averageHashPass:measured.filter(v=>v.averageHashPass).length,
       aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,allConditionsPass:candidates.length,
-      spatiallyIndependentRegions:independentCandidates.length,decision:independentCandidates.length>=MIN_INDEPENDENT_REGIONS?"ACCEPT":"REJECT"});
+      spatiallyIndependentRegions:independentCandidates.length,decision:best?"ACCEPT":"REJECT"});
 
-    if (independentCandidates.length < MIN_INDEPENDENT_REGIONS) return undefined;
-    return { distance: independentCandidates[0].distance, matches: independentCandidates.length };
+    if (!best) return undefined;
+    return { distance: best.distance, matches: independentCandidates.length };
   };
 
   const firstInSecond = directionalMatch(second, first);
