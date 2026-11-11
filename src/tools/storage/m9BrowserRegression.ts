@@ -767,14 +767,43 @@ async function runTwoStagePixelTrace(
     for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) hash += gray[y * 9 + x] > gray[y * 9 + x + 1] ? "1" : "0";
     return { gray, hash };
   };
+  // Small 9×8 sample comparisons only. Use a bounded loop; never spread pixel arrays.
   const compareArrays = (a: number[], b: number[]) => {
-    const delta = a.map((v, i) => Math.abs(v - b[i]));
-    return {
-      compared: Math.min(a.length, b.length),
-      changed: delta.filter(v => v !== 0).length,
-      mae: delta.reduce((sum, v) => sum + v, 0) / Math.max(1, delta.length),
-      max: Math.max(0, ...delta),
-    };
+    const compared = Math.min(a.length, b.length);
+    let changed = 0, total = 0, max = 0;
+    for (let i = 0; i < compared; i++) {
+      const delta = Math.abs(a[i] - b[i]);
+      if (delta !== 0) changed++;
+      total += delta;
+      if (delta > max) max = delta;
+    }
+    return { compared, changed, mae: total / Math.max(1, compared), max };
+  };
+  // Compare full-size canvases in short row bands to keep peak memory bounded on mobile.
+  const compareCanvasPixels = (a: HTMLCanvasElement, b: HTMLCanvasElement) => {
+    if (a.width !== b.width || a.height !== b.height) {
+      throw new Error("H7 full-frame comparison dimensions do not match.");
+    }
+    const ctxA = a.getContext("2d", { willReadFrequently: true });
+    const ctxB = b.getContext("2d", { willReadFrequently: true });
+    if (!ctxA || !ctxB) throw new Error("H7 pixel comparison context unavailable.");
+    const bandRows = 64;
+    let changed = 0, total = 0, max = 0, compared = 0;
+    for (let y = 0; y < a.height; y += bandRows) {
+      const rows = Math.min(bandRows, a.height - y);
+      const pixelsA = ctxA.getImageData(0, y, a.width, rows).data;
+      const pixelsB = ctxB.getImageData(0, y, b.width, rows).data;
+      for (let i = 0; i < pixelsA.length; i += 4) {
+        const grayA = Math.round(.299 * pixelsA[i] + .587 * pixelsA[i + 1] + .114 * pixelsA[i + 2]);
+        const grayB = Math.round(.299 * pixelsB[i] + .587 * pixelsB[i + 1] + .114 * pixelsB[i + 2]);
+        const delta = Math.abs(grayA - grayB);
+        if (delta !== 0) changed++;
+        total += delta;
+        if (delta > max) max = delta;
+        compared++;
+      }
+    }
+    return { compared, changed, mae: total / Math.max(1, compared), max };
   };
   const compareSamples = (a: {gray:number[];hash:string}, b: {gray:number[];hash:string}) => ({
     ...compareArrays(a.gray, b.gray),
@@ -817,9 +846,7 @@ async function runTwoStagePixelTrace(
     // that raster passed through a second same-size canvas resampling stage.
     const normalizedAgain = makeCanvas(W, H);
     normalizedAgain.ctx.drawImage(sourceNormalized.canvas, 0, 0, W, H, 0, 0, W, H);
-    const firstPassPixels = raster(sourceNormalized.canvas);
-    const secondPassPixels = raster(normalizedAgain.canvas);
-    const normalizationDrift = compareArrays(firstPassPixels, secondPassPixels);
+    const normalizationDrift = compareCanvasPixels(sourceNormalized.canvas, normalizedAgain.canvas);
     lines.push("SAME-IMAGE NORMALIZATION DRIFT — source original → W×H vs normalized W×H → W×H");
     lines.push("Compared pixels=" + normalizationDrift.compared + "; changed=" + normalizationDrift.changed +
       "; MAE=" + normalizationDrift.mae.toFixed(4) + "/255; max=" + normalizationDrift.max + "/255");
