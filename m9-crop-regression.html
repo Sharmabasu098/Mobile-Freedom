@@ -31,8 +31,8 @@
   <section class="card">
     <h1>M9 — Browser Crop Regression</h1>
     <p>Runs the current Mobile Freedom Similar Photos matcher directly in this browser using the two files you select. Files stay on this device; this page does not upload, change, or delete them.</p>
-    <p class="notice small">This is a diagnostic regression harness, not a production algorithm change. A genuine crop is expected to be SIMILAR; a hard-negative pair is expected to be NOT SIMILAR.</p>
-    <label for="m9-files">Choose exactly two photos</label>
+    <p class="notice small">This is a diagnostic regression harness, not a production algorithm change. For the three-photo regression, only 01_original_photo.png + 02_center_crop_25pct.png should be SIMILAR; both pairs involving 12_unrelated_control_photo.png should be NOT SIMILAR.</p>
+    <label for="m9-files">Choose two photos for a single check, or all three named photos for the complete real-photo regression</label>
     <input id="m9-files" type="file" accept="image/jpeg,image/png,image/webp" multiple />
     <label for="m9-expected">Regression case</label>
     <select id="m9-expected">
