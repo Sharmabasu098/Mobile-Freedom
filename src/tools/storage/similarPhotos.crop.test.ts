@@ -151,6 +151,11 @@ function createFixtures(): Record<string, Raster> {
   const leftCrop = cropRaster(original, 0, 8, 58, 56);
   const rightCrop = cropRaster(original, 38, 8, 58, 56);
   const tinyDetail = cropRaster(original, 43, 30, 10, 10);
+  const portraitCrop = cropRaster(original, 24, 4, 48, 64);
+  const landscapeCrop = cropRaster(original, 8, 18, 80, 36);
+  const moderateCrop = cropRaster(original, 8, 6, 80, 60);
+  const smallResolutionCrop = resizeRaster(centralCrop, 36, 27);
+  const highResolutionCrop = resizeRaster(centralCrop, 288, 216);
 
   return {
     "01_original_scene.png": original,
@@ -163,6 +168,11 @@ function createFixtures(): Record<string, Raster> {
     "08_brightness_crop.png": cropRaster(original, 12, 9, 72, 54, 0.78),
     "09_unrelated_scene.png": createScene(0x91a7b2c3),
     "10_tiny_detail_crop.png": tinyDetail,
+    "19_portrait_crop.png": portraitCrop,
+    "20_landscape_crop.png": landscapeCrop,
+    "21_moderate_crop.png": moderateCrop,
+    "22_small_resolution_crop.png": smallResolutionCrop,
+    "23_high_resolution_crop.png": highResolutionCrop,
   };
 }
 
@@ -442,6 +452,24 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(diagnostics.every(item => item.decision === "REJECT" && item.allConditionsPass === 0)).toBe(true);
   });
 
+  it("rejects the same small logo embedded in unrelated scenes at a second scale and offset (HN-02-L4)", async () => {
+    const fixtures = {
+      "24_logo_scene_a.png": createLogoScene(0x76543210, 18, 42, 9),
+      "25_logo_scene_b.png": createLogoScene(0x89abcdef, 62, 12, 11),
+    };
+    mockImageDecoding(fixtures);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("24_logo_scene_a.png"), createImageFile("25_logo_scene_b.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT" && item.allConditionsPass === 0)).toBe(true);
+  });
+
   it("rejects unrelated scenes containing the same logo at different scales (HN-02-L3)", async () => {
     const fixtures = {
       "17_logo_small.png": createLogoScene(0x10293847, 40, 28, 8),
@@ -565,5 +593,16 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
 
   it("detects a brightness-adjusted genuine crop", async () => {
     await expectPositiveCrop("01_original_scene.png", "08_brightness_crop.png");
+  });
+
+  // Crop geometry matrix: each crop is copied from the same parent raster.
+  it.each([
+    ["portrait crop", "19_portrait_crop.png"],
+    ["landscape crop", "20_landscape_crop.png"],
+    ["moderate crop", "21_moderate_crop.png"],
+    ["small-resolution crop", "22_small_resolution_crop.png"],
+    ["high-resolution crop", "23_high_resolution_crop.png"],
+  ])("detects a genuine %s", async (_label, cropFile) => {
+    await expectPositiveCrop("01_original_scene.png", cropFile);
   });
 });
