@@ -170,6 +170,36 @@ function createFixtures(): Record<string, Raster> {
  * resolves each fixture raster, drawImage scales that raster to the
  * production 9×8 canvas, and getImageData returns those sampled pixels.
  */
+
+async function expectPositiveCrop(fileA: string, fileB: string): Promise<void> {
+  mockImageDecoding();
+  const diagnostics: Array<Record<string, unknown>> = [];
+  const errors: Array<{ file: File; error: unknown }> = [];
+  const result = await findSimilarPhotos(
+    [createImageFile(fileA), createImageFile(fileB)],
+    (file, error) => errors.push({ file, error }),
+    undefined,
+    diagnostic => diagnostics.push(diagnostic as unknown as Record<string, unknown>),
+  );
+  if (result.length !== 1 || errors.length > 0) {
+    console.error("[M9 POSITIVE CROP DIAGNOSTIC]", {
+      files: [fileA, fileB],
+      pairs: result.length,
+      errors: errors.map(item => ({ file: item.file.name, error: String(item.error) })),
+      directions: diagnostics.map(d => ({
+        candidate: d.candidate, source: d.source, thresholds: d.thresholds,
+        dHashPass: d.dHashPass, averageHashPass: d.averageHashPass,
+        aspectRatioPass: d.aspectRatioPass, pixelPass: d.pixelPass,
+        allConditionsPass: d.allConditionsPass,
+        independentRegionCount: d.independentRegionCount,
+        bestRejectedCandidate: d.bestRejectedCandidate, decision: d.decision,
+      })),
+    });
+  }
+  expect(errors).toHaveLength(0);
+  expect(result).toHaveLength(1);
+}
+
 function mockImageDecoding(fixtures = createFixtures()): void {
   let activeRaster: Raster | undefined;
   let activeRegion = { x: 0, y: 0, width: 0, height: 0 };
@@ -428,65 +458,30 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
 
   // Positive crop regression cases: these must pass before M9 can advance.
   it("detects the original against a genuine 25% crop", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("02_crop_25_percent.png"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("01_original_scene.png", "02_crop_25_percent.png");
   });
 
   it("detects the original against a genuine 50% crop", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("03_crop_50_percent.png"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("01_original_scene.png", "03_crop_50_percent.png");
   });
 
   it("detects a genuine left-edge crop", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("04_crop_left_edge.png"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("01_original_scene.png", "04_crop_left_edge.png");
   });
 
   it("detects a genuine right-edge crop", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("05_crop_right_edge.png"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("01_original_scene.png", "05_crop_right_edge.png");
   });
 
   it("detects a resized genuine crop", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("06_resized_crop.png"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("01_original_scene.png", "06_resized_crop.png");
   });
 
   it("processes a genuine crop supplied with JPEG MIME type", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("07_compressed_crop.jpg"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("07_compressed_crop.jpg", "01_original_scene.png");
   });
 
   it("detects a brightness-adjusted genuine crop", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("08_brightness_crop.png"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("01_original_scene.png", "08_brightness_crop.png");
   });
 });
