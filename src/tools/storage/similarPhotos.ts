@@ -459,7 +459,7 @@ function compareHashSets(
       aspectRatioErrorPercent:Number((v.relativeAspectError*100).toFixed(2))});
     onDiagnostic?.({
       candidate:candidateImage.file.name,source:sourceImage.file.name,totalGeneratedRegions:measured.length,
-      thresholds:{dHash:maxDistance,averageHash:MAX_AVERAGE_HASH_DISTANCE,aspectRatioErrorPercent:MAX_RELATIVE_ASPECT_ERROR*100},
+      thresholds:{dHash:maxDistance,averageHash:MAX_AVERAGE_HASH_DISTANCE,aspectRatioErrorPercent:MAX_RELATIVE_ASPECT_ERROR*100,normalizedPixelMae:MAX_NORMALIZED_PIXEL_MAE,minimumIndependentRegions:MIN_INDEPENDENT_REGIONS},
       dHashPass:measured.filter(v=>v.dHashPass).length,dHashFail:measured.filter(v=>!v.dHashPass).length,
       averageHashPass:measured.filter(v=>v.averageHashPass).length,averageHashFail:measured.filter(v=>!v.averageHashPass).length,
       aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,aspectRatioFail:measured.filter(v=>!v.aspectRatioPass).length,
