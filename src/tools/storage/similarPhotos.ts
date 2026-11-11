@@ -52,6 +52,7 @@ export type SimilarPhotoErrorHandler = (
 interface RegionHash {
   hash: string;
   averageHash: string;
+  pixels: number[];
   x: number;
   y: number;
   width: number;
@@ -66,6 +67,7 @@ interface ImageHashSet {
   height: number;
   wholeImageHash: string;
   wholeImageAverageHash: string;
+  wholeImagePixels: number[];
   regions: RegionHash[];
 }
 
@@ -184,6 +186,19 @@ function calculateAverageHash(pixels: number[]): string {
   return pixels.map(value => value >= average ? "1" : "0").join("");
 }
 
+function normalizePixels(pixels: number[]): number[] {
+  const mean = pixels.reduce((sum, value) => sum + value, 0) / pixels.length;
+  const variance = pixels.reduce((sum, value) => sum + (value - mean) ** 2, 0) / pixels.length;
+  const deviation = Math.sqrt(variance);
+  return deviation < 1 ? pixels.map(() => 0.5) : pixels.map(value => Math.max(0, Math.min(1, 0.5 + ((value - mean) / deviation) * 0.2)));
+}
+
+function pixelMae(first: number[], second: number[]): number {
+  let total = 0;
+  for (let i = 0; i < 72; i += 1) total += Math.abs(first[i] - second[i]);
+  return total / 72;
+}
+
 function calculateAverageHashDistance(first: string, second: string): number {
   if (first.length !== 72 || second.length !== 72 ||
       !/^[01]+$/.test(first) || !/^[01]+$/.test(second)) {
@@ -268,6 +283,7 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
     const wholeImageDescriptors = readDescriptors(context);
     const wholeImageHash = wholeImageDescriptors.differenceHash;
     const wholeImageAverageHash = wholeImageDescriptors.averageHash;
+    const wholeImagePixels = normalizePixels(readGrayscalePixels(context));
     const regions: RegionHash[] = [];
 
     // Multi-scale windows sampled on a denser 8-step grid cover centered,
@@ -303,6 +319,7 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
             regions.push({
               hash: regionDescriptors.differenceHash,
               averageHash: regionDescriptors.averageHash,
+              pixels: normalizePixels(readGrayscalePixels(context)),
               x: sourceX / bitmap.width,
               y: sourceY / bitmap.height,
               width: regionWidth / bitmap.width,
@@ -321,6 +338,7 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
       height: bitmap.height,
       wholeImageHash,
       wholeImageAverageHash,
+      wholeImagePixels,
       regions,
     };
   } finally {
@@ -403,6 +421,8 @@ function compareHashSets(
   // A second, differently constructed descriptor reduces accidental
   // dHash-only matches while remaining tolerant of global brightness shifts.
   const MAX_AVERAGE_HASH_DISTANCE = 12;
+  const MAX_NORMALIZED_PIXEL_MAE = 0.22;
+  const MIN_INDEPENDENT_REGIONS = 2;
 
   const directionalMatch = (
     candidateImage: ImageHashSet,
@@ -415,23 +435,27 @@ function compareHashSets(
       const relativeAspectError=Math.abs(regionAspect-candidateAspect)/candidateAspect;
       const distance=calculateHashDistance(candidateImage.wholeImageHash,region.hash);
       const averageDistance=calculateAverageHashDistance(candidateImage.wholeImageAverageHash,region.averageHash);
-      return {region,distance,averageDistance,regionAspect,relativeAspectError,
+      const pixelsDistance=pixelMae(candidateImage.wholeImagePixels,region.pixels);
+      return {region,distance,averageDistance,pixelsDistance,regionAspect,relativeAspectError,
         dHashPass:distance<=maxDistance,averageHashPass:averageDistance<=MAX_AVERAGE_HASH_DISTANCE,
-        aspectRatioPass:relativeAspectError<=MAX_RELATIVE_ASPECT_ERROR};
+        aspectRatioPass:relativeAspectError<=MAX_RELATIVE_ASPECT_ERROR,
+        pixelPass:pixelsDistance<=MAX_NORMALIZED_PIXEL_MAE};
     });
-    const candidates=measured.filter(v=>v.dHashPass&&v.averageHashPass&&v.aspectRatioPass)
-      .sort((a,b)=>a.distance-b.distance||a.relativeAspectError-b.relativeAspectError);
-    const rejected=measured.filter(v=>!(v.dHashPass&&v.averageHashPass&&v.aspectRatioPass));
+    const candidates=measured.filter(v=>v.dHashPass&&v.averageHashPass&&v.aspectRatioPass&&v.pixelPass)
+      .sort((a,b)=>a.distance-b.distance||a.pixelsDistance-b.pixelsDistance||a.relativeAspectError-b.relativeAspectError);
+    const rejected=measured.filter(v=>!(v.dHashPass&&v.averageHashPass&&v.aspectRatioPass&&v.pixelPass));
     const bestRejected=rejected.map(v=>({...v,rejectionScore:
       Math.max(0,v.distance-maxDistance)/Math.max(1,maxDistance)+
       Math.max(0,v.averageDistance-MAX_AVERAGE_HASH_DISTANCE)/MAX_AVERAGE_HASH_DISTANCE+
-      Math.max(0,v.relativeAspectError-MAX_RELATIVE_ASPECT_ERROR)/MAX_RELATIVE_ASPECT_ERROR
+      Math.max(0,v.relativeAspectError-MAX_RELATIVE_ASPECT_ERROR)/MAX_RELATIVE_ASPECT_ERROR+
+      Math.max(0,v.pixelsDistance-MAX_NORMALIZED_PIXEL_MAE)/MAX_NORMALIZED_PIXEL_MAE
     })).sort((a,b)=>a.rejectionScore-b.rejectionScore)[0];
     const independentCandidates=selectSpatiallyIndependentRegions(candidates);
     const best=candidates[0];
     const summary=(v:typeof measured[number])=>({x:Number(v.region.x.toFixed(4)),y:Number(v.region.y.toFixed(4)),
       width:Number(v.region.width.toFixed(4)),height:Number(v.region.height.toFixed(4)),
       dHashDistance:v.distance,averageHashDistance:v.averageDistance,
+      normalizedPixelMae:Number(v.pixelsDistance.toFixed(4)),
       aspectRatioErrorPercent:Number((v.relativeAspectError*100).toFixed(2))});
     onDiagnostic?.({
       candidate:candidateImage.file.name,source:sourceImage.file.name,totalGeneratedRegions:measured.length,
@@ -452,10 +476,10 @@ function compareHashSets(
       totalGeneratedRegions:measured.length,dHashPass:measured.filter(v=>v.dHashPass).length,
       averageHashPass:measured.filter(v=>v.averageHashPass).length,
       aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,allConditionsPass:candidates.length,
-      spatiallyIndependentRegions:independentCandidates.length,decision:best?"ACCEPT":"REJECT"});
+      spatiallyIndependentRegions:independentCandidates.length,decision:independentCandidates.length>=MIN_INDEPENDENT_REGIONS?"ACCEPT":"REJECT"});
 
-    if (!best) return undefined;
-    return { distance: best.distance, matches: 1 };
+    if (independentCandidates.length < MIN_INDEPENDENT_REGIONS) return undefined;
+    return { distance: independentCandidates[0].distance, matches: independentCandidates.length };
   };
 
   const firstInSecond = directionalMatch(second, first);
