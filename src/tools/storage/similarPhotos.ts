@@ -465,7 +465,9 @@ function compareHashSets(
   // dHash-only matches while remaining tolerant of global brightness shifts.
   const MAX_AVERAGE_HASH_DISTANCE = 12;
   const MAX_NORMALIZED_PIXEL_MAE = 0.45;
-  const MIN_INDEPENDENT_REGIONS = 2;
+  // One aligned parent window is expected for a genuine crop. Spatial
+  // independence is proven inside that window by the 3x2 tile evidence gate.
+  const MIN_INDEPENDENT_REGIONS = 1;
 
   const directionalMatch = (
     candidateImage: ImageHashSet,
