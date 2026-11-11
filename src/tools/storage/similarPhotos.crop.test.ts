@@ -211,27 +211,6 @@ async function expectPositiveCrop(fileA: string, fileB: string): Promise<void> {
   )).toBe(true);
 }
 
-async function expectHardNegativeRejected(fileA: string, fileB: string): Promise<void> {
-  mockImageDecoding();
-  const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
-  const errors: Array<{ file: File; error: unknown }> = [];
-  const result = await findSimilarPhotos(
-    [createImageFile(fileA), createImageFile(fileB)],
-    (file, error) => errors.push({ file, error }),
-    undefined,
-    diagnostic => diagnostics.push(diagnostic),
-  );
-
-  expect(errors).toHaveLength(0);
-  expect(result).toHaveLength(0);
-  expect(diagnostics).toHaveLength(2);
-  expect(diagnostics.every(item =>
-    item.decision === "REJECT" &&
-    item.allConditionsPass === 0 &&
-    item.independentRegionCount === 0
-  )).toBe(true);
-}
-
 function mockImageDecoding(fixtures = createFixtures()): void {
   let activeRaster: Raster | undefined;
   let activeRegion = { x: 0, y: 0, width: 0, height: 0 };
