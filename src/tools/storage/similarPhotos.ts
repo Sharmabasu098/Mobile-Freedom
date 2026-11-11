@@ -467,7 +467,11 @@ function compareHashSets(
   // A second, differently constructed descriptor reduces accidental
   // dHash-only matches while remaining tolerant of global brightness shifts.
   const MAX_AVERAGE_HASH_DISTANCE = 12;
-  const MAX_NORMALIZED_PIXEL_MAE = 0.45;
+  // Normalized samples are bounded to [0.3, 0.7], so their maximum possible
+  // MAE is 0.4. The former 0.45 limit could never reject a candidate.
+  // 0.06 keeps near-identical genuine crops while rejecting the observed
+  // unrelated-photo matches (~0.12 MAE in the real-photo regression pair).
+  const MAX_NORMALIZED_PIXEL_MAE = 0.06;
   // One aligned parent window is expected for a genuine crop. Spatial
   // independence is proven inside that window by the 3x2 tile evidence gate.
   const MIN_INDEPENDENT_REGIONS = 1;
@@ -574,8 +578,8 @@ function compareHashSets(
       aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,allConditionsPass:candidates.length,
       spatiallyIndependentRegions:independentCandidates.length,decision:independentCandidates.length>=MIN_INDEPENDENT_REGIONS?"ACCEPT":"REJECT"});
 
-    // A single matching window is insufficient evidence; require the same
-    // independent-region minimum reported by the diagnostics.
+    // A candidate is accepted only when its pixel-level and distributed-tile
+    // evidence pass, and its independent-region count meets the diagnostic minimum.
     if (!best || independentCandidates.length < MIN_INDEPENDENT_REGIONS) return undefined;
     return { distance: best.distance, matches: independentCandidates.length };
   };
