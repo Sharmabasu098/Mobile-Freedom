@@ -23,7 +23,7 @@ const SUPPORTED_SIMILARITY_TYPES = new Set([
 
 export interface SimilarPhotoDirectionalDiagnostic {
  candidate:string; source:string; totalGeneratedRegions:number;
- thresholds:{dHash:number;averageHash:number;aspectRatioErrorPercent:number;normalizedPixelMae:number;minimumIndependentRegions:number};
+ thresholds:{dHash:number;averageHash:number;aspectRatioErrorPercent:number;normalizedPixelMae:number;minimumIndependentRegions:number;spatialTileMae:number;minimumSpatialTiles:number};
  dHashPass:number;dHashFail:number;averageHashPass:number;averageHashFail:number;
  aspectRatioPass:number;aspectRatioFail:number;pixelPass:number;pixelFail:number;allConditionsPass:number;independentRegionCount:number;
  bestRejectedCandidate?:{x:number;y:number;width:number;height:number;sourcePixelX:number;sourcePixelY:number;sourcePixelWidth:number;sourcePixelHeight:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number;failedChecks:string[];candidateDHash:string;regionDHash:string;dHashDifferenceBitPositions:number[]};
@@ -197,6 +197,49 @@ function pixelMae(first: number[], second: number[]): number {
   let total = 0;
   for (let i = 0; i < 72; i += 1) total += Math.abs(first[i] - second[i]);
   return total / 72;
+}
+
+/**
+ * Measures evidence distributed inside one candidate crop, rather than
+ * requiring multiple overlapping parent windows to match the same crop.
+ * The 3x2 tiles cover the complete 9x8 descriptor; at least four tiles
+ * across both axes must agree. A tiny repeated logo cannot satisfy this
+ * spatial-coverage gate by itself.
+ */
+function measureSpatialTileEvidence(first: number[], second: number[]): {
+  matchingTiles: number;
+  coveredRows: number;
+  coveredColumns: number;
+  passes: boolean;
+} {
+  const TILE_WIDTH = 3;
+  const TILE_HEIGHT = 4;
+  const MAX_TILE_MAE = 0.22;
+  const matchingRows = new Set<number>();
+  const matchingColumns = new Set<number>();
+  let matchingTiles = 0;
+  for (let tileY = 0; tileY < 2; tileY += 1) {
+    for (let tileX = 0; tileX < 3; tileX += 1) {
+      let total = 0;
+      for (let y = 0; y < TILE_HEIGHT; y += 1) {
+        for (let x = 0; x < TILE_WIDTH; x += 1) {
+          const index = (tileY * TILE_HEIGHT + y) * HASH_WIDTH + tileX * TILE_WIDTH + x;
+          total += Math.abs(first[index] - second[index]);
+        }
+      }
+      if (total / (TILE_WIDTH * TILE_HEIGHT) <= MAX_TILE_MAE) {
+        matchingTiles += 1;
+        matchingRows.add(tileY);
+        matchingColumns.add(tileX);
+      }
+    }
+  }
+  return {
+    matchingTiles,
+    coveredRows: matchingRows.size,
+    coveredColumns: matchingColumns.size,
+    passes: matchingTiles >= 4 && matchingRows.size === 2 && matchingColumns.size >= 2,
+  };
 }
 
 function calculateAverageHashDistance(first: string, second: string): number {
@@ -436,14 +479,15 @@ function compareHashSets(
       const distance=calculateHashDistance(candidateImage.wholeImageHash,region.hash);
       const averageDistance=calculateAverageHashDistance(candidateImage.wholeImageAverageHash,region.averageHash);
       const pixelsDistance=pixelMae(candidateImage.wholeImagePixels,region.pixels);
-      return {region,distance,averageDistance,pixelsDistance,regionAspect,relativeAspectError,
+      const spatialEvidence=measureSpatialTileEvidence(candidateImage.wholeImagePixels,region.pixels);
+      return {region,distance,averageDistance,pixelsDistance,regionAspect,relativeAspectError,spatialEvidence,
         dHashPass:distance<=maxDistance,averageHashPass:averageDistance<=MAX_AVERAGE_HASH_DISTANCE,
         aspectRatioPass:relativeAspectError<=MAX_RELATIVE_ASPECT_ERROR,
-        pixelPass:pixelsDistance<=MAX_NORMALIZED_PIXEL_MAE};
+        pixelPass:pixelsDistance<=MAX_NORMALIZED_PIXEL_MAE,spatialTilePass:spatialEvidence.passes};
     });
-    const candidates=measured.filter(v=>v.dHashPass&&v.averageHashPass&&v.aspectRatioPass&&v.pixelPass)
+    const candidates=measured.filter(v=>v.dHashPass&&v.averageHashPass&&v.aspectRatioPass&&v.pixelPass&&v.spatialTilePass)
       .sort((a,b)=>a.distance-b.distance||a.pixelsDistance-b.pixelsDistance||a.relativeAspectError-b.relativeAspectError);
-    const rejected=measured.filter(v=>!(v.dHashPass&&v.averageHashPass&&v.aspectRatioPass&&v.pixelPass));
+    const rejected=measured.filter(v=>!(v.dHashPass&&v.averageHashPass&&v.aspectRatioPass&&v.pixelPass&&v.spatialTilePass));
     const bestRejected=rejected.map(v=>({...v,rejectionScore:
       Math.max(0,v.distance-maxDistance)/Math.max(1,maxDistance)+
       Math.max(0,v.averageDistance-MAX_AVERAGE_HASH_DISTANCE)/MAX_AVERAGE_HASH_DISTANCE+
@@ -456,10 +500,13 @@ function compareHashSets(
       width:Number(v.region.width.toFixed(4)),height:Number(v.region.height.toFixed(4)),
       dHashDistance:v.distance,averageHashDistance:v.averageDistance,
       normalizedPixelMae:Number(v.pixelsDistance.toFixed(4)),
+      spatialTileMatches:v.spatialEvidence.matchingTiles,
+      spatialTileRows:v.spatialEvidence.coveredRows,
+      spatialTileColumns:v.spatialEvidence.coveredColumns,
       aspectRatioErrorPercent:Number((v.relativeAspectError*100).toFixed(2))});
     onDiagnostic?.({
       candidate:candidateImage.file.name,source:sourceImage.file.name,totalGeneratedRegions:measured.length,
-      thresholds:{dHash:maxDistance,averageHash:MAX_AVERAGE_HASH_DISTANCE,aspectRatioErrorPercent:MAX_RELATIVE_ASPECT_ERROR*100,normalizedPixelMae:MAX_NORMALIZED_PIXEL_MAE,minimumIndependentRegions:MIN_INDEPENDENT_REGIONS},
+      thresholds:{dHash:maxDistance,averageHash:MAX_AVERAGE_HASH_DISTANCE,aspectRatioErrorPercent:MAX_RELATIVE_ASPECT_ERROR*100,normalizedPixelMae:MAX_NORMALIZED_PIXEL_MAE,minimumIndependentRegions:MIN_INDEPENDENT_REGIONS,spatialTileMae:0.22,minimumSpatialTiles:4},
       dHashPass:measured.filter(v=>v.dHashPass).length,dHashFail:measured.filter(v=>!v.dHashPass).length,
       averageHashPass:measured.filter(v=>v.averageHashPass).length,averageHashFail:measured.filter(v=>!v.averageHashPass).length,
       aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,aspectRatioFail:measured.filter(v=>!v.aspectRatioPass).length,
@@ -467,7 +514,8 @@ function compareHashSets(
       allConditionsPass:candidates.length,independentRegionCount:independentCandidates.length,
       bestRejectedCandidate:bestRejected?{...summary(bestRejected),sourcePixelX:Math.round(bestRejected.region.x*sourceImage.width),sourcePixelY:Math.round(bestRejected.region.y*sourceImage.height),sourcePixelWidth:Math.round(bestRejected.region.width*sourceImage.width),sourcePixelHeight:Math.round(bestRejected.region.height*sourceImage.height),failedChecks:[
         ...(!bestRejected.dHashPass?["dHash"]:[]),...(!bestRejected.averageHashPass?["Average Hash"]:[]),
-        ...(!bestRejected.aspectRatioPass?["Aspect ratio"]:[]),...(!bestRejected.pixelPass?["Normalized pixel MAE"]:[])
+        ...(!bestRejected.aspectRatioPass?["Aspect ratio"]:[]),...(!bestRejected.pixelPass?["Normalized pixel MAE"]:[]),
+        ...(!bestRejected.spatialTilePass?["Spatial tile evidence"]:[])
       ],candidateDHash:candidateImage.wholeImageHash,regionDHash:bestRejected.region.hash,
       dHashDifferenceBitPositions:Array.from({length:64},(_,index)=>index)
         .filter(index=>candidateImage.wholeImageHash[index]!==bestRejected.region.hash[index])}:undefined,
