@@ -498,6 +498,7 @@ function compareHashSets(
       averageHashPass: 0, averageHashFail: 0,
       aspectRatioPass: 0, aspectRatioFail: 0,
       pixelPass: 0, pixelFail: 0,
+      spatialTilePass: 0, spatialTileFail: 0,
       allConditionsPass: 0,
       independentRegionCount: 0,
       decision: "REJECT",
