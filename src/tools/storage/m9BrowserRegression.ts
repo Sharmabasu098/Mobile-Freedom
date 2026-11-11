@@ -941,7 +941,9 @@ runButton.addEventListener("click", async () => {
             `dHash pass/fail: ${item.dHashPass}/${item.dHashFail} (≤ ${item.thresholds.dHash})`,
             `Average Hash pass/fail: ${item.averageHashPass}/${item.averageHashFail} (≤ ${item.thresholds.averageHash})`,
             `Aspect ratio pass/fail: ${item.aspectRatioPass}/${item.aspectRatioFail} (≤ ${item.thresholds.aspectRatioErrorPercent}%)`,
-            `All three conditions passed: ${item.allConditionsPass}`,
+            `All four conditions passed: ${item.allConditionsPass}`,
+            `Normalized pixel MAE pass/fail: ${item.pixelPass}/${item.pixelFail} (≤ ${item.thresholds.normalizedPixelMae})`,
+            `Spatially independent accepted regions: ${item.independentRegionCount} (target: ${item.thresholds.minimumIndependentRegions})`,
             `Best rejected candidate: ${item.bestRejectedCandidate?JSON.stringify(item.bestRejectedCandidate):"none"}`,
             `Selected candidate: ${item.selectedCandidate?JSON.stringify(item.selectedCandidate):"none"}`,
             `Candidate selection: ${item.decision}`
