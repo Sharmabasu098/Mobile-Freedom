@@ -974,7 +974,7 @@ runButton.addEventListener("click", async () => {
           ].join("\n")).join("\n\n")
         : "No directional matcher diagnostics were emitted.",
       errors.length?`Decode errors: ${errors.join("; ")}`:"Decode errors: none",
-      "Diagnostic-only counters; thresholds and matching decisions are unchanged.",
+      "Diagnostics report the active production thresholds and matching decisions.",
       "ORB/SIFT/RANSAC is not integrated into production."
     ].join("\n\n");
 
