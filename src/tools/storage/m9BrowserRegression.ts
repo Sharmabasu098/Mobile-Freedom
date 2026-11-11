@@ -896,10 +896,20 @@ fileInput.addEventListener("change", () => {
 
 runButton.addEventListener("click", async () => {
   const files = Array.from(fileInput.files ?? []);
-  if (files.length !== 2) {
-    status.textContent = "FAIL — Select exactly two photos.";
+  const threePhotoRegression = files.length === 3;
+  if (files.length !== 2 && !threePhotoRegression) {
+    status.textContent = "FAIL — Select either two photos for a single-pair check or all three named M9 regression photos for the complete matrix.";
     status.className = "result fail";
     return;
+  }
+  if (threePhotoRegression) {
+    const requiredNames = ["01_original_photo.png", "02_center_crop_25pct.png", "12_unrelated_control_photo.png"];
+    const selectedNames = files.map(file => file.name).sort();
+    if (JSON.stringify(selectedNames) !== JSON.stringify([...requiredNames].sort())) {
+      status.textContent = "FAIL — The three-photo matrix requires exactly: " + requiredNames.join(", ");
+      status.className = "result fail";
+      return;
+    }
   }
 
   runButton.disabled = true;
@@ -921,19 +931,33 @@ runButton.addEventListener("click", async () => {
       diagnostic => pairDiagnostics.push(diagnostic),
     );
 
-    const detectedSimilar = pairs.length > 0;
-    const expectedSimilar = expectedInput.value === "similar";
-    const passed = detectedSimilar === expectedSimilar;
-
+    const pairKey = (first: string, second: string) => [first, second].sort().join(" ↔ ");
+    const detectedKeys = new Set(pairs.map(pair => pairKey(pair.first.name, pair.second.name)));
+    const expectedKeys = threePhotoRegression
+      ? new Set([pairKey("01_original_photo.png", "02_center_crop_25pct.png")])
+      : new Set(expectedInput.value === "similar"
+          ? [pairKey(files[0].name, files[1].name)]
+          : []);
+    const passed = detectedKeys.size === expectedKeys.size &&
+      [...expectedKeys].every(key => detectedKeys.has(key));
+    const matrixLines = threePhotoRegression ? [
+      "REAL-PHOTO REGRESSION MATRIX",
+      "01_original_photo.png + 02_center_crop_25pct.png — expected SIMILAR",
+      "01_original_photo.png + 12_unrelated_control_photo.png — expected NOT SIMILAR",
+      "02_center_crop_25pct.png + 12_unrelated_control_photo.png — expected NOT SIMILAR",
+      "All three unordered pairs are evaluated by the production matcher in one run.",
+    ] : [];
     status.textContent = [
-      `${passed ? "PASS" : "FAIL"} — ${expectedSimilar ? "SIMILAR" : "NOT SIMILAR"} expected; ${detectedSimilar ? "SIMILAR" : "NOT SIMILAR"} detected.`,
-      `Matched pairs: ${pairs.length}`,
+      `${passed ? "PASS" : "FAIL"} — ${threePhotoRegression ? "three-photo matrix" : (expectedInput.value === "similar" ? "SIMILAR" : "NOT SIMILAR") + " single-pair check"}.`,
+      `Expected similar pairs: ${expectedKeys.size}; detected similar pairs: ${detectedKeys.size}.`,
+      ...matrixLines,
       "No files were uploaded, modified, or deleted.",
     ].join("\n");
     status.className = `result ${passed ? "pass" : "fail"}`;
 
     diagnostics.textContent = [
-      pairs.length ? pairs.map(pair => `${pair.first.name} ↔ ${pair.second.name}: distance ${pair.distance}/64; estimated similarity ${pair.similarityPercent}%`).join("\n") : "Matcher returned no similar pairs.",
+      pairs.length ? pairs.map(pair => `${pair.first.name} ↔ ${pair.second.name}: SIMILAR; distance ${pair.distance}/64; estimated similarity ${pair.similarityPercent}%`).join("\n") : "Matcher returned no similar pairs.",
+      threePhotoRegression ? "Expected matrix: only 01_original_photo.png ↔ 02_center_crop_25pct.png may be SIMILAR. Both pairs involving 12_unrelated_control_photo.png must be NOT SIMILAR." : "",
       pairDiagnostics.length
         ? pairDiagnostics.map((item,index)=>[
             `Direction ${index+1}: ${item.candidate} → ${item.source}`,
