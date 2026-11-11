@@ -471,6 +471,44 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(result).toHaveLength(0);
   });
 
+  it("guards browser False Positive FP-01: original scene vs unrelated control", async () => {
+    mockImageDecoding();
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [
+        createImageFile("01_original_scene.png"),
+        createImageFile("09_unrelated_scene.png"),
+      ],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.map(item => item.decision)).toEqual(["REJECT", "REJECT"]);
+    expect(diagnostics.every(item => item.allConditionsPass === 0)).toBe(true);
+  });
+
+  it("guards browser False Positive FP-02: genuine center crop vs unrelated control", async () => {
+    mockImageDecoding();
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [
+        createImageFile("02_crop_25_percent.png"),
+        createImageFile("09_unrelated_scene.png"),
+      ],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.map(item => item.decision)).toEqual(["REJECT", "REJECT"]);
+    expect(diagnostics.every(item => item.allConditionsPass === 0)).toBe(true);
+  });
+
   it("reports the pair-level area rejection for a tiny detail crop", async () => {
     mockImageDecoding();
     const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
