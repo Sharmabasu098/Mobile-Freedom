@@ -446,15 +446,29 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(result).toHaveLength(0);
   });
 
-  it("does not force a match for a tiny detail crop", async () => {
+  it("reports the pair-level area rejection for a tiny detail crop", async () => {
     mockImageDecoding();
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
 
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("10_tiny_detail_crop.png"),
-    ]);
+    const result = await findSimilarPhotos(
+      [
+        createImageFile("01_original_scene.png"),
+        createImageFile("10_tiny_detail_crop.png"),
+      ],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
 
     expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.map(item => item.earlyRejectionReason)).toEqual([
+      "IMAGE_AREA_RATIO_BELOW_MINIMUM",
+      "IMAGE_AREA_RATIO_BELOW_MINIMUM",
+    ]);
+    expect(diagnostics.every(item => item.decision === "REJECT")).toBe(true);
+    expect(diagnostics.every(item => item.totalGeneratedRegions === 0)).toBe(true);
+    expect(diagnostics.every(item => item.imageAreaRatio === 0.01447)).toBe(true);
   });
 
   // Positive crop regression cases: these must pass before M9 can advance.
