@@ -23,9 +23,9 @@ const SUPPORTED_SIMILARITY_TYPES = new Set([
 
 export interface SimilarPhotoDirectionalDiagnostic {
  candidate:string; source:string; totalGeneratedRegions:number;
- thresholds:{dHash:number;averageHash:number;aspectRatioErrorPercent:number};
+ thresholds:{dHash:number;averageHash:number;aspectRatioErrorPercent:number;normalizedPixelMae:number;minimumIndependentRegions:number};
  dHashPass:number;dHashFail:number;averageHashPass:number;averageHashFail:number;
- aspectRatioPass:number;aspectRatioFail:number;allConditionsPass:number;
+ aspectRatioPass:number;aspectRatioFail:number;pixelPass:number;pixelFail:number;allConditionsPass:number;independentRegionCount:number;
  bestRejectedCandidate?:{x:number;y:number;width:number;height:number;sourcePixelX:number;sourcePixelY:number;sourcePixelWidth:number;sourcePixelHeight:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number;failedChecks:string[];candidateDHash:string;regionDHash:string;dHashDifferenceBitPositions:number[]};
  selectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number};
  decision:"ACCEPT"|"REJECT";
