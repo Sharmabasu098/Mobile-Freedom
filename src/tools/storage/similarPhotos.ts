@@ -29,6 +29,8 @@ export interface SimilarPhotoDirectionalDiagnostic {
  bestRejectedCandidate?:{x:number;y:number;width:number;height:number;sourcePixelX:number;sourcePixelY:number;sourcePixelWidth:number;sourcePixelHeight:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number;failedChecks:string[];candidateDHash:string;regionDHash:string;dHashDifferenceBitPositions:number[]};
  selectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number};
  decision:"ACCEPT"|"REJECT";
+ earlyRejectionReason?:"IMAGE_AREA_RATIO_BELOW_MINIMUM";
+ imageAreaRatio?:number;
 }
 export type SimilarPhotoDiagnosticHandler=(diagnostic:SimilarPhotoDirectionalDiagnostic)=>void;
 
@@ -458,7 +460,7 @@ function compareHashSets(
 ): CropMatch | undefined {
   const smallerArea = Math.min(first.width * first.height, second.width * second.height);
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
-  if (smallerArea / largerArea < 0.08) return undefined;
+  const imageAreaRatio = smallerArea / largerArea;
 
   const MAX_RELATIVE_ASPECT_ERROR = 0.04;
   // A second, differently constructed descriptor reduces accidental
@@ -468,6 +470,44 @@ function compareHashSets(
   // One aligned parent window is expected for a genuine crop. Spatial
   // independence is proven inside that window by the 3x2 tile evidence gate.
   const MIN_INDEPENDENT_REGIONS = 1;
+  const MIN_IMAGE_AREA_RATIO = 0.08;
+  const SPATIAL_TILE_MAE = 0.22;
+  const MINIMUM_SPATIAL_TILES = 4;
+
+  // Pair-level gates must be visible in the same diagnostic stream as
+  // directional region failures; otherwise a tiny crop appears to vanish.
+  if (imageAreaRatio < MIN_IMAGE_AREA_RATIO) {
+    const reportAreaRejection = (
+      candidateImage: ImageHashSet,
+      sourceImage: ImageHashSet,
+    ) => onDiagnostic?.({
+      candidate: candidateImage.file.name,
+      source: sourceImage.file.name,
+      totalGeneratedRegions: 0,
+      thresholds: {
+        dHash: maxDistance,
+        averageHash: MAX_AVERAGE_HASH_DISTANCE,
+        aspectRatioErrorPercent: MAX_RELATIVE_ASPECT_ERROR * 100,
+        normalizedPixelMae: MAX_NORMALIZED_PIXEL_MAE,
+        minimumIndependentRegions: MIN_INDEPENDENT_REGIONS,
+        spatialTileMae: SPATIAL_TILE_MAE,
+        minimumSpatialTiles: MINIMUM_SPATIAL_TILES,
+      },
+      dHashPass: 0, dHashFail: 0,
+      averageHashPass: 0, averageHashFail: 0,
+      aspectRatioPass: 0, aspectRatioFail: 0,
+      pixelPass: 0, pixelFail: 0,
+      allConditionsPass: 0,
+      independentRegionCount: 0,
+      decision: "REJECT",
+      earlyRejectionReason: "IMAGE_AREA_RATIO_BELOW_MINIMUM",
+      imageAreaRatio: Number(imageAreaRatio.toFixed(5)),
+    });
+
+    reportAreaRejection(first, second);
+    reportAreaRejection(second, first);
+    return undefined;
+  }
 
   const directionalMatch = (
     candidateImage: ImageHashSet,
@@ -508,7 +548,7 @@ function compareHashSets(
       aspectRatioErrorPercent:Number((v.relativeAspectError*100).toFixed(2))});
     onDiagnostic?.({
       candidate:candidateImage.file.name,source:sourceImage.file.name,totalGeneratedRegions:measured.length,
-      thresholds:{dHash:maxDistance,averageHash:MAX_AVERAGE_HASH_DISTANCE,aspectRatioErrorPercent:MAX_RELATIVE_ASPECT_ERROR*100,normalizedPixelMae:MAX_NORMALIZED_PIXEL_MAE,minimumIndependentRegions:MIN_INDEPENDENT_REGIONS,spatialTileMae:0.22,minimumSpatialTiles:4},
+      thresholds:{dHash:maxDistance,averageHash:MAX_AVERAGE_HASH_DISTANCE,aspectRatioErrorPercent:MAX_RELATIVE_ASPECT_ERROR*100,normalizedPixelMae:MAX_NORMALIZED_PIXEL_MAE,minimumIndependentRegions:MIN_INDEPENDENT_REGIONS,spatialTileMae:SPATIAL_TILE_MAE,minimumSpatialTiles:MINIMUM_SPATIAL_TILES},
       dHashPass:measured.filter(v=>v.dHashPass).length,dHashFail:measured.filter(v=>!v.dHashPass).length,
       averageHashPass:measured.filter(v=>v.averageHashPass).length,averageHashFail:measured.filter(v=>!v.averageHashPass).length,
       aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,aspectRatioFail:measured.filter(v=>!v.aspectRatioPass).length,
