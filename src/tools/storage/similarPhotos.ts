@@ -467,7 +467,7 @@ function compareHashSets(
       allConditionsPass:candidates.length,independentRegionCount:independentCandidates.length,
       bestRejectedCandidate:bestRejected?{...summary(bestRejected),sourcePixelX:Math.round(bestRejected.region.x*sourceImage.width),sourcePixelY:Math.round(bestRejected.region.y*sourceImage.height),sourcePixelWidth:Math.round(bestRejected.region.width*sourceImage.width),sourcePixelHeight:Math.round(bestRejected.region.height*sourceImage.height),failedChecks:[
         ...(!bestRejected.dHashPass?["dHash"]:[]),...(!bestRejected.averageHashPass?["Average Hash"]:[]),
-        ...(!bestRejected.aspectRatioPass?["Aspect ratio"]:[])
+        ...(!bestRejected.aspectRatioPass?["Aspect ratio"]:[]),...(!bestRejected.pixelPass?["Normalized pixel MAE"]:[])
       ],candidateDHash:candidateImage.wholeImageHash,regionDHash:bestRejected.region.hash,
       dHashDifferenceBitPositions:Array.from({length:64},(_,index)=>index)
         .filter(index=>candidateImage.wholeImageHash[index]!==bestRejected.region.hash[index])}:undefined,
