@@ -101,13 +101,35 @@ function cropRaster(
 function resizeRaster(source: Raster, width: number, height: number): Raster {
   const pixels = new Uint8ClampedArray(width * height * 4);
 
+  // Model browser-style image resampling instead of nearest-neighbour
+  // pixel dropping. This matters for low-resolution crop fixtures: the
+  // production canvas uses image resampling when drawing into its 9x8
+  // descriptor surface.
   for (let y = 0; y < height; y += 1) {
+    const sourceY = (y + 0.5) * source.height / height - 0.5;
+    const y0 = Math.max(0, Math.floor(sourceY));
+    const y1 = Math.min(source.height - 1, y0 + 1);
+    const fy = Math.max(0, sourceY - y0);
+
     for (let x = 0; x < width; x += 1) {
-      const sourceX = Math.min(source.width - 1, Math.floor(x * source.width / width));
-      const sourceY = Math.min(source.height - 1, Math.floor(y * source.height / height));
-      const from = (sourceY * source.width + sourceX) * 4;
+      const sourceX = (x + 0.5) * source.width / width - 0.5;
+      const x0 = Math.max(0, Math.floor(sourceX));
+      const x1 = Math.min(source.width - 1, x0 + 1);
+      const fx = Math.max(0, sourceX - x0);
       const to = (y * width + x) * 4;
-      pixels.set(source.pixels.subarray(from, from + 4), to);
+      const offsets = [
+        (y0 * source.width + x0) * 4,
+        (y0 * source.width + x1) * 4,
+        (y1 * source.width + x0) * 4,
+        (y1 * source.width + x1) * 4,
+      ];
+      for (let channel = 0; channel < 4; channel += 1) {
+        const top = source.pixels[offsets[0] + channel] * (1 - fx) +
+          source.pixels[offsets[1] + channel] * fx;
+        const bottom = source.pixels[offsets[2] + channel] * (1 - fx) +
+          source.pixels[offsets[3] + channel] * fx;
+        pixels[to + channel] = Math.round(top * (1 - fy) + bottom * fy);
+      }
     }
   }
 
