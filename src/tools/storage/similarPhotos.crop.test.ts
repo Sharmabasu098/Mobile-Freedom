@@ -509,6 +509,8 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(diagnostics).toHaveLength(2);
     expect(diagnostics.map(item => item.decision)).toEqual(["REJECT", "REJECT"]);
     expect(diagnostics.every(item => item.allConditionsPass === 0)).toBe(true);
+    expect(diagnostics.every(item => item.thresholds.normalizedPixelMae === 0.06)).toBe(true);
+    expect(diagnostics.some(item => item.pixelFail > 0)).toBe(true);
   });
 
   it("reports the pair-level area rejection for a tiny detail crop", async () => {
