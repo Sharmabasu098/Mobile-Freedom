@@ -478,7 +478,7 @@ function compareHashSets(
       totalGeneratedRegions:measured.length,dHashPass:measured.filter(v=>v.dHashPass).length,
       averageHashPass:measured.filter(v=>v.averageHashPass).length,
       aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,allConditionsPass:candidates.length,
-      spatiallyIndependentRegions:independentCandidates.length,decision:best?"ACCEPT":"REJECT"});
+      spatiallyIndependentRegions:independentCandidates.length,decision:independentCandidates.length>=MIN_INDEPENDENT_REGIONS?"ACCEPT":"REJECT"});
 
     // A single matching window is insufficient evidence; require the same
     // independent-region minimum reported by the diagnostics.
