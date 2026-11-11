@@ -9,6 +9,7 @@ import {
 import {
   calculateImageDifferenceHash,
   findSimilarPhotos,
+  type SimilarPhotoDirectionalDiagnostic,
 } from "./similarPhotos";
 
 const SOURCE_WIDTH = 96;
@@ -173,13 +174,13 @@ function createFixtures(): Record<string, Raster> {
 
 async function expectPositiveCrop(fileA: string, fileB: string): Promise<void> {
   mockImageDecoding();
-  const diagnostics: Array<Record<string, unknown>> = [];
+  const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
   const errors: Array<{ file: File; error: unknown }> = [];
   const result = await findSimilarPhotos(
     [createImageFile(fileA), createImageFile(fileB)],
     (file, error) => errors.push({ file, error }),
     undefined,
-    diagnostic => diagnostics.push(diagnostic as unknown as Record<string, unknown>),
+    diagnostic => diagnostics.push(diagnostic),
   );
   if (result.length !== 1 || errors.length > 0) {
     console.error("[M9 POSITIVE CROP DIAGNOSTIC]", {
