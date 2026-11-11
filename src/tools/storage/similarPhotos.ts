@@ -25,9 +25,10 @@ export interface SimilarPhotoDirectionalDiagnostic {
  candidate:string; source:string; totalGeneratedRegions:number;
  thresholds:{dHash:number;averageHash:number;aspectRatioErrorPercent:number;normalizedPixelMae:number;minimumIndependentRegions:number;spatialTileMae:number;minimumSpatialTiles:number};
  dHashPass:number;dHashFail:number;averageHashPass:number;averageHashFail:number;
- aspectRatioPass:number;aspectRatioFail:number;pixelPass:number;pixelFail:number;allConditionsPass:number;independentRegionCount:number;
+ aspectRatioPass:number;aspectRatioFail:number;pixelPass:number;pixelFail:number;
+ spatialTilePass:number;spatialTileFail:number;allConditionsPass:number;independentRegionCount:number;
  bestRejectedCandidate?:{x:number;y:number;width:number;height:number;sourcePixelX:number;sourcePixelY:number;sourcePixelWidth:number;sourcePixelHeight:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number;failedChecks:string[];candidateDHash:string;regionDHash:string;dHashDifferenceBitPositions:number[]};
- selectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number};
+ selectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;normalizedPixelMae:number;spatialTileMatches:number;spatialTileRows:number;spatialTileColumns:number;aspectRatioErrorPercent:number};
  decision:"ACCEPT"|"REJECT";
  earlyRejectionReason?:"IMAGE_AREA_RATIO_BELOW_MINIMUM";
  imageAreaRatio?:number;
@@ -553,6 +554,8 @@ function compareHashSets(
       averageHashPass:measured.filter(v=>v.averageHashPass).length,averageHashFail:measured.filter(v=>!v.averageHashPass).length,
       aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,aspectRatioFail:measured.filter(v=>!v.aspectRatioPass).length,
       pixelPass:measured.filter(v=>v.pixelPass).length,pixelFail:measured.filter(v=>!v.pixelPass).length,
+      spatialTilePass:measured.filter(v=>v.spatialTilePass).length,
+      spatialTileFail:measured.filter(v=>!v.spatialTilePass).length,
       allConditionsPass:candidates.length,independentRegionCount:independentCandidates.length,
       bestRejectedCandidate:bestRejected?{...summary(bestRejected),sourcePixelX:Math.round(bestRejected.region.x*sourceImage.width),sourcePixelY:Math.round(bestRejected.region.y*sourceImage.height),sourcePixelWidth:Math.round(bestRejected.region.width*sourceImage.width),sourcePixelHeight:Math.round(bestRejected.region.height*sourceImage.height),failedChecks:[
         ...(!bestRejected.dHashPass?["dHash"]:[]),...(!bestRejected.averageHashPass?["Average Hash"]:[]),
