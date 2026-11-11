@@ -23,7 +23,7 @@ const SUPPORTED_SIMILARITY_TYPES = new Set([
 
 export interface SimilarPhotoDirectionalDiagnostic {
  candidate:string; source:string; totalGeneratedRegions:number;
- thresholds:{dHash:number;averageHash:number;aspectRatioErrorPercent:number;normalizedPixelMae:number;minimumIndependentRegions:number;spatialTileMae:number;minimumSpatialTiles:number};
+ thresholds:{dHash:number;averageHash:number;aspectRatioErrorPercent:number;normalizedPixelMae:number;lowResolutionFallbackPixelMae:number;lowResolutionFallbackMaxHashDistance:number;minimumIndependentRegions:number;spatialTileMae:number;minimumSpatialTiles:number};
  dHashPass:number;dHashFail:number;averageHashPass:number;averageHashFail:number;
  aspectRatioPass:number;aspectRatioFail:number;pixelPass:number;pixelFail:number;
  spatialTilePass:number;spatialTileFail:number;allConditionsPass:number;independentRegionCount:number;
@@ -472,6 +472,11 @@ function compareHashSets(
   // 0.06 keeps near-identical genuine crops while rejecting the observed
   // unrelated-photo matches (~0.12 MAE in the real-photo regression pair).
   const MAX_NORMALIZED_PIXEL_MAE = 0.06;
+  // A narrowly scoped fallback for genuinely low-resolution inputs. It only
+  // applies when the candidate itself is <=48px wide or <=32px high, all six
+  // spatial tiles agree, and both hash distances remain within 12.
+  const LOW_RESOLUTION_MAX_PIXEL_MAE = 0.09;
+  const LOW_RESOLUTION_MAX_HASH_DISTANCE = 12;
   // One aligned parent window is expected for a genuine crop. Spatial
   // independence is proven inside that window by the 3x2 tile evidence gate.
   const MIN_INDEPENDENT_REGIONS = 1;
@@ -494,6 +499,8 @@ function compareHashSets(
         averageHash: MAX_AVERAGE_HASH_DISTANCE,
         aspectRatioErrorPercent: MAX_RELATIVE_ASPECT_ERROR * 100,
         normalizedPixelMae: MAX_NORMALIZED_PIXEL_MAE,
+        lowResolutionFallbackPixelMae: LOW_RESOLUTION_MAX_PIXEL_MAE,
+        lowResolutionFallbackMaxHashDistance: LOW_RESOLUTION_MAX_HASH_DISTANCE,
         minimumIndependentRegions: MIN_INDEPENDENT_REGIONS,
         spatialTileMae: SPATIAL_TILE_MAE,
         minimumSpatialTiles: MINIMUM_SPATIAL_TILES,
@@ -528,10 +535,21 @@ function compareHashSets(
       const averageDistance=calculateAverageHashDistance(candidateImage.wholeImageAverageHash,region.averageHash);
       const pixelsDistance=pixelMae(candidateImage.wholeImagePixels,region.pixels);
       const spatialEvidence=measureSpatialTileEvidence(candidateImage.wholeImagePixels,region.pixels);
+      const aspectRatioPass=relativeAspectError<=MAX_RELATIVE_ASPECT_ERROR;
+      const lowResolutionFallbackPass =
+        (candidateImage.width <= 48 || candidateImage.height <= 32) &&
+        distance <= LOW_RESOLUTION_MAX_HASH_DISTANCE &&
+        averageDistance <= LOW_RESOLUTION_MAX_HASH_DISTANCE &&
+        pixelsDistance <= LOW_RESOLUTION_MAX_PIXEL_MAE &&
+        spatialEvidence.matchingTiles === 6 &&
+        aspectRatioPass;
       return {region,distance,averageDistance,pixelsDistance,regionAspect,relativeAspectError,spatialEvidence,
-        dHashPass:distance<=maxDistance,averageHashPass:averageDistance<=MAX_AVERAGE_HASH_DISTANCE,
-        aspectRatioPass:relativeAspectError<=MAX_RELATIVE_ASPECT_ERROR,
-        pixelPass:pixelsDistance<=MAX_NORMALIZED_PIXEL_MAE,spatialTilePass:spatialEvidence.passes};
+        lowResolutionFallbackPass,
+        dHashPass:distance<=maxDistance || lowResolutionFallbackPass,
+        averageHashPass:averageDistance<=MAX_AVERAGE_HASH_DISTANCE || lowResolutionFallbackPass,
+        aspectRatioPass,
+        pixelPass:pixelsDistance<=MAX_NORMALIZED_PIXEL_MAE || lowResolutionFallbackPass,
+        spatialTilePass:spatialEvidence.passes};
     });
     const candidates=measured.filter(v=>v.dHashPass&&v.averageHashPass&&v.aspectRatioPass&&v.pixelPass&&v.spatialTilePass)
       .sort((a,b)=>a.distance-b.distance||a.pixelsDistance-b.pixelsDistance||a.relativeAspectError-b.relativeAspectError);
@@ -554,7 +572,7 @@ function compareHashSets(
       aspectRatioErrorPercent:Number((v.relativeAspectError*100).toFixed(2))});
     onDiagnostic?.({
       candidate:candidateImage.file.name,source:sourceImage.file.name,totalGeneratedRegions:measured.length,
-      thresholds:{dHash:maxDistance,averageHash:MAX_AVERAGE_HASH_DISTANCE,aspectRatioErrorPercent:MAX_RELATIVE_ASPECT_ERROR*100,normalizedPixelMae:MAX_NORMALIZED_PIXEL_MAE,minimumIndependentRegions:MIN_INDEPENDENT_REGIONS,spatialTileMae:SPATIAL_TILE_MAE,minimumSpatialTiles:MINIMUM_SPATIAL_TILES},
+      thresholds:{dHash:maxDistance,averageHash:MAX_AVERAGE_HASH_DISTANCE,aspectRatioErrorPercent:MAX_RELATIVE_ASPECT_ERROR*100,normalizedPixelMae:MAX_NORMALIZED_PIXEL_MAE,lowResolutionFallbackPixelMae:LOW_RESOLUTION_MAX_PIXEL_MAE,lowResolutionFallbackMaxHashDistance:LOW_RESOLUTION_MAX_HASH_DISTANCE,minimumIndependentRegions:MIN_INDEPENDENT_REGIONS,spatialTileMae:SPATIAL_TILE_MAE,minimumSpatialTiles:MINIMUM_SPATIAL_TILES},
       dHashPass:measured.filter(v=>v.dHashPass).length,dHashFail:measured.filter(v=>!v.dHashPass).length,
       averageHashPass:measured.filter(v=>v.averageHashPass).length,averageHashFail:measured.filter(v=>!v.averageHashPass).length,
       aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,aspectRatioFail:measured.filter(v=>!v.aspectRatioPass).length,
