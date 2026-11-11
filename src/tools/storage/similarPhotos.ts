@@ -471,7 +471,8 @@ function compareHashSets(
       ],candidateDHash:candidateImage.wholeImageHash,regionDHash:bestRejected.region.hash,
       dHashDifferenceBitPositions:Array.from({length:64},(_,index)=>index)
         .filter(index=>candidateImage.wholeImageHash[index]!==bestRejected.region.hash[index])}:undefined,
-      selectedCandidate:best?summary(best):undefined,decision:best?"ACCEPT":"REJECT"
+      selectedCandidate:best?summary(best):undefined,
+      decision:independentCandidates.length>=MIN_INDEPENDENT_REGIONS?"ACCEPT":"REJECT"
     });
     console.info("[M9 crop geometry evidence]",{candidate:candidateImage.file.name,source:sourceImage.file.name,
       totalGeneratedRegions:measured.length,dHashPass:measured.filter(v=>v.dHashPass).length,
@@ -479,7 +480,9 @@ function compareHashSets(
       aspectRatioPass:measured.filter(v=>v.aspectRatioPass).length,allConditionsPass:candidates.length,
       spatiallyIndependentRegions:independentCandidates.length,decision:best?"ACCEPT":"REJECT"});
 
-    if (!best) return undefined;
+    // A single matching window is insufficient evidence; require the same
+    // independent-region minimum reported by the diagnostics.
+    if (!best || independentCandidates.length < MIN_INDEPENDENT_REGIONS) return undefined;
     return { distance: best.distance, matches: independentCandidates.length };
   };
 
