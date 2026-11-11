@@ -488,6 +488,24 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(diagnostics.every(item => item.decision === "REJECT" && item.allConditionsPass === 0)).toBe(true);
   });
 
+  it("rejects low-resolution unrelated scenes that share a small logo (HN-02-L5)", async () => {
+    const fixtures = {
+      "26_lowres_logo_scene_a.png": resizeRaster(createLogoScene(0x10203040, 18, 20, 8), 48, 36),
+      "27_lowres_logo_scene_b.png": resizeRaster(createLogoScene(0x50607080, 18, 20, 8), 48, 36),
+    };
+    mockImageDecoding(fixtures);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("26_lowres_logo_scene_a.png"), createImageFile("27_lowres_logo_scene_b.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT" && item.allConditionsPass === 0)).toBe(true);
+  });
+
   it("keeps an unrelated generated scene separate", async () => {
     mockImageDecoding();
 
