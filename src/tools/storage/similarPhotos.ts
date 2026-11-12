@@ -780,7 +780,7 @@ async function compareHashSets(
         maximumPixelMae: ALIGNMENT_MAX_PIXEL_MAE,
         selectedPixelMae: aligned?.pixelMae,
         matchingTiles: aligned?.matchingTiles,
-        decision: aligned ? "ACCEPT" : "REJECT",
+        decision: aligned || independentCandidates.length>=MIN_INDEPENDENT_REGIONS ? "ACCEPT" : "REJECT",
       } : { attemptedCandidates: 0, translationOffsetsPercent: [], scaleOffsetsPercent: [], maximumPixelMae: ALIGNMENT_MAX_PIXEL_MAE, decision: "NOT_RUN" },
       decision: aligned ? "ACCEPT" : "REJECT"
     });
@@ -792,8 +792,12 @@ async function compareHashSets(
 
     // A candidate is accepted only when its pixel-level and distributed-tile
     // evidence pass, and its independent-region count meets the diagnostic minimum.
-    if (!aligned || !best) return undefined;
-    return { distance: best.distance, matches: 1 };
+    if (aligned && best) return { distance: best.distance, matches: 1 };
+    // Preserve the established strict 9×8 path when its complete hash,
+    // pixel, aspect, and distributed-tile gates already pass. Alignment is
+    // the bounded recovery path for genuine crops that miss those coarse gates.
+    if (!best || independentCandidates.length < MIN_INDEPENDENT_REGIONS) return undefined;
+    return { distance: best.distance, matches: independentCandidates.length };
   };
 
   const firstInSecond = await directionalMatch(second, first);
