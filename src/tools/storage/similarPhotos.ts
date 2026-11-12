@@ -557,6 +557,15 @@ async function verifyAlignedCropCandidates(
         for (const scaleYOffset of ALIGNMENT_SCALE_Y_OFFSETS) {
           const sampleWidth = baseWidth * (1 + scaleXOffset);
           const sampleHeight = baseHeight * (1 + scaleYOffset);
+          // Reject impossible expanded windows before clamping coordinates.
+          // Otherwise a >100% source rectangle can escape the bitmap bounds
+          // and produce invalid pixel reads in browsers and regression mocks.
+          if (
+            sampleWidth <= 0 ||
+            sampleHeight <= 0 ||
+            sampleWidth > sourceWidth ||
+            sampleHeight > sourceHeight
+          ) continue;
           for (const translateY of ALIGNMENT_TRANSLATION_OFFSETS) {
             for (const translateX of ALIGNMENT_TRANSLATION_OFFSETS) {
             const sampleX = Math.max(0, Math.min(
