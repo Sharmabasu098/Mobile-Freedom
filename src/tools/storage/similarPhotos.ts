@@ -209,7 +209,12 @@ function pixelMae(first: number[], second: number[]): number {
  * across both axes must agree. A tiny repeated logo cannot satisfy this
  * spatial-coverage gate by itself.
  */
-function measureSpatialTileEvidence(first: number[], second: number[]): {
+function measureSpatialTileEvidence(
+  first: number[],
+  second: number[],
+  maxTileMae: number,
+  minimumMatchingTiles: number,
+): {
   matchingTiles: number;
   coveredRows: number;
   coveredColumns: number;
@@ -217,7 +222,6 @@ function measureSpatialTileEvidence(first: number[], second: number[]): {
 } {
   const TILE_WIDTH = 3;
   const TILE_HEIGHT = 4;
-  const MAX_TILE_MAE = 0.22;
   const matchingRows = new Set<number>();
   const matchingColumns = new Set<number>();
   let matchingTiles = 0;
@@ -230,7 +234,7 @@ function measureSpatialTileEvidence(first: number[], second: number[]): {
           total += Math.abs(first[index] - second[index]);
         }
       }
-      if (total / (TILE_WIDTH * TILE_HEIGHT) <= MAX_TILE_MAE) {
+      if (total / (TILE_WIDTH * TILE_HEIGHT) <= maxTileMae) {
         matchingTiles += 1;
         matchingRows.add(tileY);
         matchingColumns.add(tileX);
@@ -241,7 +245,7 @@ function measureSpatialTileEvidence(first: number[], second: number[]): {
     matchingTiles,
     coveredRows: matchingRows.size,
     coveredColumns: matchingColumns.size,
-    passes: matchingTiles >= 4 && matchingRows.size === 2 && matchingColumns.size >= 2,
+    passes: matchingTiles >= minimumMatchingTiles && matchingRows.size === 2 && matchingColumns.size >= 2,
   };
 }
 
@@ -447,9 +451,9 @@ export async function calculateImageDifferenceHash(
 /**
  * Finds similar-photo candidates using directional crop-region matching.
  *
- * A crop may match a region of its parent in either direction. Each
- * accepted direction must have at least two spatially independent
- * matching regions; overlapping samples of the same area count once.
+ * A crop may match one aligned region of its parent in either direction.
+ * Overlapping parent windows are deduplicated, while spatial independence
+ * is established within the selected region by distributed 3×2 tile evidence.
  * A whole-image hash match alone is never sufficient. This remains a
  * heuristic and is not proof of identity.
  */
@@ -543,7 +547,12 @@ function compareHashSets(
       const distance=calculateHashDistance(candidateImage.wholeImageHash,region.hash);
       const averageDistance=calculateAverageHashDistance(candidateImage.wholeImageAverageHash,region.averageHash);
       const pixelsDistance=pixelMae(candidateImage.wholeImagePixels,region.pixels);
-      const spatialEvidence=measureSpatialTileEvidence(candidateImage.wholeImagePixels,region.pixels);
+      const spatialEvidence=measureSpatialTileEvidence(
+        candidateImage.wholeImagePixels,
+        region.pixels,
+        SPATIAL_TILE_MAE,
+        MINIMUM_SPATIAL_TILES,
+      );
       const aspectRatioPass=relativeAspectError<=MAX_RELATIVE_ASPECT_ERROR;
       const lowResolutionFallbackPass =
         (candidateImage.width <= 48 || candidateImage.height <= 32) &&
@@ -624,7 +633,8 @@ function compareHashSets(
 
   // Crop matching is intentionally directional: a crop should match a
   // region of its parent, but the full parent need not match a region of
-  // the smaller crop. Two independent descriptors guard each direction.
+  // the smaller crop. Hash, pixel, aspect-ratio, and distributed-tile
+  // evidence are evaluated together for each direction.
   if (!firstInSecond && !secondInFirst) return undefined;
   if (!firstInSecond) return secondInFirst;
   if (!secondInFirst) return firstInSecond;
