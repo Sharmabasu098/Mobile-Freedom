@@ -29,7 +29,7 @@ export interface SimilarPhotoDirectionalDiagnostic {
  spatialTilePass:number;spatialTileFail:number;allConditionsPass:number;independentRegionCount:number;
  bestRejectedCandidate?:{x:number;y:number;width:number;height:number;sourcePixelX:number;sourcePixelY:number;sourcePixelWidth:number;sourcePixelHeight:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number;failedChecks:string[];candidateDHash:string;regionDHash:string;dHashDifferenceBitPositions:number[]};
  selectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;normalizedPixelMae:number;spatialTileMatches:number;spatialTileRows:number;spatialTileColumns:number;aspectRatioErrorPercent:number};
- alignmentVerification?:{attemptedCandidates:number;translationOffsetsPercent:number[];scaleOffsetsPercent:number[];maximumPixelMae:number;selectedPixelMae?:number;matchingTiles?:number;decision:"ACCEPT"|"REJECT"|"NOT_RUN"};
+ alignmentVerification?:{attemptedCandidates:number;translationOffsetsPercent:number[];scaleXOffsetsPercent:number[];scaleYOffsetsPercent:number[];maximumPixelMae:number;selectedPixelMae?:number;matchingTiles?:number;decision:"ACCEPT"|"REJECT"|"NOT_RUN"};
  decision:"ACCEPT"|"REJECT";
  earlyRejectionReason?:"IMAGE_AREA_RATIO_BELOW_MINIMUM";
  imageAreaRatio?:number;
