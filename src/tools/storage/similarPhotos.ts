@@ -673,7 +673,7 @@ async function compareHashSets(
     return undefined;
   }
 
-  const directionalMatch = (
+  const directionalMatch = async (
     candidateImage: ImageHashSet,
     sourceImage: ImageHashSet,
   ): Promise<CropMatch | undefined> => {
