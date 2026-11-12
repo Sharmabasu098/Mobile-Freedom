@@ -120,23 +120,25 @@ function rasterToThumbnail(
   sourceY = 0,
   sourceWidth = raster.width,
   sourceHeight = raster.height,
+  outputWidth = 9,
+  outputHeight = 8,
 ): Uint8ClampedArray {
-  const output = new Uint8ClampedArray(9 * 8 * 4);
+  const output = new Uint8ClampedArray(outputWidth * outputHeight * 4);
 
-  for (let y = 0; y < 8; y += 1) {
-    for (let x = 0; x < 9; x += 1) {
+  for (let y = 0; y < outputHeight; y += 1) {
+    for (let x = 0; x < outputWidth; x += 1) {
       const localX = Math.min(
         sourceWidth - 1,
-        Math.floor(x * sourceWidth / 9),
+        Math.floor(x * sourceWidth / outputWidth),
       );
       const localY = Math.min(
         sourceHeight - 1,
-        Math.floor(y * sourceHeight / 8),
+        Math.floor(y * sourceHeight / outputHeight),
       );
       const from = (
         (sourceY + localY) * raster.width + sourceX + localX
       ) * 4;
-      const to = (y * 9 + x) * 4;
+      const to = (y * outputWidth + x) * 4;
       output.set(raster.pixels.subarray(from, from + 4), to);
     }
   }
@@ -274,6 +276,8 @@ function mockImageDecoding(fixtures = createFixtures()): void {
           activeRegion.y,
           activeRegion.width,
           activeRegion.height,
+          canvas.width,
+          canvas.height,
         ),
       };
     }),
