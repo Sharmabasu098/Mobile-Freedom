@@ -806,7 +806,7 @@ async function compareHashSets(
         selectedPixelMae: aligned?.pixelMae,
         matchingTiles: aligned?.matchingTiles,
         decision: aligned || independentCandidates.length>=MIN_INDEPENDENT_REGIONS ? "ACCEPT" : "REJECT",
-      } : { attemptedCandidates: 0, translationOffsetsPercent: [], scaleOffsetsPercent: [], maximumPixelMae: ALIGNMENT_MAX_PIXEL_MAE, decision: "NOT_RUN" },
+      } : { attemptedCandidates: 0, translationOffsetsPercent: [], scaleXOffsetsPercent: [], scaleYOffsetsPercent: [], maximumPixelMae: ALIGNMENT_MAX_PIXEL_MAE, decision: "NOT_RUN" },
       // Keep the public diagnostic decision consistent with the actual matcher:
       // either high-resolution alignment or the strict spatial candidate path accepts.
       decision: aligned || independentCandidates.length >= MIN_INDEPENDENT_REGIONS ? "ACCEPT" : "REJECT"
