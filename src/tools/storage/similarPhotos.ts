@@ -464,17 +464,17 @@ export async function calculateImageDifferenceHash(
  * A whole-image hash match alone is never sufficient. This remains a
  * heuristic and is not proof of identity.
  */
-const ALIGNMENT_SAMPLE_SIZE = 24;
-const ALIGNMENT_MAX_PIXEL_MAE = 0.07;
-const ALIGNMENT_MAX_TILE_MAE = 0.22;
+const ALIGNMENT_SAMPLE_SIZE = 48;
+const ALIGNMENT_MAX_PIXEL_MAE = 0.065;
+const ALIGNMENT_MAX_TILE_MAE = 0.20;
 // Wider bounded recovery for real photographs whose crop geometry falls
 // between the coarse region-grid scales/positions. Five translation samples
 // cover ±8% of the parent image; three independent scale samples cover ±6%
 // of each proposed region dimension. Keep the candidate budget bounded for
 // mobile browsers.
-const ALIGNMENT_TRANSLATION_OFFSETS = [-0.1, -0.05, 0, 0.05, 0.1] as const;
-const ALIGNMENT_SCALE_X_OFFSETS = [-0.08, 0, 0.08] as const;
-const ALIGNMENT_SCALE_Y_OFFSETS = [-0.08, 0, 0.08] as const;
+const ALIGNMENT_TRANSLATION_OFFSETS = [-0.06, -0.03, 0, 0.03, 0.06] as const;
+const ALIGNMENT_SCALE_X_OFFSETS = [-0.12, -0.06, 0, 0.06, 0.12] as const;
+const ALIGNMENT_SCALE_Y_OFFSETS = [-0.12, -0.06, 0, 0.06, 0.12] as const;
 const ALIGNMENT_MAX_CANDIDATES = 16;
 
 function readNormalizedAlignmentPixels(
@@ -516,10 +516,12 @@ function measureHighResolutionAlignmentTiles(
 
 /**
  * Bounded second-stage verification. The coarse 9×8 matcher only proposes
- * up to eight geometry candidates; this stage re-decodes the pair and tests
- * a bounded 3×3×3×3 geometry neighborhood (independent X/Y scale and
- * translation) at 24×24 resolution. Acceptance requires both full-frame pixel agreement and all six spatial
- * tiles, so a compact repeated logo cannot independently pass.
+ * a geographically diverse proposal set; this stage re-decodes the pair and
+ * tests geometry-relative scale and position offsets around each proposed
+ * region at 48×48 resolution. Independent X/Y scale search adapts to the
+ * proposed crop geometry instead of relying only on fixed global scales.
+ * Acceptance requires full-frame pixel agreement and all six spatial tiles,
+ * so a compact repeated logo cannot independently pass.
  */
 async function verifyAlignedCropCandidates(
   candidateFile: File,
