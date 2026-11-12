@@ -725,9 +725,29 @@ async function compareHashSets(
     })).sort((a,b)=>a.rejectionScore-b.rejectionScore)[0];
     const independentCandidates=selectSpatiallyIndependentRegions(candidates);
     let best=candidates[0];
-    let alignmentAttempted = 0;
-    let aligned: Awaited<ReturnType<typeof verifyAlignedCropCandidates>>;
-    if (!best) {
+    const proposalPool = (candidates.length > 0 ? candidates : measured.filter(value => value.aspectRatioPass))
+      .slice()
+      .sort((a,b) =>
+        (a.pixelsDistance / ALIGNMENT_MAX_PIXEL_MAE) +
+        (a.averageDistance / MAX_AVERAGE_HASH_DISTANCE) +
+        (a.distance / Math.max(1, maxDistance)) -
+        ((b.pixelsDistance / ALIGNMENT_MAX_PIXEL_MAE) +
+        (b.averageDistance / MAX_AVERAGE_HASH_DISTANCE) +
+        (b.distance / Math.max(1, maxDistance)))
+      )
+      .slice(0, ALIGNMENT_MAX_CANDIDATES);
+    const alignmentAttempted = proposalPool.length;
+    const aligned = await verifyAlignedCropCandidates(
+      candidateImage.file,
+      sourceImage.file,
+      sourceImage.width,
+      sourceImage.height,
+      proposalPool,
+    );
+    if (aligned) {
+      best = measured.find(value => value.region === aligned.region);
+    }
+    const summary=
       // Candidate proposal is intentionally permissive only at this stage;
       // no candidate can pass without the 24×24 full-frame and six-tile gate.
       const geometryShortlist = measured
@@ -749,10 +769,6 @@ async function compareHashSets(
         sourceImage.height,
         geometryShortlist,
       );
-      if (aligned) {
-        best = measured.find(value => value.region === aligned!.region);
-      }
-    }
     const summary=(v:typeof measured[number])=>({x:Number(v.region.x.toFixed(4)),y:Number(v.region.y.toFixed(4)),
       width:Number(v.region.width.toFixed(4)),height:Number(v.region.height.toFixed(4)),
       dHashDistance:v.distance,averageHashDistance:v.averageDistance,
@@ -788,7 +804,7 @@ async function compareHashSets(
         matchingTiles: aligned?.matchingTiles,
         decision: aligned ? "ACCEPT" : "REJECT",
       } : { attemptedCandidates: 0, translationOffsetsPercent: [], scaleOffsetsPercent: [], maximumPixelMae: ALIGNMENT_MAX_PIXEL_MAE, decision: "NOT_RUN" },
-      decision: aligned ? "ACCEPT" : independentCandidates.length>=MIN_INDEPENDENT_REGIONS?"ACCEPT":"REJECT"
+      decision: aligned ? "ACCEPT" : "REJECT"
     });
     console.info("[M9 crop geometry evidence]",{candidate:candidateImage.file.name,source:sourceImage.file.name,
       totalGeneratedRegions:measured.length,dHashPass:measured.filter(v=>v.dHashPass).length,
@@ -798,13 +814,12 @@ async function compareHashSets(
 
     // A candidate is accepted only when its pixel-level and distributed-tile
     // evidence pass, and its independent-region count meets the diagnostic minimum.
-    if (aligned && best) return { distance: best.distance, matches: 1 };
-    if (!best || independentCandidates.length < MIN_INDEPENDENT_REGIONS) return undefined;
-    return { distance: best.distance, matches: independentCandidates.length };
+    if (!aligned || !best) return undefined;
+    return { distance: best.distance, matches: 1 };
   };
 
-  const firstInSecond = directionalMatch(second, first);
-  const secondInFirst = directionalMatch(first, second);
+  const firstInSecond = await directionalMatch(second, first);
+  const secondInFirst = await directionalMatch(first, second);
 
 
   // Crop matching is intentionally directional: a crop should match a
