@@ -747,28 +747,6 @@ async function compareHashSets(
     if (aligned) {
       best = measured.find(value => value.region === aligned.region);
     }
-    const summary=
-      // Candidate proposal is intentionally permissive only at this stage;
-      // no candidate can pass without the 24×24 full-frame and six-tile gate.
-      const geometryShortlist = measured
-        .filter(value => value.aspectRatioPass)
-        .sort((a, b) =>
-          (a.pixelsDistance / ALIGNMENT_MAX_PIXEL_MAE) +
-          (a.averageDistance / MAX_AVERAGE_HASH_DISTANCE) +
-          (a.distance / Math.max(1, maxDistance)) -
-          ((b.pixelsDistance / ALIGNMENT_MAX_PIXEL_MAE) +
-          (b.averageDistance / MAX_AVERAGE_HASH_DISTANCE) +
-          (b.distance / Math.max(1, maxDistance)))
-        )
-        .slice(0, ALIGNMENT_MAX_CANDIDATES);
-      alignmentAttempted = geometryShortlist.length;
-      aligned = await verifyAlignedCropCandidates(
-        candidateImage.file,
-        sourceImage.file,
-        sourceImage.width,
-        sourceImage.height,
-        geometryShortlist,
-      );
     const summary=(v:typeof measured[number])=>({x:Number(v.region.x.toFixed(4)),y:Number(v.region.y.toFixed(4)),
       width:Number(v.region.width.toFixed(4)),height:Number(v.region.height.toFixed(4)),
       dHashDistance:v.distance,averageHashDistance:v.averageDistance,
