@@ -782,7 +782,9 @@ async function compareHashSets(
         matchingTiles: aligned?.matchingTiles,
         decision: aligned || independentCandidates.length>=MIN_INDEPENDENT_REGIONS ? "ACCEPT" : "REJECT",
       } : { attemptedCandidates: 0, translationOffsetsPercent: [], scaleOffsetsPercent: [], maximumPixelMae: ALIGNMENT_MAX_PIXEL_MAE, decision: "NOT_RUN" },
-      decision: aligned ? "ACCEPT" : "REJECT"
+      // Keep the public diagnostic decision consistent with the actual matcher:
+      // either high-resolution alignment or the strict spatial candidate path accepts.
+      decision: aligned || independentCandidates.length >= MIN_INDEPENDENT_REGIONS ? "ACCEPT" : "REJECT"
     });
     console.info("[M9 crop geometry evidence]",{candidate:candidateImage.file.name,source:sourceImage.file.name,
       totalGeneratedRegions:measured.length,dHashPass:measured.filter(v=>v.dHashPass).length,
