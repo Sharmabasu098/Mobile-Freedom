@@ -461,10 +461,15 @@ export async function calculateImageDifferenceHash(
 const ALIGNMENT_SAMPLE_SIZE = 24;
 const ALIGNMENT_MAX_PIXEL_MAE = 0.06;
 const ALIGNMENT_MAX_TILE_MAE = 0.22;
-const ALIGNMENT_TRANSLATION_OFFSETS = [-0.04, 0, 0.04] as const;
-const ALIGNMENT_SCALE_X_OFFSETS = [-0.04, 0, 0.04] as const;
-const ALIGNMENT_SCALE_Y_OFFSETS = [-0.04, 0, 0.04] as const;
-const ALIGNMENT_MAX_CANDIDATES = 24;
+// Wider bounded recovery for real photographs whose crop geometry falls
+// between the coarse region-grid scales/positions. Five translation samples
+// cover ±8% of the parent image; three independent scale samples cover ±6%
+// of each proposed region dimension. Keep the candidate budget bounded for
+// mobile browsers.
+const ALIGNMENT_TRANSLATION_OFFSETS = [-0.08, -0.04, 0, 0.04, 0.08] as const;
+const ALIGNMENT_SCALE_X_OFFSETS = [-0.06, 0, 0.06] as const;
+const ALIGNMENT_SCALE_Y_OFFSETS = [-0.06, 0, 0.06] as const;
+const ALIGNMENT_MAX_CANDIDATES = 12;
 
 function readNormalizedAlignmentPixels(
   context: CanvasRenderingContext2D,
