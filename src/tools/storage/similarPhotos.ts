@@ -461,9 +461,10 @@ export async function calculateImageDifferenceHash(
 const ALIGNMENT_SAMPLE_SIZE = 24;
 const ALIGNMENT_MAX_PIXEL_MAE = 0.06;
 const ALIGNMENT_MAX_TILE_MAE = 0.22;
-const ALIGNMENT_TRANSLATION_OFFSETS = [-0.02, 0, 0.02] as const;
-const ALIGNMENT_SCALE_OFFSETS = [-0.02, 0, 0.02] as const;
-const ALIGNMENT_MAX_CANDIDATES = 48;
+const ALIGNMENT_TRANSLATION_OFFSETS = [-0.04, 0, 0.04] as const;
+const ALIGNMENT_SCALE_X_OFFSETS = [-0.04, 0, 0.04] as const;
+const ALIGNMENT_SCALE_Y_OFFSETS = [-0.04, 0, 0.04] as const;
+const ALIGNMENT_MAX_CANDIDATES = 24;
 
 function readNormalizedAlignmentPixels(
   context: CanvasRenderingContext2D,
@@ -505,8 +506,8 @@ function measureHighResolutionAlignmentTiles(
 /**
  * Bounded second-stage verification. The coarse 9×8 matcher only proposes
  * up to eight geometry candidates; this stage re-decodes the pair and tests
- * a small 3×3 translation/scale neighborhood at 24×24 resolution.
- * Acceptance requires both full-frame pixel agreement and all six spatial
+ * a bounded 3×3×3×3 geometry neighborhood (independent X/Y scale and
+ * translation) at 24×24 resolution. Acceptance requires both full-frame pixel agreement and all six spatial
  * tiles, so a compact repeated logo cannot independently pass.
  */
 async function verifyAlignedCropCandidates(
@@ -539,11 +540,12 @@ async function verifyAlignedCropCandidates(
       const baseY = region.y * sourceHeight;
       const baseWidth = region.width * sourceWidth;
       const baseHeight = region.height * sourceHeight;
-      for (const scaleOffset of ALIGNMENT_SCALE_OFFSETS) {
-        const sampleWidth = baseWidth * (1 + scaleOffset);
-        const sampleHeight = baseHeight * (1 + scaleOffset);
-        for (const translateY of ALIGNMENT_TRANSLATION_OFFSETS) {
-          for (const translateX of ALIGNMENT_TRANSLATION_OFFSETS) {
+      for (const scaleXOffset of ALIGNMENT_SCALE_X_OFFSETS) {
+        for (const scaleYOffset of ALIGNMENT_SCALE_Y_OFFSETS) {
+          const sampleWidth = baseWidth * (1 + scaleXOffset);
+          const sampleHeight = baseHeight * (1 + scaleYOffset);
+          for (const translateY of ALIGNMENT_TRANSLATION_OFFSETS) {
+            for (const translateX of ALIGNMENT_TRANSLATION_OFFSETS) {
             const sampleX = Math.max(0, Math.min(
               sourceWidth - sampleWidth,
               baseX + translateX * sourceWidth,
@@ -797,7 +799,8 @@ async function compareHashSets(
       alignmentVerification: alignmentAttempted > 0 ? {
         attemptedCandidates: alignmentAttempted,
         translationOffsetsPercent: [...ALIGNMENT_TRANSLATION_OFFSETS].map(value => value * 100),
-        scaleOffsetsPercent: [...ALIGNMENT_SCALE_OFFSETS].map(value => value * 100),
+        scaleXOffsetsPercent: [...ALIGNMENT_SCALE_X_OFFSETS].map(value => value * 100),
+        scaleYOffsetsPercent: [...ALIGNMENT_SCALE_Y_OFFSETS].map(value => value * 100),
         maximumPixelMae: ALIGNMENT_MAX_PIXEL_MAE,
         selectedPixelMae: aligned?.pixelMae,
         matchingTiles: aligned?.matchingTiles,
