@@ -328,6 +328,10 @@ async function calculateImageHashSet(file: File): Promise<ImageHashSet> {
         "Image similarity checking is not supported by this browser.",
       );
     }
+    // Use high-quality interpolation for downsampling so the production
+    // descriptors preserve fine crop detail consistently across browsers.
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
 
     // Keep the whole-image descriptor separate from positioned regions.
     context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
@@ -436,6 +440,8 @@ export async function calculateImageDifferenceHash(
         "Image similarity checking is not supported by this browser.",
       );
     }
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
 
     context.drawImage(bitmap, 0, 0, HASH_WIDTH, HASH_HEIGHT);
     return readHash(context);
@@ -459,17 +465,17 @@ export async function calculateImageDifferenceHash(
  * heuristic and is not proof of identity.
  */
 const ALIGNMENT_SAMPLE_SIZE = 24;
-const ALIGNMENT_MAX_PIXEL_MAE = 0.06;
+const ALIGNMENT_MAX_PIXEL_MAE = 0.07;
 const ALIGNMENT_MAX_TILE_MAE = 0.22;
 // Wider bounded recovery for real photographs whose crop geometry falls
 // between the coarse region-grid scales/positions. Five translation samples
 // cover ±8% of the parent image; three independent scale samples cover ±6%
 // of each proposed region dimension. Keep the candidate budget bounded for
 // mobile browsers.
-const ALIGNMENT_TRANSLATION_OFFSETS = [-0.08, -0.04, 0, 0.04, 0.08] as const;
-const ALIGNMENT_SCALE_X_OFFSETS = [-0.06, 0, 0.06] as const;
-const ALIGNMENT_SCALE_Y_OFFSETS = [-0.06, 0, 0.06] as const;
-const ALIGNMENT_MAX_CANDIDATES = 12;
+const ALIGNMENT_TRANSLATION_OFFSETS = [-0.1, -0.05, 0, 0.05, 0.1] as const;
+const ALIGNMENT_SCALE_X_OFFSETS = [-0.08, 0, 0.08] as const;
+const ALIGNMENT_SCALE_Y_OFFSETS = [-0.08, 0, 0.08] as const;
+const ALIGNMENT_MAX_CANDIDATES = 16;
 
 function readNormalizedAlignmentPixels(
   context: CanvasRenderingContext2D,
@@ -534,6 +540,8 @@ async function verifyAlignedCropCandidates(
     canvas.height = ALIGNMENT_SAMPLE_SIZE;
     const context = canvas.getContext("2d", { willReadFrequently: true });
     if (!context) return undefined;
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
 
     context.drawImage(candidateBitmap, 0, 0, ALIGNMENT_SAMPLE_SIZE, ALIGNMENT_SAMPLE_SIZE);
     const candidatePixels = readNormalizedAlignmentPixels(context);
