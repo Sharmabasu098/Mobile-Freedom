@@ -127,17 +127,18 @@ function rasterToThumbnail(
 
   for (let y = 0; y < outputHeight; y += 1) {
     for (let x = 0; x < outputWidth; x += 1) {
-      const localX = Math.min(
-        sourceWidth - 1,
-        Math.floor(x * sourceWidth / outputWidth),
-      );
-      const localY = Math.min(
-        sourceHeight - 1,
-        Math.floor(y * sourceHeight / outputHeight),
-      );
-      const from = (
-        (sourceY + localY) * raster.width + sourceX + localX
-      ) * 4;
+      // drawImage accepts fractional source rectangles. Sample each output
+      // pixel by its center, then clamp the absolute integer source coordinate
+      // so edge-aligned crops never produce a partial/out-of-range RGBA read.
+      const absoluteX = Math.max(0, Math.min(
+        raster.width - 1,
+        Math.floor(sourceX + (x + 0.5) * sourceWidth / outputWidth),
+      ));
+      const absoluteY = Math.max(0, Math.min(
+        raster.height - 1,
+        Math.floor(sourceY + (y + 0.5) * sourceHeight / outputHeight),
+      ));
+      const from = (absoluteY * raster.width + absoluteX) * 4;
       const to = (y * outputWidth + x) * 4;
       output.set(raster.pixels.subarray(from, from + 4), to);
     }
