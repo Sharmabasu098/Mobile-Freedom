@@ -463,7 +463,7 @@ const ALIGNMENT_MAX_PIXEL_MAE = 0.06;
 const ALIGNMENT_MAX_TILE_MAE = 0.22;
 const ALIGNMENT_TRANSLATION_OFFSETS = [-0.02, 0, 0.02] as const;
 const ALIGNMENT_SCALE_OFFSETS = [-0.02, 0, 0.02] as const;
-const ALIGNMENT_MAX_CANDIDATES = 8;
+const ALIGNMENT_MAX_CANDIDATES = 32;
 
 function readNormalizedAlignmentPixels(
   context: CanvasRenderingContext2D,
@@ -724,7 +724,7 @@ async function compareHashSets(
       Math.max(0,v.pixelsDistance-MAX_NORMALIZED_PIXEL_MAE)/MAX_NORMALIZED_PIXEL_MAE
     })).sort((a,b)=>a.rejectionScore-b.rejectionScore)[0];
     const independentCandidates=selectSpatiallyIndependentRegions(candidates);
-    let best=candidates[0];
+    let best: typeof measured[number] | undefined = candidates[0];
     const proposalPool = (candidates.length > 0 ? candidates : measured.filter(value => value.aspectRatioPass))
       .slice()
       .sort((a,b) =>
