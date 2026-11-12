@@ -753,7 +753,18 @@ async function compareHashSets(
     const seenProposalRegions = new Set<RegionHash>();
     const proposalsPerRanking = ALIGNMENT_MAX_CANDIDATES / proposalRankings.length;
     for (const ranking of proposalRankings) {
-      for (const proposal of ranking.slice(0, proposalsPerRanking)) {
+      // Dense multi-scale grids create many near-identical overlapping windows.
+      // If we take the first N raw scores, one visually plausible but incorrect
+      // patch can occupy the entire alignment budget and hide the true crop.
+      // Apply spatial NMS independently to each ranking before taking its quota,
+      // so the expensive high-resolution stage receives geographically distinct
+      // hypotheses rather than many neighboring variants of one location.
+      const spatiallyDiverseRanking = selectSpatiallyIndependentRegions(
+        ranking.map(value => ({ region: value.region, value })),
+        0.25,
+      );
+      for (const item of spatiallyDiverseRanking.slice(0, proposalsPerRanking)) {
+        const proposal = item.value;
         if (!seenProposalRegions.has(proposal.region)) {
           seenProposalRegions.add(proposal.region);
           proposalPool.push(proposal);
