@@ -570,6 +570,7 @@ async function verifyAlignedCropCandidates(
             ) {
               best = { pixelMae: mae, matchingTiles: tiles.matchingTiles, region };
             }
+            }
           }
         }
       }
