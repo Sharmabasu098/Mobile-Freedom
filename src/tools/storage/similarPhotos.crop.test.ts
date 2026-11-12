@@ -176,11 +176,7 @@ function createFixtures(): Record<string, Raster> {
     "22_small_resolution_crop.png": smallResolutionCrop,
     "23_high_resolution_crop.png": highResolutionCrop,
     // Off-center 65% crop, matching the supplied REAL-02 crop geometry.
-    "28_real02_geometry_crop.png": resizeRaster(
-      cropRaster(original, 20, 10, 64, 48),
-      SOURCE_WIDTH,
-      SOURCE_HEIGHT,
-    ),
+    "28_real02_geometry_crop.png": cropRaster(original, 21, 9, 62, 47),
   };
 }
 
