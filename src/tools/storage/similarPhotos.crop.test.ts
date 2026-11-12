@@ -175,6 +175,12 @@ function createFixtures(): Record<string, Raster> {
     "21_moderate_crop.png": moderateCrop,
     "22_small_resolution_crop.png": smallResolutionCrop,
     "23_high_resolution_crop.png": highResolutionCrop,
+    // Off-center 65% crop, matching the supplied REAL-02 crop geometry.
+    "28_real02_geometry_crop.png": resizeRaster(
+      cropRaster(original, 20, 10, 63, 47),
+      SOURCE_WIDTH,
+      SOURCE_HEIGHT,
+    ),
   };
 }
 
@@ -626,5 +632,9 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     ["high-resolution crop", "23_high_resolution_crop.png"],
   ])("detects a genuine %s", async (_label, cropFile) => {
     await expectPositiveCrop("01_original_scene.png", cropFile);
+  });
+
+  it("detects an off-center 65% crop using REAL-02 geometry (R02-GEO)", async () => {
+    await expectPositiveCrop("01_original_scene.png", "28_real02_geometry_crop.png");
   });
 });
