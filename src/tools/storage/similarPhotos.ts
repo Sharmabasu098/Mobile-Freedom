@@ -463,7 +463,7 @@ const ALIGNMENT_MAX_PIXEL_MAE = 0.06;
 const ALIGNMENT_MAX_TILE_MAE = 0.22;
 const ALIGNMENT_TRANSLATION_OFFSETS = [-0.02, 0, 0.02] as const;
 const ALIGNMENT_SCALE_OFFSETS = [-0.02, 0, 0.02] as const;
-const ALIGNMENT_MAX_CANDIDATES = 32;
+const ALIGNMENT_MAX_CANDIDATES = 48;
 
 function readNormalizedAlignmentPixels(
   context: CanvasRenderingContext2D,
@@ -725,17 +725,38 @@ async function compareHashSets(
     })).sort((a,b)=>a.rejectionScore-b.rejectionScore)[0];
     const independentCandidates=selectSpatiallyIndependentRegions(candidates);
     let best: typeof measured[number] | undefined = candidates[0];
-    const proposalPool = (candidates.length > 0 ? candidates : measured.filter(value => value.aspectRatioPass))
-      .slice()
-      .sort((a,b) =>
+    // Coarse 9x8 hashes are useful for ranking, but a genuine crop can have
+    // a poor score on one descriptor (REAL-02: dHash 13, aHash 20, MAE 0.1227)
+    // while its geometry is correct. Build a diverse bounded proposal set:
+    // independently retain the strongest candidates for each signal, then
+    // deduplicate by region identity before the expensive pixel alignment.
+    const eligibleProposals = candidates.length > 0
+      ? candidates
+      : measured.filter(value => value.aspectRatioPass);
+    const proposalRankings = [
+      eligibleProposals.slice().sort((a, b) => a.pixelsDistance - b.pixelsDistance),
+      eligibleProposals.slice().sort((a, b) => a.distance - b.distance),
+      eligibleProposals.slice().sort((a, b) => a.averageDistance - b.averageDistance),
+      eligibleProposals.slice().sort((a, b) =>
         (a.pixelsDistance / ALIGNMENT_MAX_PIXEL_MAE) +
         (a.averageDistance / MAX_AVERAGE_HASH_DISTANCE) +
         (a.distance / Math.max(1, maxDistance)) -
         ((b.pixelsDistance / ALIGNMENT_MAX_PIXEL_MAE) +
         (b.averageDistance / MAX_AVERAGE_HASH_DISTANCE) +
-        (b.distance / Math.max(1, maxDistance)))
-      )
-      .slice(0, ALIGNMENT_MAX_CANDIDATES);
+        (b.distance / Math.max(1, maxDistance))),
+      ),
+    ];
+    const proposalPool: typeof measured = [];
+    const seenProposalRegions = new Set<RegionHash>();
+    const proposalsPerRanking = ALIGNMENT_MAX_CANDIDATES / proposalRankings.length;
+    for (const ranking of proposalRankings) {
+      for (const proposal of ranking.slice(0, proposalsPerRanking)) {
+        if (!seenProposalRegions.has(proposal.region)) {
+          seenProposalRegions.add(proposal.region);
+          proposalPool.push(proposal);
+        }
+      }
+    }
     const alignmentAttempted = proposalPool.length;
     const aligned = await verifyAlignedCropCandidates(
       candidateImage.file,
