@@ -29,6 +29,7 @@ export interface SimilarPhotoDirectionalDiagnostic {
  spatialTilePass:number;spatialTileFail:number;allConditionsPass:number;independentRegionCount:number;
  bestRejectedCandidate?:{x:number;y:number;width:number;height:number;sourcePixelX:number;sourcePixelY:number;sourcePixelWidth:number;sourcePixelHeight:number;dHashDistance:number;averageHashDistance:number;aspectRatioErrorPercent:number;failedChecks:string[];candidateDHash:string;regionDHash:string;dHashDifferenceBitPositions:number[]};
  selectedCandidate?:{x:number;y:number;width:number;height:number;dHashDistance:number;averageHashDistance:number;normalizedPixelMae:number;spatialTileMatches:number;spatialTileRows:number;spatialTileColumns:number;aspectRatioErrorPercent:number};
+ alignmentVerification?:{attemptedCandidates:number;translationOffsetsPercent:number[];scaleOffsetsPercent:number[];maximumPixelMae:number;selectedPixelMae?:number;matchingTiles?:number;decision:"ACCEPT"|"REJECT"|"NOT_RUN"};
  decision:"ACCEPT"|"REJECT";
  earlyRejectionReason?:"IMAGE_AREA_RATIO_BELOW_MINIMUM";
  imageAreaRatio?:number;
@@ -457,12 +458,149 @@ export async function calculateImageDifferenceHash(
  * A whole-image hash match alone is never sufficient. This remains a
  * heuristic and is not proof of identity.
  */
-function compareHashSets(
+const ALIGNMENT_SAMPLE_SIZE = 24;
+const ALIGNMENT_MAX_PIXEL_MAE = 0.06;
+const ALIGNMENT_MAX_TILE_MAE = 0.22;
+const ALIGNMENT_TRANSLATION_OFFSETS = [-0.02, 0, 0.02] as const;
+const ALIGNMENT_SCALE_OFFSETS = [-0.02, 0, 0.02] as const;
+const ALIGNMENT_MAX_CANDIDATES = 8;
+
+function readNormalizedAlignmentPixels(
+  context: CanvasRenderingContext2D,
+): number[] {
+  const data = context.getImageData(0, 0, ALIGNMENT_SAMPLE_SIZE, ALIGNMENT_SAMPLE_SIZE).data;
+  const grayscale: number[] = [];
+  for (let index = 0; index < data.length; index += 4) {
+    grayscale.push(
+      0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2],
+    );
+  }
+  return normalizePixels(grayscale);
+}
+
+function measureHighResolutionAlignmentTiles(
+  first: number[],
+  second: number[],
+): { matchingTiles: number; passes: boolean } {
+  const tileWidth = ALIGNMENT_SAMPLE_SIZE / 3;
+  const tileHeight = ALIGNMENT_SAMPLE_SIZE / 2;
+  let matchingTiles = 0;
+  for (let tileY = 0; tileY < 2; tileY += 1) {
+    for (let tileX = 0; tileX < 3; tileX += 1) {
+      let total = 0;
+      for (let y = 0; y < tileHeight; y += 1) {
+        for (let x = 0; x < tileWidth; x += 1) {
+          const index = (tileY * tileHeight + y) * ALIGNMENT_SAMPLE_SIZE + tileX * tileWidth + x;
+          total += Math.abs(first[index] - second[index]);
+        }
+      }
+      if (total / (tileWidth * tileHeight) <= ALIGNMENT_MAX_TILE_MAE) {
+        matchingTiles += 1;
+      }
+    }
+  }
+  return { matchingTiles, passes: matchingTiles === 6 };
+}
+
+/**
+ * Bounded second-stage verification. The coarse 9×8 matcher only proposes
+ * up to eight geometry candidates; this stage re-decodes the pair and tests
+ * a small 3×3 translation/scale neighborhood at 24×24 resolution.
+ * Acceptance requires both full-frame pixel agreement and all six spatial
+ * tiles, so a compact repeated logo cannot independently pass.
+ */
+async function verifyAlignedCropCandidates(
+  candidateFile: File,
+  sourceFile: File,
+  sourceWidth: number,
+  sourceHeight: number,
+  candidates: Array<{ region: RegionHash }>,
+): Promise<{ pixelMae: number; matchingTiles: number; region: RegionHash } | undefined> {
+  if (typeof createImageBitmap !== "function" || candidates.length === 0) return undefined;
+  const [candidateBitmap, sourceBitmap] = await Promise.all([
+    createImageBitmap(candidateFile),
+    createImageBitmap(sourceFile),
+  ]);
+  let canvas: HTMLCanvasElement | undefined;
+  try {
+    canvas = document.createElement("canvas");
+    canvas.width = ALIGNMENT_SAMPLE_SIZE;
+    canvas.height = ALIGNMENT_SAMPLE_SIZE;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return undefined;
+
+    context.drawImage(candidateBitmap, 0, 0, ALIGNMENT_SAMPLE_SIZE, ALIGNMENT_SAMPLE_SIZE);
+    const candidatePixels = readNormalizedAlignmentPixels(context);
+    let best: { pixelMae: number; matchingTiles: number; region: RegionHash } | undefined;
+
+    for (const item of candidates.slice(0, ALIGNMENT_MAX_CANDIDATES)) {
+      const region = item.region;
+      const baseX = region.x * sourceWidth;
+      const baseY = region.y * sourceHeight;
+      const baseWidth = region.width * sourceWidth;
+      const baseHeight = region.height * sourceHeight;
+      for (const scaleOffset of ALIGNMENT_SCALE_OFFSETS) {
+        const sampleWidth = baseWidth * (1 + scaleOffset);
+        const sampleHeight = baseHeight * (1 + scaleOffset);
+        for (const translateY of ALIGNMENT_TRANSLATION_OFFSETS) {
+          for (const translateX of ALIGNMENT_TRANSLATION_OFFSETS) {
+            const sampleX = Math.max(0, Math.min(
+              sourceWidth - sampleWidth,
+              baseX + translateX * sourceWidth,
+            ));
+            const sampleY = Math.max(0, Math.min(
+              sourceHeight - sampleHeight,
+              baseY + translateY * sourceHeight,
+            ));
+            if (sampleWidth <= 0 || sampleHeight <= 0) continue;
+            context.drawImage(
+              sourceBitmap,
+              sampleX, sampleY, sampleWidth, sampleHeight,
+              0, 0, ALIGNMENT_SAMPLE_SIZE, ALIGNMENT_SAMPLE_SIZE,
+            );
+            const sourcePixels = readNormalizedAlignmentPixels(context);
+            const mae = pixelMaeHighResolution(candidatePixels, sourcePixels);
+            const tiles = measureHighResolutionAlignmentTiles(candidatePixels, sourcePixels);
+            if (
+              !best ||
+              mae < best.pixelMae ||
+              (mae === best.pixelMae && tiles.matchingTiles > best.matchingTiles)
+            ) {
+              best = { pixelMae: mae, matchingTiles: tiles.matchingTiles, region };
+            }
+          }
+        }
+      }
+    }
+    return best &&
+      best.pixelMae <= ALIGNMENT_MAX_PIXEL_MAE &&
+      best.matchingTiles === 6
+      ? best
+      : undefined;
+  } finally {
+    candidateBitmap.close();
+    sourceBitmap.close();
+    if (canvas) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+  }
+}
+
+function pixelMaeHighResolution(first: number[], second: number[]): number {
+  let total = 0;
+  for (let index = 0; index < first.length; index += 1) {
+    total += Math.abs(first[index] - second[index]);
+  }
+  return total / first.length;
+}
+
+async function compareHashSets(
   first: ImageHashSet,
   second: ImageHashSet,
   maxDistance: number,
   onDiagnostic?: SimilarPhotoDiagnosticHandler,
-): CropMatch | undefined {
+): Promise<CropMatch | undefined> {
   const smallerArea = Math.min(first.width * first.height, second.width * second.height);
   const largerArea = Math.max(first.width * first.height, second.width * second.height);
   const imageAreaRatio = smallerArea / largerArea;
@@ -538,7 +676,7 @@ function compareHashSets(
   const directionalMatch = (
     candidateImage: ImageHashSet,
     sourceImage: ImageHashSet,
-  ): CropMatch | undefined => {
+  ): Promise<CropMatch | undefined> => {
     const candidateRegions = sourceImage.regions;
     const candidateAspect = candidateImage.width / candidateImage.height;
     const measured = candidateRegions.map(region => {
@@ -586,7 +724,35 @@ function compareHashSets(
       Math.max(0,v.pixelsDistance-MAX_NORMALIZED_PIXEL_MAE)/MAX_NORMALIZED_PIXEL_MAE
     })).sort((a,b)=>a.rejectionScore-b.rejectionScore)[0];
     const independentCandidates=selectSpatiallyIndependentRegions(candidates);
-    const best=candidates[0];
+    let best=candidates[0];
+    let alignmentAttempted = 0;
+    let aligned: Awaited<ReturnType<typeof verifyAlignedCropCandidates>>;
+    if (!best) {
+      // Candidate proposal is intentionally permissive only at this stage;
+      // no candidate can pass without the 24×24 full-frame and six-tile gate.
+      const geometryShortlist = measured
+        .filter(value => value.aspectRatioPass)
+        .sort((a, b) =>
+          (a.pixelsDistance / ALIGNMENT_MAX_PIXEL_MAE) +
+          (a.averageDistance / MAX_AVERAGE_HASH_DISTANCE) +
+          (a.distance / Math.max(1, maxDistance)) -
+          ((b.pixelsDistance / ALIGNMENT_MAX_PIXEL_MAE) +
+          (b.averageDistance / MAX_AVERAGE_HASH_DISTANCE) +
+          (b.distance / Math.max(1, maxDistance)))
+        )
+        .slice(0, ALIGNMENT_MAX_CANDIDATES);
+      alignmentAttempted = geometryShortlist.length;
+      aligned = await verifyAlignedCropCandidates(
+        candidateImage.file,
+        sourceImage.file,
+        sourceImage.width,
+        sourceImage.height,
+        geometryShortlist,
+      );
+      if (aligned) {
+        best = measured.find(value => value.region === aligned!.region);
+      }
+    }
     const summary=(v:typeof measured[number])=>({x:Number(v.region.x.toFixed(4)),y:Number(v.region.y.toFixed(4)),
       width:Number(v.region.width.toFixed(4)),height:Number(v.region.height.toFixed(4)),
       dHashDistance:v.distance,averageHashDistance:v.averageDistance,
@@ -613,7 +779,16 @@ function compareHashSets(
       dHashDifferenceBitPositions:Array.from({length:64},(_,index)=>index)
         .filter(index=>candidateImage.wholeImageHash[index]!==bestRejected.region.hash[index])}:undefined,
       selectedCandidate:best?summary(best):undefined,
-      decision:independentCandidates.length>=MIN_INDEPENDENT_REGIONS?"ACCEPT":"REJECT"
+      alignmentVerification: alignmentAttempted > 0 ? {
+        attemptedCandidates: alignmentAttempted,
+        translationOffsetsPercent: [...ALIGNMENT_TRANSLATION_OFFSETS].map(value => value * 100),
+        scaleOffsetsPercent: [...ALIGNMENT_SCALE_OFFSETS].map(value => value * 100),
+        maximumPixelMae: ALIGNMENT_MAX_PIXEL_MAE,
+        selectedPixelMae: aligned?.pixelMae,
+        matchingTiles: aligned?.matchingTiles,
+        decision: aligned ? "ACCEPT" : "REJECT",
+      } : { attemptedCandidates: 0, translationOffsetsPercent: [], scaleOffsetsPercent: [], maximumPixelMae: ALIGNMENT_MAX_PIXEL_MAE, decision: "NOT_RUN" },
+      decision: aligned ? "ACCEPT" : independentCandidates.length>=MIN_INDEPENDENT_REGIONS?"ACCEPT":"REJECT"
     });
     console.info("[M9 crop geometry evidence]",{candidate:candidateImage.file.name,source:sourceImage.file.name,
       totalGeneratedRegions:measured.length,dHashPass:measured.filter(v=>v.dHashPass).length,
@@ -623,6 +798,7 @@ function compareHashSets(
 
     // A candidate is accepted only when its pixel-level and distributed-tile
     // evidence pass, and its independent-region count meets the diagnostic minimum.
+    if (aligned && best) return { distance: best.distance, matches: 1 };
     if (!best || independentCandidates.length < MIN_INDEPENDENT_REGIONS) return undefined;
     return { distance: best.distance, matches: independentCandidates.length };
   };
@@ -679,7 +855,7 @@ export async function findSimilarPhotos(
     ) {
       const first = hashedFiles[firstIndex];
       const second = hashedFiles[secondIndex];
-      const match = compareHashSets(
+      const match = await compareHashSets(
         first,
         second,
         maxDistance,
