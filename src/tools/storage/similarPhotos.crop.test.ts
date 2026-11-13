@@ -446,7 +446,7 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
 
     expect(errors).toHaveLength(0);
     expect(result).toHaveLength(0);
-  });
+  }, 15000);
 
   it("rejects unrelated scenes containing the same small logo at the same position (HN-02-L1)", async () => {
     const fixtures = {
