@@ -881,6 +881,27 @@ async function runTwoStagePixelTrace(
   }
 }
 
+
+
+// Android/browser performance snapshot. JS heap is reported only when the
+// browser exposes Chromium's non-standard performance.memory API.
+type M9PerformanceMemory = { usedJSHeapSize?: number; totalJSHeapSize?: number; jsHeapSizeLimit?: number };
+function readM9Memory(): M9PerformanceMemory | null {
+  const memory = (performance as Performance & { memory?: M9PerformanceMemory }).memory;
+  return memory ? { usedJSHeapSize: memory.usedJSHeapSize, totalJSHeapSize: memory.totalJSHeapSize, jsHeapSizeLimit: memory.jsHeapSizeLimit } : null;
+}
+function formatM9MiB(bytes?: number): string {
+  return typeof bytes === "number" ? (bytes / (1024 * 1024)).toFixed(1) + " MiB" : "unavailable";
+}
+function m9DeviceSnapshot(): string[] {
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  return [
+    "DEVICE / BROWSER: " + navigator.userAgent,
+    "Logical CPU cores: " + (navigator.hardwareConcurrency ?? "unavailable"),
+    "Reported device RAM: " + (nav.deviceMemory ? nav.deviceMemory + " GiB (browser estimate)" : "unavailable"),
+  ];
+}
+
 fileInput.addEventListener("change", () => {
   const files = Array.from(fileInput.files ?? []);
   filesInfo.textContent = files.length
@@ -919,9 +940,13 @@ runButton.addEventListener("click", async () => {
 
   const errors: string[] = [];
   const pairDiagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+  const runStartedAt = performance.now();
+  const heapBefore = readM9Memory();
+  let matcherDurationMs = 0;
+  let heapAfterMatcher: M9PerformanceMemory | null = null;
   try {
-    // The production API currently exposes an error callback and a
-    // maxDistance argument only. Do not invent a diagnostics callback.
+    // Time only the production matcher separately from the diagnostic report.
+    const matcherStartedAt = performance.now();
     const pairs = await findSimilarPhotos(
       files,
       (file, error) => errors.push(
@@ -930,6 +955,8 @@ runButton.addEventListener("click", async () => {
       undefined,
       diagnostic => pairDiagnostics.push(diagnostic),
     );
+    matcherDurationMs = performance.now() - matcherStartedAt;
+    heapAfterMatcher = readM9Memory();
 
     const pairKey = (first: string, second: string) => [first, second].sort().join(" ↔ ");
     const detectedKeys = new Set(pairs.map(pair => pairKey(pair.first.name, pair.second.name)));
@@ -955,7 +982,23 @@ runButton.addEventListener("click", async () => {
     ].join("\n");
     status.className = `result ${passed ? "pass" : "fail"}`;
 
+    const inputBytes = files.reduce((sum, file) => sum + file.size, 0);
+    const elapsedAfterMatcherMs = performance.now() - runStartedAt;
+    const performanceLines = [
+      "ANDROID / BROWSER PERFORMANCE",
+      ...m9DeviceSnapshot(),
+      "Input files total: " + formatBytes(inputBytes),
+      "Production matcher time (decode + matching): " + matcherDurationMs.toFixed(1) + " ms",
+      "Full regression + diagnostic report time: " + elapsedAfterMatcherMs.toFixed(1) + " ms (includes extra diagnostic canvases and visual investigations)",
+      "JS heap before matcher: " + formatM9MiB(heapBefore?.usedJSHeapSize),
+      "JS heap after matcher: " + formatM9MiB(heapAfterMatcher?.usedJSHeapSize),
+      "JS heap limit: " + formatM9MiB(heapAfterMatcher?.jsHeapSizeLimit),
+      "Memory note: heap readings are optional browser snapshots, not peak total process/RAM usage. Canvas, decoded bitmap, and native browser memory may not be included.",
+      "Stability: " + (errors.length ? "decode errors reported" : "no decode errors reported") + "; page remained responsive if this result rendered.",
+    ];
     diagnostics.textContent = [
+      ...performanceLines,
+      "",
       pairs.length ? pairs.map(pair => `${pair.first.name} ↔ ${pair.second.name}: SIMILAR; distance ${pair.distance}/64; estimated similarity ${pair.similarityPercent}%`).join("\n") : "Matcher returned no similar pairs.",
       threePhotoRegression ? "Expected matrix: only 01_original_photo.png ↔ 02_center_crop_25pct.png may be SIMILAR. Both pairs involving 12_unrelated_control_photo.png must be NOT SIMILAR." : "",
       pairDiagnostics.length
