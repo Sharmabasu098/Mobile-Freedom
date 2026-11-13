@@ -384,6 +384,31 @@ function createLogoScene(seed: number, x: number, y: number, size: number): Rast
   return raster;
 }
 
+
+/**
+ * A larger shared textured patch embedded in independently generated scenes.
+ * This is harder than a tiny logo: it checks that a matcher does not treat
+ * one repeated local object/texture as proof that two complete photos match.
+ */
+function createSharedPatchScene(seed: number, x: number, y: number, size: number): Raster {
+  const raster = createScene(seed);
+  for (let row = 0; row < size; row += 1) {
+    for (let column = 0; column < size; column += 1) {
+      // A deterministic multi-frequency texture, identical in every host scene.
+      const value = 24 + ((row * 37 + column * 53 + row * column * 11) % 208);
+      const px = x + column;
+      const py = y + row;
+      if (px < 0 || py < 0 || px >= raster.width || py >= raster.height) continue;
+      const offset = (py * raster.width + px) * 4;
+      raster.pixels[offset] = value;
+      raster.pixels[offset + 1] = Math.round(value * 0.82);
+      raster.pixels[offset + 2] = Math.round(value * 0.64);
+      raster.pixels[offset + 3] = 255;
+    }
+  }
+  return raster;
+}
+
 describe("M9 crop detection — real pixel-geometry fixtures", () => {
   it("builds crop fixtures from copied regions of the same source raster", () => {
     const fixtures = createFixtures();
@@ -634,4 +659,41 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
   it("detects an off-center 65% crop using REAL-02 geometry (R02-GEO)", async () => {
     await expectPositiveCrop("01_original_scene.png", "28_real02_geometry_crop.png");
   });
+
+  it("HN-03 rejects unrelated photos sharing the same large textured patch at the same position", async () => {
+    const fixtures = {
+      "29_shared_patch_scene_a.png": createSharedPatchScene(0x10293847, 30, 22, 32),
+      "30_shared_patch_scene_b.png": createSharedPatchScene(0x56473829, 30, 22, 32),
+    };
+    mockImageDecoding(fixtures);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("29_shared_patch_scene_a.png"), createImageFile("30_shared_patch_scene_b.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT")).toBe(true);
+  });
+
+  it("HN-04 rejects unrelated photos sharing the same textured patch at different positions and scales", async () => {
+    const fixtures = {
+      "31_shared_patch_scene_a.png": createSharedPatchScene(0x31415926, 12, 10, 28),
+      "32_shared_patch_scene_b.png": createSharedPatchScene(0x27182818, 54, 38, 20),
+    };
+    mockImageDecoding(fixtures);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("31_shared_patch_scene_a.png"), createImageFile("32_shared_patch_scene_b.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT")).toBe(true);
+  });
+
 });
