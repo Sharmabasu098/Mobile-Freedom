@@ -179,3 +179,28 @@ Android/browser timing observations are now recorded, and the memory-measurement
 - **M9 milestone: NOT PASS — do not mark complete, merge PR #17, or change PR draft status yet.**
 
 This decision preserves the locked rule: M9 cannot pass until genuine-crop positives and unrelated hard negatives are reliably distinguished and every in-scope acceptance item is accounted for.
+
+
+## F. Final real-photo Android browser validation — 2026-11-14
+
+The user supplied Android Chrome screenshots from the deployed M9 browser regression harness for the exact REAL-01 and REAL-02 source/crop pairs. Both displayed **PASS — SIMILAR single-pair check**.
+
+| Case | Input files | Production matcher (decode + matching) | Full diagnostic report | Similarity result |
+|---|---:|---:|---:|---|
+| REAL-01 original + REAL-01-CROP65 | 456.0 KiB | 7,366.6 ms | 7,371.3 ms | SIMILAR; distance 8/64; estimated similarity 88% |
+| REAL-02 original + REAL-02-CROP65 | 350.7 KiB | 9,065.6 ms | 9,067.0 ms | SIMILAR; distance 6/64; estimated similarity 91% |
+
+Both browser result panels showed one expected similar pair and one detected similar pair. The diagnostics reported no decode errors and that the page remained responsive. These are user-observed single runs, not a multi-run latency benchmark.
+
+The screenshots also reported JS heap before/after of 9.5 MiB and a JS heap limit of 1,964.6 MiB. These are not process-RAM measurements.
+
+## G. Peak Android process-memory measurement decision
+
+The in-page browser harness reads Chromium's optional `performance.memory` values (`usedJSHeapSize`, `totalJSHeapSize`, and `jsHeapSizeLimit`) when available. The standard page context does not expose a trustworthy peak Android Chrome process-RAM or native bitmap/canvas/GPU-memory counter. A before/after JS heap snapshot cannot be relabeled as peak RAM.
+
+**Peak total Android process RAM: NOT MEASURED.**  
+**Peak native image/canvas/GPU memory: NOT MEASURED.**
+
+A credible measurement requires external Android process profiling (for example, Android Studio Memory Profiler or Android Debug Bridge process-memory sampling) while repeating the defined image test. The browser page alone cannot complete this measurement. Android Settings' general memory estimates or `navigator.deviceMemory` are not substitutes for a per-process peak measurement.
+
+**Step outcome:** Browser-side memory telemetry has been reviewed and its limit is documented. No peak-RAM compliance claim is made. To close this item with an actual number, an external Android profiling session is required; otherwise the acceptance record must retain Peak RAM as unmeasured/open.
