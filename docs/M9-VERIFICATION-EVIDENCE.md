@@ -143,3 +143,39 @@ These readings are optional JavaScript heap snapshots. They do **not** measure p
 ### Step 2 outcome
 
 Android/browser timing observations are now recorded, and the memory-measurement limitation is explicit. Peak process RAM remains an open measurement item; no claim of peak-RAM compliance is made. The locked M9 acceptance checklist remains for Step 3.
+
+
+## E. Locked M9 acceptance checklist — Step 3
+
+**Decision: M9 is NOT PASS yet.** The checklist below separates verified evidence from open acceptance gates. A green automated suite is necessary, but it is not treated as proof of every real-world requirement.
+
+| Locked requirement / safety condition | Current evidence | Final status |
+|---|---|---|
+| Exact duplicate identification | Existing SHA-256 exact-duplicate engine and its tests are part of the previously completed M8 verification. M8 is not being re-run or reopened. | **Previously verified in M8** |
+| Visually similar / genuine crop detection | 134/134 CI tests pass, including the listed crop geometries; user browser screenshots show small- and large-image genuine crop pairs returning SIMILAR. | **PASS for recorded fixtures and shown browser pairs; real-photo coverage still incomplete** |
+| Reliable distinction between similar and unrelated photos | FP-01/FP-02, A7, HN-02 L1–L5, HN-03 and HN-04 all pass in CI. | **PASS for recorded hard-negative fixtures; full real-photo browser matrix still open** |
+| REAL-01 and REAL-02 original photo files | REAL-02 crop geometry fixture passes; the exact original REAL-01/REAL-02 binary photo pairs have not been independently replayed in the browser during this final session. | **OPEN** |
+| Similar video analysis, where technically appropriate | Current M9 browser regression and matcher evidence reviewed here is image/crop-focused. No verified video-frame similarity implementation or video regression suite has been established in this evidence set. | **OPEN — capability/scope decision required; do not claim video support** |
+| No automatic deletion based only on similarity | Browser harness explicitly states files are not uploaded, modified, or deleted; existing storage tests include a no-modification assertion. | **PASS for the tested flows** |
+| Privacy-first local processing | Browser harness processes selected files locally and reports no upload; user screenshots show this notice and successful local execution. | **PASS for browser harness flow** |
+| Performance on Android/browser | Two successful timing observations are archived in Section D. They are single-session observations, not a repeatable benchmark matrix. | **PARTIAL** |
+| Peak process RAM / native memory | JS heap snapshots are not total process memory; no peak process/native/canvas memory measurement is available. | **OPEN** |
+| CI, typecheck, production build, artifact | Run #376: 10/10 test files, 134/134 tests, typecheck/build/artifact verification all passed on code commit `35c2759...`. Subsequent commits only added this documentation. | **PASS for tested code commit** |
+| Main branch protection / isolated work | PR #17 remains open, Draft, and unmerged; base SHA remains `a76cb20612e38556e199e0c1a5f130e7613dea56`. | **PASS** |
+
+### Final blockers before M9 can be marked PASS
+
+1. Run the exact REAL-01 and REAL-02 original/crop pairs in the browser harness and preserve their complete pair diagnostics. If the original files are unavailable, record that limitation rather than substituting a synthetic fixture.
+2. Complete an Android performance pass with a repeatable set of image sizes and a credible peak process-memory measurement. If the platform cannot expose peak process RAM, explicitly define an accepted alternative measurement and its limitations before claiming compliance.
+3. Resolve the video-analysis acceptance scope: either implement and test a technically appropriate video-frame similarity path, or obtain an explicit project-scope decision that video similarity is deferred from M9. Until then, video capability is not verified.
+4. Re-run/confirm the complete CI suite on the final code revision after any code change. Documentation-only commits do not alter matcher behavior, but they must not be confused with a new matcher test run.
+
+### Final decision
+
+- Genuine crop fixture evidence: **PASS**.
+- Recorded hard-negative regression evidence: **PASS**.
+- User-observed small/large browser crop pairs: **PASS**.
+- Exact real-photo validation, peak-memory evidence, and video scope: **OPEN**.
+- **M9 milestone: NOT PASS — do not mark complete, merge PR #17, or change PR draft status yet.**
+
+This decision preserves the locked rule: M9 cannot pass until genuine-crop positives and unrelated hard negatives are reliably distinguished and every in-scope acceptance item is accounted for.
