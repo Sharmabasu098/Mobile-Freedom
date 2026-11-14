@@ -97,3 +97,49 @@ Do not delete, skip, weaken, or loosen any existing Genuine Crop, FP-01/FP-02, A
 
 **Step 1 outcome:** Existing Genuine Crop and Hard Negative PASS evidence has been consolidated in this file.  
 **M9 milestone status:** **NOT PASS — final verification is still in progress.**
+
+
+## D. Android/browser performance record — Step 2
+
+**Measurement type:** User-observed browser harness measurements from supplied Android screenshots. These are observations, not a controlled benchmark across multiple devices or repeated runs.
+
+### Captured device/browser context
+
+- Device platform shown in the browser user-agent: Android 10.
+- Browser: Chrome 151 (Android WebKit user-agent string).
+- Logical CPU cores reported by the browser: 8.
+- Device RAM reported by the browser: 8 GiB (browser estimate, not a hardware-level measurement).
+
+### Observed runs
+
+| Case | Input files total | Production matcher (decode + matching) | Full regression + diagnostic report |
+|---|---:|---:|---:|
+| Small original + 65% center crop | 226.0 KiB | 7,356.7 ms | 7,360.2 ms |
+| Large original + 65% center crop | 2.98 MiB | 6,744.8 ms | 6,755.4 ms |
+
+Both screenshots displayed **PASS — SIMILAR single-pair check**, with 1 expected similar pair and 1 detected similar pair.
+
+### Memory readings and their limits
+
+The supplied small-image screenshot reported:
+
+- JS heap before matcher: 9.5 MiB.
+- JS heap after matcher: 9.5 MiB.
+- Browser-reported JS heap limit: 1,964.6 MiB.
+
+These readings are optional JavaScript heap snapshots. They do **not** measure peak total Android process RAM and may exclude native image-decoder allocations, decoded bitmap storage, canvas backing memory, GPU memory, and other browser-process overhead. Therefore:
+
+- **Peak RAM: NOT MEASURED.**
+- **Native/canvas/decoded-bitmap peak memory: NOT MEASURED.**
+- The unchanged 9.5 MiB JS heap reading must not be presented as proof of low total memory use.
+
+### Performance interpretation
+
+- The observed matcher completed both supplied image pairs successfully.
+- The measured times are several seconds per pair on this browser/device session. They are recorded as a baseline, not as proof that a predefined latency target has been met.
+- The screenshots represent one observed run per image-size case; repeatability, thermal throttling, background load, and other Android devices have not been characterized.
+- The 20 MiB per-file safety limit is enforced by the implementation. The observed 2.98 MiB pair is below that per-file limit; this does not validate performance at the 20 MiB boundary.
+
+### Step 2 outcome
+
+Android/browser timing observations are now recorded, and the memory-measurement limitation is explicit. Peak process RAM remains an open measurement item; no claim of peak-RAM compliance is made. The locked M9 acceptance checklist remains for Step 3.
