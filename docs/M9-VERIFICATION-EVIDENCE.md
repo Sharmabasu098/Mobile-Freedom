@@ -155,7 +155,7 @@ Android/browser timing observations are now recorded, and the memory-measurement
 | Visually similar / genuine crop detection | 134/134 CI tests pass, including the listed crop geometries; user browser screenshots show small- and large-image genuine crop pairs returning SIMILAR. | **PASS for recorded fixtures and shown browser pairs; real-photo coverage still incomplete** |
 | Reliable distinction between similar and unrelated photos | FP-01/FP-02, A7, HN-02 L1–L5, HN-03 and HN-04 all pass in CI. | **PASS for recorded hard-negative fixtures; full real-photo browser matrix still open** |
 | REAL-01 and REAL-02 original photo files | REAL-02 crop geometry fixture passes; the exact original REAL-01/REAL-02 binary photo pairs have not been independently replayed in the browser during this final session. | **OPEN** |
-| Similar video analysis, where technically appropriate | Current M9 browser regression and matcher evidence reviewed here is image/crop-focused. No verified video-frame similarity implementation or video regression suite has been established in this evidence set. | **OPEN — capability/scope decision required; do not claim video support** |
+| Similar video analysis, where technically appropriate | The current M9 matcher and regression harness are image-file based. No video-frame extraction, frame matching, video resource lifecycle, or video regression suite exists. For this milestone, video similarity is judged not technically appropriate to add safely to the image matcher without a separate design and validation effort. | **SCOPE DECISION COMPLETE — video similarity deferred; M9 does not claim video support** |
 | No automatic deletion based only on similarity | Browser harness explicitly states files are not uploaded, modified, or deleted; existing storage tests include a no-modification assertion. | **PASS for the tested flows** |
 | Privacy-first local processing | Browser harness processes selected files locally and reports no upload; user screenshots show this notice and successful local execution. | **PASS for browser harness flow** |
 | Performance on Android/browser | Two successful timing observations are archived in Section D. They are single-session observations, not a repeatable benchmark matrix. | **PARTIAL** |
@@ -167,15 +167,18 @@ Android/browser timing observations are now recorded, and the memory-measurement
 
 1. Run the exact REAL-01 and REAL-02 original/crop pairs in the browser harness and preserve their complete pair diagnostics. If the original files are unavailable, record that limitation rather than substituting a synthetic fixture.
 2. Complete an Android performance pass with a repeatable set of image sizes and a credible peak process-memory measurement. If the platform cannot expose peak process RAM, explicitly define an accepted alternative measurement and its limitations before claiming compliance.
-3. Resolve the video-analysis acceptance scope: either implement and test a technically appropriate video-frame similarity path, or obtain an explicit project-scope decision that video similarity is deferred from M9. Until then, video capability is not verified.
-4. Re-run/confirm the complete CI suite on the final code revision after any code change. Documentation-only commits do not alter matcher behavior, but they must not be confused with a new matcher test run.
+3. Video scope decision: **resolved**. Video similarity is deferred from this image-focused M9 deliverable because a safe implementation requires a separate frame-sampling, matching, resource-management, and regression design. No video capability is claimed. This does not rename, remove, or skip any locked roadmap milestone; video work remains a separately tracked follow-up for roadmap planning.
+4. Complete the repeatable Android performance and peak-memory assessment to the extent available on the user's Android-only setup. If credible peak process RAM cannot be measured, preserve it as an explicit limitation and do not claim peak-RAM compliance.
+5. Re-run/confirm the complete CI suite on the final code revision after any code change. Documentation-only commits do not alter matcher behavior, but they must not be confused with a new matcher test run.
 
 ### Final decision
 
 - Genuine crop fixture evidence: **PASS**.
 - Recorded hard-negative regression evidence: **PASS**.
 - User-observed small/large browser crop pairs: **PASS**.
-- Exact real-photo validation, peak-memory evidence, and video scope: **OPEN**.
+- Exact real-photo validation: **PASS based on the user-observed REAL-01 and REAL-02 browser runs in Section F**.
+- Video scope: **DECIDED — deferred from M9; no video support claimed**.
+- Peak process-memory evidence: **OPEN / NOT MEASURED**.
 - **M9 milestone: NOT PASS — do not mark complete, merge PR #17, or change PR draft status yet.**
 
 This decision preserves the locked rule: M9 cannot pass until genuine-crop positives and unrelated hard negatives are reliably distinguished and every in-scope acceptance item is accounted for.
@@ -204,3 +207,19 @@ The in-page browser harness reads Chromium's optional `performance.memory` value
 A credible measurement requires external Android process profiling (for example, Android Studio Memory Profiler or Android Debug Bridge process-memory sampling) while repeating the defined image test. The browser page alone cannot complete this measurement. Android Settings' general memory estimates or `navigator.deviceMemory` are not substitutes for a per-process peak measurement.
 
 **Step outcome:** Browser-side memory telemetry has been reviewed and its limit is documented. No peak-RAM compliance claim is made. To close this item with an actual number, an external Android profiling session is required; otherwise the acceptance record must retain Peak RAM as unmeasured/open.
+
+
+## H. M9 video-scope decision — 2026-11-14
+
+**Decision: Defer video similarity from the current M9 deliverable.**
+
+Reasoning:
+- M9's implemented and tested pipeline accepts image files and performs image/crop comparisons.
+- The repository evidence reviewed for this decision contains no verified video-frame extraction, frame-sampling policy, temporal/frame matching algorithm, video decode/resource lifecycle, or video-specific regression suite.
+- Adding a superficial frame sampler without defined sampling, temporal coverage, memory bounds, cancellation, decoder cleanup, and hard-negative tests would create an unverified feature and could destabilize the image matcher.
+- The user's current development workflow is Android-only, and no external Android process profiler is available for measuring peak native memory. Introducing video decoding now would increase memory and stability risk without a way to validate it adequately.
+
+Therefore, video similarity is **deferred as separate future work** and is not claimed as an M9 capability. This decision does not delete, rename, merge, or skip any of the locked roadmap's 23 milestones; any future video work must be placed through the roadmap's normal planning process.
+
+**Step 3 video-scope subtask: COMPLETE.**  
+**M9 overall status: NOT PASS — peak process RAM remains unmeasured and the final acceptance checklist still has open performance limitations.**
