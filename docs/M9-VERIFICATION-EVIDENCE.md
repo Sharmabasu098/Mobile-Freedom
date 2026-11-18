@@ -275,10 +275,10 @@ The user supplied screenshots showing the REAL-02 browser regression result and 
 - These are Chrome process-level RSS/PSS readings, not total phone RAM usage.
 - The highest values are maxima among the 30 observed samples. Discrete sampling can miss brief peaks between readings; do not describe these values as guaranteed absolute peaks.
 - RSS includes resident shared pages; PSS apportions shared pages. They are different accounting measures and must not be added together.
-- The supplied screenshots establish the completed REAL-02 browser result and the 30-reading process-memory output, but do not conclusively establish that the sampling interval overlapped active image decoding/matching. Therefore, this is recorded as a REAL-02-associated Chrome process-memory observation, not proof of peak memory during active processing.
+- The user confirms that the 30-reading REAL-02 sampling was performed while the browser test's image processing was active. This supports recording the samples as an active-processing observation for this run. The readings still represent approximately one-second snapshots, so a brief peak between samples may have been missed; they do not establish a guaranteed instantaneous peak or isolate native/canvas/GPU allocations.
 - The readings do not separately identify canvas, decoded bitmap, GPU, or other native allocation peaks.
 - This is one observed run, not a repeatability study across image sizes or devices.
 
-**Step outcome:** REAL-02's 30 Chrome process-memory readings are archived. The result is useful sampled process-memory evidence, but it does not establish an instantaneous peak or peak memory during active matching. Native/canvas/GPU-specific peak remains unmeasured.
+**Step outcome:** REAL-02's 30 Chrome process-memory readings are archived as user-confirmed active-processing samples. They provide sampled process-memory evidence during this run, but do not establish an instantaneous peak. Native/canvas/GPU-specific peak remains unmeasured.
 
 **M9 overall status remains: NOT PASS.** The remaining performance acceptance work and all other locked acceptance gates must still be satisfied.
