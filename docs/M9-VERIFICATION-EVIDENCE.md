@@ -159,14 +159,14 @@ Android/browser timing observations are now recorded, and the memory-measurement
 | No automatic deletion based only on similarity | Browser harness explicitly states files are not uploaded, modified, or deleted; existing storage tests include a no-modification assertion. | **PASS for the tested flows** |
 | Privacy-first local processing | Browser harness processes selected files locally and reports no upload; user screenshots show this notice and successful local execution. | **PASS for browser harness flow** |
 | Performance on Android/browser | Two successful timing observations are archived in Section D. They are single-session observations, not a repeatable benchmark matrix. | **PARTIAL** |
-| Peak process RAM / native memory | REAL-01 Android Chrome PID 24624 was sampled 30 times at approximately 1-second intervals during the browser test. Observed RSS ranged from 312,341 KB to 330,521 KB; native/canvas/GPU-specific peak is not isolated by this measurement. | **PARTIAL — observed process RSS recorded; native/canvas/GPU peak remains unmeasured** |
+| Peak process RAM / native memory | REAL-01 has 30 sampled process readings (Section I). REAL-02 has 30 Chrome process readings (Section J), but the screenshots do not conclusively establish that sampling overlapped active image processing. Neither run isolates native/canvas/GPU peaks or guarantees an instantaneous absolute peak. | **PARTIAL — sampled process RSS/PSS recorded; peak timing and native/canvas/GPU peak remain unverified** |
 | CI, typecheck, production build, artifact | Run #376: 10/10 test files, 134/134 tests, typecheck/build/artifact verification all passed on code commit `35c2759...`. Subsequent commits only added this documentation. | **PASS for tested code commit** |
 | Main branch protection / isolated work | PR #17 remains open, Draft, and unmerged; base SHA remains `a76cb20612e38556e199e0c1a5f130e7613dea56`. | **PASS** |
 
 ### Final blockers before M9 can be marked PASS
 
 1. Run the exact REAL-01 and REAL-02 original/crop pairs in the browser harness and preserve their complete pair diagnostics. If the original files are unavailable, record that limitation rather than substituting a synthetic fixture.
-2. Complete the remaining Android performance pass with repeatable image-size runs. REAL-01 now has a 30-sample process-RSS observation archived in Section I; this is sampled RSS, not a guaranteed instantaneous peak and not a separate native/canvas/GPU allocation measurement.
+2. Complete the remaining Android performance pass with repeatable image-size runs. REAL-01 has 30 sampled process-RSS/PSS readings in Section I. REAL-02 has 30 process-memory readings in Section J, but the available screenshots do not prove that sampling overlapped active image processing. Both are sampled observations, not guaranteed instantaneous peaks or separate native/canvas/GPU allocation measurements.
 3. Video scope decision: **resolved**. Video similarity is deferred from this image-focused M9 deliverable because a safe implementation requires a separate frame-sampling, matching, resource-management, and regression design. No video capability is claimed. This does not rename, remove, or skip any locked roadmap milestone; video work remains a separately tracked follow-up for roadmap planning.
 4. Complete the repeatable Android performance and peak-memory assessment to the extent available on the user's Android-only setup. If credible peak process RAM cannot be measured, preserve it as an explicit limitation and do not claim peak-RAM compliance.
 5. Re-run/confirm the complete CI suite on the final code revision after any code change. Documentation-only commits do not alter matcher behavior, but they must not be confused with a new matcher test run.
@@ -250,5 +250,35 @@ The user confirmed that the REAL-01 browser regression was run on the Android ph
 - The 30 readings show RSS decreasing from the first observed sample and then remaining around 312–319 MB for the later samples. This one run is useful evidence, but it is not a repeatability study across image sizes or devices.
 
 **Step outcome:** REAL-01 process RSS sampling is now recorded. The peak-RAM evidence is upgraded from “not measured” to **sampled process RSS observed**; absolute peak and native/canvas/GPU-specific peak remain unmeasured.
+
+**M9 overall status remains: NOT PASS.** The remaining performance acceptance work and all other locked acceptance gates must still be satisfied.
+
+
+## J. REAL-02 Android Chrome process-memory sampling — 2026-11-18
+
+The user supplied screenshots showing the REAL-02 browser regression result and a completed 30-reading Android Debug Bridge dumpsys meminfo capture for Chrome PID `23575`. The 30 numbered readings are visible in the saved text-file output. The browser result screenshot separately shows the REAL-02 original/crop pair returning **PASS — SIMILAR**, with one expected pair and one detected pair, estimated similarity 91%, dHash distance 6/64, production matcher time 6,558.8 ms, and full diagnostic report time 6,564.7 ms.
+
+**Observed sample summary (30 readings):**
+
+| Metric | Observed value |
+|---|---:|
+| Sample count | 30 |
+| Sampling interval | Approximately 1 second (as configured by the command) |
+| Process | Chrome, PID `23575` |
+| Highest sampled RSS | **299,941 KB (about 292.91 MiB)** |
+| Lowest sampled RSS | **282,504 KB (about 275.88 MiB)** |
+| Highest sampled PSS | **193,673 KB (about 189.13 MiB)** |
+| Lowest sampled PSS | **176,378 KB (about 172.24 MiB)** |
+
+**Interpretation and limits:**
+
+- These are Chrome process-level RSS/PSS readings, not total phone RAM usage.
+- The highest values are maxima among the 30 observed samples. Discrete sampling can miss brief peaks between readings; do not describe these values as guaranteed absolute peaks.
+- RSS includes resident shared pages; PSS apportions shared pages. They are different accounting measures and must not be added together.
+- The supplied screenshots establish the completed REAL-02 browser result and the 30-reading process-memory output, but do not conclusively establish that the sampling interval overlapped active image decoding/matching. Therefore, this is recorded as a REAL-02-associated Chrome process-memory observation, not proof of peak memory during active processing.
+- The readings do not separately identify canvas, decoded bitmap, GPU, or other native allocation peaks.
+- This is one observed run, not a repeatability study across image sizes or devices.
+
+**Step outcome:** REAL-02's 30 Chrome process-memory readings are archived. The result is useful sampled process-memory evidence, but it does not establish an instantaneous peak or peak memory during active matching. Native/canvas/GPU-specific peak remains unmeasured.
 
 **M9 overall status remains: NOT PASS.** The remaining performance acceptance work and all other locked acceptance gates must still be satisfied.
