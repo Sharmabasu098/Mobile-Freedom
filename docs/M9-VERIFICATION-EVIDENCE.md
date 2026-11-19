@@ -377,3 +377,30 @@ Run the six measured cases in the matrix above (three REAL-01 and three REAL-02)
 
 **Approval recorded:** RSS 360 MiB; PSS 240 MiB; processing time 10 seconds; 3 runs per photo.  
 **M9 overall status:** **NOT PASS — approved criteria are recorded; the six-run repeatability verification remains to be completed.** PR #17 remains Draft and unmerged.
+
+
+## N. Owner-directed M9 closeout and performance exception — 2026-11-19
+
+The project owner gave an explicit final instruction to close M9 and merge PR #17 using the evidence already collected, without asking for further test runs.
+
+### Evidence retained at closeout
+
+- Latest branch CI run **#388** on commit `25d837a50faeb145725df4c1bde644afbb9cabf5`: SUCCESS; 10/10 test files, 134/134 tests, typecheck, production build, and artifact check passed.
+- User-confirmed three-photo browser matrix (Section K): original + genuine crop = SIMILAR; original + unrelated = NOT SIMILAR; crop + unrelated = NOT SIMILAR.
+- REAL-01 and REAL-02 browser single-pair observations: both returned SIMILAR; previously recorded production matcher times were within 10 seconds.
+- Previously recorded REAL-01 and REAL-02 30-sample Android memory observations are preserved in Sections I and J.
+- Additional REAL-01 renderer observation on 2026-11-19, PID 27658: 30 sequential `dumpsys meminfo` readings were captured while the user initiated the browser test. Maximum observed renderer RSS was **403,276 KB (about 394.9 MiB)** and maximum observed renderer PSS was **303,643 KB (about 296.1 MiB)**. The command's displayed `%TIME%` was constant across rows, so exact one-second spacing is not independently established by that output. This PID is explicitly the Chrome `sandboxed_process0` renderer, not a measurement of all Chrome processes combined.
+- The REAL-01 renderer sample maxima exceed the owner-approved Section M limits of RSS ≤360 MiB and PSS ≤240 MiB. The approved three-run repeatability matrix was not completed: this closeout has one additional REAL-01 renderer sampling session, not three qualifying runs per photo.
+
+### Owner's final disposition
+
+The owner explicitly directed that M9 be closed and PR #17 merged despite the remaining performance evidence gap. This is recorded as an **owner-approved milestone closeout with a documented performance exception**, not as proof that every Section M performance criterion passed.
+
+- Functional crop and hard-negative evidence: **ACCEPTED for M9 closeout**, based on automated CI and the user-confirmed browser matrix.
+- Performance time observations: **ACCEPTED with limitations**; prior observed REAL-01/REAL-02 matcher times were under 10 seconds, but three-run repeatability is incomplete.
+- Android memory acceptance: **EXCEPTION — NOT COMPLIANT in the latest REAL-01 renderer sample**; RSS and PSS exceeded the approved limits. Earlier REAL-01/REAL-02 Chrome process samples remain archived separately and are not silently replaced.
+- Video similarity: deferred; M9 does not claim video support (Section H).
+- No automatic deletion based only on similarity: preserved.
+- No regression tests or thresholds were weakened to obtain CI success.
+
+**Milestone disposition:** **M9 CLOSED — OWNER-APPROVED EXCEPTION.** This administrative closeout must not be represented as full technical compliance with the approved RSS/PSS limits or the six-run repeatability requirement.
