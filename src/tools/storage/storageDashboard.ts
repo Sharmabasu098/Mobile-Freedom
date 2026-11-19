@@ -25,6 +25,7 @@ export interface StorageCategorySummary {
 export interface StorageDashboardInput {
   analyzedFiles: FileAnalysisResult[];
   largeFileThresholdBytes?: number;
+  analysisFailures?: File[];
   duplicateGroups?: DuplicateFileGroup[];
   duplicateFailures?: File[];
   similarPairs?: SimilarPhotoPair[];
@@ -122,7 +123,7 @@ export function buildStorageDashboardSummary(
     );
 
   const duplicateGroups = input.duplicateGroups ?? [];
-  const duplicateFileNames = new Set<string>();
+  const duplicateFiles = new Set<File>();
   let estimatedDuplicateSavingsBytes = 0;
 
   for (const group of duplicateGroups) {
@@ -131,13 +132,13 @@ export function buildStorageDashboardSummary(
     }
     estimatedDuplicateSavingsBytes += group.potentialSavings;
     for (const file of group.files) {
-      duplicateFileNames.add(file.name);
+      duplicateFiles.add(file);
     }
   }
 
   return {
     analyzedFileCount: input.analyzedFiles.length,
-    analysisFailureCount: 0,
+    analysisFailureCount: input.analysisFailures?.length ?? 0,
     totalAnalyzedBytes,
     categories: Array.from(categoryTotals.values()),
     largeFileThresholdBytes: threshold,
@@ -145,7 +146,7 @@ export function buildStorageDashboardSummary(
     largeFileTotalBytes: largeFiles.reduce((sum, file) => sum + file.size, 0),
     largestFiles: largeFiles.slice(0, 10),
     exactDuplicateGroupCount: duplicateGroups.length,
-    exactDuplicateFileCount: duplicateFileNames.size,
+    exactDuplicateFileCount: duplicateFiles.size,
     estimatedDuplicateSavingsBytes,
     duplicateFailureCount: input.duplicateFailures?.length ?? 0,
     visuallySimilarPairCount: input.similarPairs?.length ?? 0,
