@@ -92,10 +92,12 @@ describe("buildStorageDashboardSummary", () => {
     const failedSimilar = new File(["x"], "decode-failed.jpg");
     const summary = buildStorageDashboardSummary({
       analyzedFiles: [result("ok.txt", 1, "text/plain")],
+      analysisFailures: [failedDuplicate],
       duplicateFailures: [failedDuplicate],
       similarFailures: [failedSimilar],
     });
 
+    expect(summary.analysisFailureCount).toBe(1);
     expect(summary.duplicateFailureCount).toBe(1);
     expect(summary.similarPhotoFailureCount).toBe(1);
   });
