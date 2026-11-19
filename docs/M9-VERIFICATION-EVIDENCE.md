@@ -304,3 +304,31 @@ This section records the user's confirmation that all three checks were complete
 
 **Step K outcome:** Three-photo real-browser matrix — **USER-CONFIRMED COMPLETE**.  
 **M9 overall status:** **NOT PASS pending final performance acceptance criteria/measurement limits being explicitly resolved.** This update does not authorize merging PR #17 or changing its Draft status.
+
+
+## L. Latest-commit CI confirmation — 2026-11-19
+
+The documentation update that recorded Section K was itself checked by GitHub Actions on the current branch head.
+
+- Workflow: **Mobile Freedom Build**
+- Run: [#386](https://github.com/Sharmabasu098/Mobile-Freedom/actions/runs/44522038132)
+- Tested commit: `d2de28a65e6f0600a2abe170a2bdf48ce2477062`
+- Result: **SUCCESS**
+- Job: TypeScript and Vite Build — completed successfully.
+- Test files: **10 passed / 10 total**.
+- Tests: **134 passed / 134 total**.
+- TypeScript typecheck: **PASS**.
+- Vite production build: **PASS**.
+- Build artifact check (`dist/index.html` exists and is non-empty): **PASS**.
+- The log again reports a 537.46 kB minified main JS chunk, above Vite's 500 kB advisory warning. This is a warning, not a build failure. Node 20 action deprecation warning is also non-blocking.
+
+This run confirms the latest branch head, including the documentation-only Section K update, still passes the full automated suite. The matcher source and regression assertions were not changed by that documentation-only commit.
+
+### Remaining performance gate — precise disposition
+
+The existing evidence includes successful real-device browser timings and 30-sample Android process RSS/PSS observations for both REAL-01 and REAL-02 while image processing was active. It does **not** define a previously approved maximum latency, maximum sampled process memory, repeat-count requirement, or device matrix. It also does not isolate canvas/decoded-bitmap/GPU/native peak memory.
+
+Those missing acceptance limits cannot responsibly be invented after the measurements, and the observed sample maxima cannot be relabeled as guaranteed absolute peaks. Therefore the remaining item is not a failed matcher test; it is an **unresolved performance acceptance decision**. To close it, the project owner must approve explicit limits and the exact measurement method (including whether sampled RSS/PSS is sufficient or native/canvas/GPU profiling is mandatory), then compare the already-recorded measurements against those limits and run only any additional measurements that the approved criteria require.
+
+**Step L outcome:** Latest-commit CI — **PASS (10/10 files, 134/134 tests, typecheck/build/artifact PASS)**.  
+**M9 overall status:** **NOT PASS — performance acceptance limits/method remain unresolved; no unsupported peak-memory compliance claim is made.**
