@@ -9,6 +9,7 @@ import {
 import {
   calculateImageDifferenceHash,
   findSimilarPhotos,
+  type SimilarPhotoDirectionalDiagnostic,
 } from "./similarPhotos";
 
 const SOURCE_WIDTH = 96;
@@ -119,23 +120,26 @@ function rasterToThumbnail(
   sourceY = 0,
   sourceWidth = raster.width,
   sourceHeight = raster.height,
+  outputWidth = 9,
+  outputHeight = 8,
 ): Uint8ClampedArray {
-  const output = new Uint8ClampedArray(9 * 8 * 4);
+  const output = new Uint8ClampedArray(outputWidth * outputHeight * 4);
 
-  for (let y = 0; y < 8; y += 1) {
-    for (let x = 0; x < 9; x += 1) {
-      const localX = Math.min(
-        sourceWidth - 1,
-        Math.floor(x * sourceWidth / 9),
-      );
-      const localY = Math.min(
-        sourceHeight - 1,
-        Math.floor(y * sourceHeight / 8),
-      );
-      const from = (
-        (sourceY + localY) * raster.width + sourceX + localX
-      ) * 4;
-      const to = (y * 9 + x) * 4;
+  for (let y = 0; y < outputHeight; y += 1) {
+    for (let x = 0; x < outputWidth; x += 1) {
+      // drawImage accepts fractional source rectangles. Sample each output
+      // pixel by its center, then clamp the absolute integer source coordinate
+      // so edge-aligned crops never produce a partial/out-of-range RGBA read.
+      const absoluteX = Math.max(0, Math.min(
+        raster.width - 1,
+        Math.floor(sourceX + (x + 0.5) * sourceWidth / outputWidth),
+      ));
+      const absoluteY = Math.max(0, Math.min(
+        raster.height - 1,
+        Math.floor(sourceY + (y + 0.5) * sourceHeight / outputHeight),
+      ));
+      const from = (absoluteY * raster.width + absoluteX) * 4;
+      const to = (y * outputWidth + x) * 4;
       output.set(raster.pixels.subarray(from, from + 4), to);
     }
   }
@@ -150,6 +154,11 @@ function createFixtures(): Record<string, Raster> {
   const leftCrop = cropRaster(original, 0, 8, 58, 56);
   const rightCrop = cropRaster(original, 38, 8, 58, 56);
   const tinyDetail = cropRaster(original, 43, 30, 10, 10);
+  const portraitCrop = cropRaster(original, 24, 4, 48, 64);
+  const landscapeCrop = cropRaster(original, 8, 18, 80, 36);
+  const moderateCrop = cropRaster(original, 8, 6, 80, 60);
+  const smallResolutionCrop = resizeRaster(centralCrop, 36, 27);
+  const highResolutionCrop = resizeRaster(centralCrop, 288, 216);
 
   return {
     "01_original_scene.png": original,
@@ -162,6 +171,13 @@ function createFixtures(): Record<string, Raster> {
     "08_brightness_crop.png": cropRaster(original, 12, 9, 72, 54, 0.78),
     "09_unrelated_scene.png": createScene(0x91a7b2c3),
     "10_tiny_detail_crop.png": tinyDetail,
+    "19_portrait_crop.png": portraitCrop,
+    "20_landscape_crop.png": landscapeCrop,
+    "21_moderate_crop.png": moderateCrop,
+    "22_small_resolution_crop.png": smallResolutionCrop,
+    "23_high_resolution_crop.png": highResolutionCrop,
+    // Off-center 65% crop, matching the supplied REAL-02 crop geometry.
+    "28_real02_geometry_crop.png": cropRaster(original, 21, 9, 62, 47),
   };
 }
 
@@ -170,6 +186,46 @@ function createFixtures(): Record<string, Raster> {
  * resolves each fixture raster, drawImage scales that raster to the
  * production 9×8 canvas, and getImageData returns those sampled pixels.
  */
+
+async function expectPositiveCrop(fileA: string, fileB: string): Promise<void> {
+  mockImageDecoding();
+  const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+  const errors: Array<{ file: File; error: unknown }> = [];
+  const result = await findSimilarPhotos(
+    [createImageFile(fileA), createImageFile(fileB)],
+    (file, error) => errors.push({ file, error }),
+    undefined,
+    diagnostic => diagnostics.push(diagnostic),
+  );
+  if (result.length !== 1 || errors.length > 0) {
+    console.error("[M9 POSITIVE CROP DIAGNOSTIC]", JSON.stringify({
+      files: [fileA, fileB],
+      pairs: result.length,
+      errors: errors.map(item => ({ file: item.file.name, error: String(item.error) })),
+      directions: diagnostics.map(d => ({
+        candidate: d.candidate, source: d.source, thresholds: d.thresholds,
+        dHashPass: d.dHashPass, averageHashPass: d.averageHashPass,
+        aspectRatioPass: d.aspectRatioPass, pixelPass: d.pixelPass,
+        allConditionsPass: d.allConditionsPass,
+        independentRegionCount: d.independentRegionCount,
+        bestRejectedCandidate: d.bestRejectedCandidate, decision: d.decision,
+      })),
+    }));
+  }
+  expect(errors).toHaveLength(0);
+  expect(result).toHaveLength(1);
+
+  const acceptedDirections = diagnostics.filter(item => item.decision === "ACCEPT");
+  expect(acceptedDirections.length).toBeGreaterThan(0);
+  expect(acceptedDirections.every(item =>
+    item.independentRegionCount >= item.thresholds.minimumIndependentRegions &&
+    item.selectedCandidate !== undefined &&
+    item.selectedCandidate.spatialTileMatches >= item.thresholds.minimumSpatialTiles &&
+    item.selectedCandidate.spatialTileRows === 2 &&
+    item.selectedCandidate.spatialTileColumns >= 2
+  )).toBe(true);
+}
+
 function mockImageDecoding(fixtures = createFixtures()): void {
   let activeRaster: Raster | undefined;
   let activeRegion = { x: 0, y: 0, width: 0, height: 0 };
@@ -223,6 +279,8 @@ function mockImageDecoding(fixtures = createFixtures()): void {
           activeRegion.y,
           activeRegion.width,
           activeRegion.height,
+          canvas.width,
+          canvas.height,
         ),
       };
     }),
@@ -302,6 +360,55 @@ function createWholeImageDHashCollisionFixtures(): Record<string, Raster> {
   };
 }
 
+/**
+ * Adds the same compact, high-contrast synthetic logo to unrelated scenes.
+ * The logo is deliberately small relative to the full image.
+ */
+function createLogoScene(seed: number, x: number, y: number, size: number): Raster {
+  const raster = createScene(seed);
+  for (let row = 0; row < size; row += 1) {
+    for (let column = 0; column < size; column += 1) {
+      const border = row === 0 || column === 0 || row === size - 1 || column === size - 1;
+      const diagonal = column === row || column === size - row - 1;
+      const value = border ? 245 : diagonal ? 18 : ((row + column) % 2 === 0 ? 210 : 45);
+      const px = x + column;
+      const py = y + row;
+      if (px < 0 || py < 0 || px >= raster.width || py >= raster.height) continue;
+      const offset = (py * raster.width + px) * 4;
+      raster.pixels[offset] = value;
+      raster.pixels[offset + 1] = value;
+      raster.pixels[offset + 2] = value;
+      raster.pixels[offset + 3] = 255;
+    }
+  }
+  return raster;
+}
+
+
+/**
+ * A larger shared textured patch embedded in independently generated scenes.
+ * This is harder than a tiny logo: it checks that a matcher does not treat
+ * one repeated local object/texture as proof that two complete photos match.
+ */
+function createSharedPatchScene(seed: number, x: number, y: number, size: number): Raster {
+  const raster = createScene(seed);
+  for (let row = 0; row < size; row += 1) {
+    for (let column = 0; column < size; column += 1) {
+      // A deterministic multi-frequency texture, identical in every host scene.
+      const value = 24 + ((row * 37 + column * 53 + row * column * 11) % 208);
+      const px = x + column;
+      const py = y + row;
+      if (px < 0 || py < 0 || px >= raster.width || py >= raster.height) continue;
+      const offset = (py * raster.width + px) * 4;
+      raster.pixels[offset] = value;
+      raster.pixels[offset + 1] = Math.round(value * 0.82);
+      raster.pixels[offset + 2] = Math.round(value * 0.64);
+      raster.pixels[offset + 3] = 255;
+    }
+  }
+  return raster;
+}
+
 describe("M9 crop detection — real pixel-geometry fixtures", () => {
   it("builds crop fixtures from copied regions of the same source raster", () => {
     const fixtures = createFixtures();
@@ -339,6 +446,96 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
 
     expect(errors).toHaveLength(0);
     expect(result).toHaveLength(0);
+  }, 15000);
+
+  it("rejects unrelated scenes containing the same small logo at the same position (HN-02-L1)", async () => {
+    const fixtures = {
+      "13_logo_scene_a.png": createLogoScene(0x13572468, 42, 30, 10),
+      "14_logo_scene_b.png": createLogoScene(0x24681357, 42, 30, 10),
+    };
+    mockImageDecoding(fixtures);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("13_logo_scene_a.png"), createImageFile("14_logo_scene_b.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT" && item.allConditionsPass === 0)).toBe(true);
+  });
+
+  it("rejects unrelated scenes containing the same small logo at different positions (HN-02-L2)", async () => {
+    const fixtures = {
+      "15_logo_left.png": createLogoScene(0x31415926, 8, 8, 10),
+      "16_logo_right.png": createLogoScene(0x27182818, 76, 54, 10),
+    };
+    mockImageDecoding(fixtures);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("15_logo_left.png"), createImageFile("16_logo_right.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT" && item.allConditionsPass === 0)).toBe(true);
+  });
+
+  it("rejects the same small logo embedded in unrelated scenes at a second scale and offset (HN-02-L4)", async () => {
+    const fixtures = {
+      "24_logo_scene_a.png": createLogoScene(0x76543210, 18, 42, 9),
+      "25_logo_scene_b.png": createLogoScene(0x89abcdef, 62, 12, 11),
+    };
+    mockImageDecoding(fixtures);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("24_logo_scene_a.png"), createImageFile("25_logo_scene_b.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT" && item.allConditionsPass === 0)).toBe(true);
+  });
+
+  it("rejects unrelated scenes containing the same logo at different scales (HN-02-L3)", async () => {
+    const fixtures = {
+      "17_logo_small.png": createLogoScene(0x10293847, 40, 28, 8),
+      "18_logo_large.png": createLogoScene(0x56473829, 38, 26, 14),
+    };
+    mockImageDecoding(fixtures);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("17_logo_small.png"), createImageFile("18_logo_large.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT" && item.allConditionsPass === 0)).toBe(true);
+  });
+
+  it("rejects low-resolution unrelated scenes that share a small logo (HN-02-L5)", async () => {
+    const fixtures = {
+      "26_lowres_logo_scene_a.png": resizeRaster(createLogoScene(0x10203040, 18, 20, 8), 48, 36),
+      "27_lowres_logo_scene_b.png": resizeRaster(createLogoScene(0x50607080, 18, 20, 8), 48, 36),
+    };
+    mockImageDecoding(fixtures);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("26_lowres_logo_scene_a.png"), createImageFile("27_lowres_logo_scene_b.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT" && item.allConditionsPass === 0)).toBe(true);
   });
 
   it("keeps an unrelated generated scene separate", async () => {
@@ -352,78 +549,151 @@ describe("M9 crop detection — real pixel-geometry fixtures", () => {
     expect(result).toHaveLength(0);
   });
 
-  it("does not force a match for a tiny detail crop", async () => {
+  it("guards browser False Positive FP-01: original scene vs unrelated control", async () => {
     mockImageDecoding();
-
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("10_tiny_detail_crop.png"),
-    ]);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [
+        createImageFile("01_original_scene.png"),
+        createImageFile("09_unrelated_scene.png"),
+      ],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
 
     expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.map(item => item.decision)).toEqual(["REJECT", "REJECT"]);
+    expect(diagnostics.every(item => item.allConditionsPass === 0)).toBe(true);
+    expect(diagnostics.every(item => item.thresholds.normalizedPixelMae === 0.06)).toBe(true);
+    expect(diagnostics.some(item => item.pixelFail > 0)).toBe(true);
+  });
+
+  it("guards browser False Positive FP-02: genuine center crop vs unrelated control", async () => {
+    mockImageDecoding();
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [
+        createImageFile("02_crop_25_percent.png"),
+        createImageFile("09_unrelated_scene.png"),
+      ],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.map(item => item.decision)).toEqual(["REJECT", "REJECT"]);
+    expect(diagnostics.every(item => item.allConditionsPass === 0)).toBe(true);
+    expect(diagnostics.every(item => item.thresholds.normalizedPixelMae === 0.06)).toBe(true);
+    expect(diagnostics.some(item => item.pixelFail > 0)).toBe(true);
+  });
+
+  it("reports the pair-level area rejection for a tiny detail crop", async () => {
+    mockImageDecoding();
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+
+    const result = await findSimilarPhotos(
+      [
+        createImageFile("01_original_scene.png"),
+        createImageFile("10_tiny_detail_crop.png"),
+      ],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.map(item => item.earlyRejectionReason)).toEqual([
+      "IMAGE_AREA_RATIO_BELOW_MINIMUM",
+      "IMAGE_AREA_RATIO_BELOW_MINIMUM",
+    ]);
+    expect(diagnostics.every(item => item.decision === "REJECT")).toBe(true);
+    expect(diagnostics.every(item => item.totalGeneratedRegions === 0)).toBe(true);
+    expect(diagnostics.every(item => item.imageAreaRatio === 0.01447)).toBe(true);
   });
 
   // Positive crop regression cases: these must pass before M9 can advance.
   it("detects the original against a genuine 25% crop", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("02_crop_25_percent.png"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("01_original_scene.png", "02_crop_25_percent.png");
   });
 
   it("detects the original against a genuine 50% crop", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("03_crop_50_percent.png"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("01_original_scene.png", "03_crop_50_percent.png");
   });
 
   it("detects a genuine left-edge crop", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("04_crop_left_edge.png"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("01_original_scene.png", "04_crop_left_edge.png");
   });
 
   it("detects a genuine right-edge crop", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("05_crop_right_edge.png"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("01_original_scene.png", "05_crop_right_edge.png");
   });
 
   it("detects a resized genuine crop", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("06_resized_crop.png"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("01_original_scene.png", "06_resized_crop.png");
   });
 
   it("processes a genuine crop supplied with JPEG MIME type", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("07_compressed_crop.jpg"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("07_compressed_crop.jpg", "01_original_scene.png");
   });
 
   it("detects a brightness-adjusted genuine crop", async () => {
-    mockImageDecoding();
-    const result = await findSimilarPhotos([
-      createImageFile("01_original_scene.png"),
-      createImageFile("08_brightness_crop.png"),
-    ]);
-    expect(result).toHaveLength(1);
+    await expectPositiveCrop("01_original_scene.png", "08_brightness_crop.png");
   });
+
+  // Crop geometry matrix: each crop is copied from the same parent raster.
+  it.each([
+    ["portrait crop", "19_portrait_crop.png"],
+    ["landscape crop", "20_landscape_crop.png"],
+    ["moderate crop", "21_moderate_crop.png"],
+    ["small-resolution crop", "22_small_resolution_crop.png"],
+    ["high-resolution crop", "23_high_resolution_crop.png"],
+  ])("detects a genuine %s", async (_label, cropFile) => {
+    await expectPositiveCrop("01_original_scene.png", cropFile);
+  });
+
+  it("detects an off-center 65% crop using REAL-02 geometry (R02-GEO)", async () => {
+    await expectPositiveCrop("01_original_scene.png", "28_real02_geometry_crop.png");
+  });
+
+  it("HN-03 rejects unrelated photos sharing the same large textured patch at the same position", async () => {
+    const fixtures = {
+      "29_shared_patch_scene_a.png": createSharedPatchScene(0x10293847, 30, 22, 32),
+      "30_shared_patch_scene_b.png": createSharedPatchScene(0x56473829, 30, 22, 32),
+    };
+    mockImageDecoding(fixtures);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("29_shared_patch_scene_a.png"), createImageFile("30_shared_patch_scene_b.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT")).toBe(true);
+  });
+
+  it("HN-04 rejects unrelated photos sharing the same textured patch at different positions and scales", async () => {
+    const fixtures = {
+      "31_shared_patch_scene_a.png": createSharedPatchScene(0x31415926, 12, 10, 28),
+      "32_shared_patch_scene_b.png": createSharedPatchScene(0x27182818, 54, 38, 20),
+    };
+    mockImageDecoding(fixtures);
+    const diagnostics: SimilarPhotoDirectionalDiagnostic[] = [];
+    const result = await findSimilarPhotos(
+      [createImageFile("31_shared_patch_scene_a.png"), createImageFile("32_shared_patch_scene_b.png")],
+      undefined,
+      undefined,
+      diagnostic => diagnostics.push(diagnostic),
+    );
+    expect(result).toHaveLength(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every(item => item.decision === "REJECT")).toBe(true);
+  });
+
 });
