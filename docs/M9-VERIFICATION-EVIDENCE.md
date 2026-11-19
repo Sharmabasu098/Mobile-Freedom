@@ -332,3 +332,48 @@ Those missing acceptance limits cannot responsibly be invented after the measure
 
 **Step L outcome:** Latest-commit CI — **PASS (10/10 files, 134/134 tests, typecheck/build/artifact PASS)**.  
 **M9 overall status:** **NOT PASS — performance acceptance limits/method remain unresolved; no unsupported peak-memory compliance claim is made.**
+
+
+## M. Owner-approved Android performance acceptance criteria — 2026-11-19
+
+**Decision:** The project owner explicitly approved the following M9 Android performance limits and repeat count on 2026-11-19. These are now the acceptance criteria for the remaining repeatability verification.
+
+| Metric | Approved acceptance limit | Measurement rule |
+|---|---:|---|
+| Chrome process RSS | **Maximum sampled RSS ≤ 360 MiB** | Record 30 dumpsys meminfo samples at approximately one-second intervals during active image processing for each run. |
+| Chrome process PSS | **Maximum sampled PSS ≤ 240 MiB** | Use the same 30 active-processing samples; compare the maximum observed PSS. |
+| Processing time | **≤ 10,000 ms per image pair** | Record the production matcher time (decode + matching) for each run. |
+| Repeatability | **3 runs per real-photo case** | Complete three measured runs for REAL-01 and three for REAL-02. Every run must satisfy all applicable limits. |
+
+### Required test matrix
+
+- REAL-01 original + its genuine crop: 3 measured runs.
+- REAL-02 original + its genuine crop: 3 measured runs.
+- For every run, capture the browser classification and production matcher time.
+- For every run, capture 30 approximately one-second Chrome process RSS/PSS samples while image processing is active.
+- Expected browser classification for both genuine pairs: **SIMILAR**.
+- Preserve the already-verified unrelated-photo controls: original + unrelated = **NOT SIMILAR**; crop + unrelated = **NOT SIMILAR**. Do not weaken or remove FP-01/FP-02, A7, HN-02 L1-L5, HN-03, or HN-04.
+
+### Pass/fail rule
+
+A REAL-01 or REAL-02 performance case passes only when all three runs:
+1. Return the expected **SIMILAR** result without crash or decode error.
+2. Complete production matching in **10 seconds or less**.
+3. Have maximum sampled Chrome process RSS **≤ 360 MiB**.
+4. Have maximum sampled Chrome process PSS **≤ 240 MiB**.
+
+Any single run exceeding a limit, failing classification, crashing, or producing a decode error means that case is **NOT PASS** pending investigation and a repeat after the cause is addressed. Do not change matcher thresholds or weaken regression controls merely to pass performance criteria.
+
+### Measurement interpretation — limits of this approval
+
+- RSS and PSS are separate process-accounting metrics; do not add them together.
+- These limits apply to the maximum among the 30 observed samples, not a guaranteed instantaneous absolute peak. A short peak between one-second samples may be missed.
+- This method measures Chrome process RSS/PSS. It does not separately isolate GPU, canvas, decoded-bitmap, or every native allocation peak. No claim of absolute device-wide or native/GPU peak-memory compliance is authorized by these criteria.
+- The previously recorded REAL-01 and REAL-02 measurements are baseline evidence. They do not by themselves establish the required three-run repeatability.
+
+### Next execution step
+
+Run the six measured cases in the matrix above (three REAL-01 and three REAL-02), retaining per-run timing, classification, and 30-sample RSS/PSS summaries. A concise evidence table must list each run separately and identify the maximum sampled RSS and PSS. Then compare every run against the approved limits and update the final gate disposition.
+
+**Approval recorded:** RSS 360 MiB; PSS 240 MiB; processing time 10 seconds; 3 runs per photo.  
+**M9 overall status:** **NOT PASS — approved criteria are recorded; the six-run repeatability verification remains to be completed.** PR #17 remains Draft and unmerged.
