@@ -282,3 +282,25 @@ The user supplied screenshots showing the REAL-02 browser regression result and 
 **Step outcome:** REAL-02's 30 Chrome process-memory readings are archived as user-confirmed active-processing samples. They provide sampled process-memory evidence during this run, but do not establish an instantaneous peak. Native/canvas/GPU-specific peak remains unmeasured.
 
 **M9 overall status remains: NOT PASS.** The remaining performance acceptance work and all other locked acceptance gates must still be satisfied.
+
+
+## K. User confirmation — three-photo real-browser matrix — 2026-11-19
+
+The user explicitly confirmed that the complete three-photo browser matrix described in the final-verification discussion has already been run. The matrix consists of the genuine original photo, its genuine crop, and an unrelated control photo, with the expected classifications:
+
+- Original + genuine crop: **SIMILAR**.
+- Original + unrelated control: **NOT SIMILAR**.
+- Genuine crop + unrelated control: **NOT SIMILAR**.
+
+This section records the user's confirmation that all three checks were completed. The underlying result screenshots or raw directional diagnostic export were not re-attached with this confirmation, so this is recorded as **user-confirmed execution/result**, not an independently replayed or newly inspected raw artifact. No test was re-run and no matcher threshold or test assertion was changed for this documentation update.
+
+### Updated evidence interpretation
+
+- The earlier statement in Sections C and E that a user-run three-photo browser hard-negative matrix was not claimed is superseded by this dated confirmation.
+- The real-photo browser matrix is now recorded as **user-confirmed complete with the expected classifications**.
+- Automated hard-negative coverage remains supported by the CI tests recorded above; this user confirmation adds the browser matrix evidence.
+- Android process sampling remains as recorded in Sections I and J. The latest 60-second top sampling session discussed on 2026-11-19 is an additional process observation, but its peak RES value is not interchangeable with dumpsys meminfo RSS/PSS, and it does not independently prove native/canvas/GPU peak memory or repeatability across runs.
+- The available evidence does not define a numeric performance or memory acceptance threshold against which these observations can be judged. No such threshold is invented here.
+
+**Step K outcome:** Three-photo real-browser matrix — **USER-CONFIRMED COMPLETE**.  
+**M9 overall status:** **NOT PASS pending final performance acceptance criteria/measurement limits being explicitly resolved.** This update does not authorize merging PR #17 or changing its Draft status.
