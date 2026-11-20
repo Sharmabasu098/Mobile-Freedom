@@ -591,3 +591,15 @@ button:active {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* M10.5 root fix: file-analysis actions use one custom touch ring only.
+   Base button:focus-visible must not leak its native ring to these controls.
+   Keyboard mode explicitly restores an accessible focus-visible ring. */
+button.file-analysis-action:focus,
+button.file-analysis-action:focus-visible {
+  outline: none !important;
+}
+.keyboard-action-mode button.file-analysis-action:focus-visible {
+  outline: 3px solid var(--accent) !important;
+  outline-offset: 2px;
+}
