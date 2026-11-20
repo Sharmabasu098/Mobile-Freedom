@@ -37,6 +37,18 @@ if (!app) {
   );
 }
 
+// Track interaction modality so touch focus and keyboard focus are styled separately.
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Enter" || event.key === " ") {
+    document.body.classList.add("keyboard-focus-mode");
+  }
+});
+document.addEventListener("pointerdown", (event) => {
+  if (event.pointerType === "touch" || event.pointerType === "pen" || event.pointerType === "mouse") {
+    document.body.classList.remove("keyboard-focus-mode");
+  }
+});
+
 const translations = {
   en: {
     tagline: "Useful tools. A little more freedom.",
@@ -3425,7 +3437,7 @@ function openFileAnalysis(): void {
         ? (language === "en" ? "Collapse dashboard details" : "डैशबोर्ड विवरण समेटें")
         : (language === "en" ? "Expand dashboard details" : "डैशबोर्ड विवरण खोलें"));
       toggle.setAttribute("title", toggle.getAttribute("aria-label") ?? "");
-      toggle.focus({ preventScroll: true });
+      // Do not force focus after touch activation; preserve the user's input modality.
     });
   }
 
