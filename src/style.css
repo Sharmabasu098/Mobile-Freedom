@@ -555,75 +555,47 @@ button:active {
 }
 
 
-/* M10.5 disclosure and consistent action focus */
-.storage-dashboard-toggle { flex: 0 0 auto; min-height: 42px; max-width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--soft); color: var(--text); font-weight: 700; cursor: pointer; }
-.storage-dashboard-toggle:focus-visible, .file-analysis-action:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.file-analysis-action:focus:not(:focus-visible) { outline: none; }
-/* On touch, the custom selected-action ring is the only ring. Keyboard input
-   restores native focus-visible indicators by removing touch-action-mode. */
-.touch-action-mode .file-analysis-action:focus,
-.touch-action-mode .file-analysis-action:focus-visible { outline: none !important; box-shadow: none; }
-#storage-dashboard-content[hidden] { display: none !important; }
-/* Analyze Files must not retain a native touch focus ring. Keyboard focus remains visible. */
-#file-analysis-run:focus:not(:focus-visible) { outline: none !important; }
-.touch-action-mode #file-analysis-run:focus-visible { outline: none !important; }
-.keyboard-action-mode .file-analysis-action:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-
-/* Mobile action focus feedback and compact dashboard disclosure control */
-.file-analysis-action.is-action-focused {
-  outline: 3px solid var(--accent) !important;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
-}
+/* M10.5: one source of truth for File Analysis action rings.
+   Touch selection is controlled by .is-action-focused, never native focus.
+   Keyboard focus remains visible via :focus-visible. */
 .storage-dashboard-toggle {
+  flex: 0 0 auto;
+  min-height: 42px;
+  max-width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
   display: grid;
   place-items: center;
-  flex: 0 0 42px;
   width: 42px;
-  min-height: 42px;
-  padding: 0;
   font-size: 1.35rem;
   line-height: 1;
-  font-weight: 800;
 }
-.storage-dashboard-toggle:focus,
-.storage-dashboard-toggle:active {
+.storage-dashboard-toggle:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+#storage-dashboard-content[hidden] { display: none !important; }
 
-/* M10.5 touch-ring correction: suppress native focus rings for these three
-   action buttons in touch mode; the selected class owns the touch ring.
-   Keyboard mode keeps the focus-visible ring. */
-#file-analysis-screen.touch-action-mode button.file-analysis-action:focus,
-#file-analysis-screen.touch-action-mode button.file-analysis-action:focus-visible {
+/* Remove the browser's native touch focus outline from these action buttons.
+   A touch-selected ring is drawn only by .is-action-focused. */
+#file-analysis-screen .file-analysis-action:focus,
+#file-analysis-screen .file-analysis-action:focus-visible {
   outline: none !important;
   box-shadow: none !important;
 }
-#file-analysis-screen.touch-action-mode button.file-analysis-action.is-action-focused {
+#file-analysis-screen .file-analysis-action.is-action-focused {
   outline: 3px solid var(--accent) !important;
   outline-offset: 2px;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent) !important;
 }
-#file-analysis-screen.keyboard-action-mode button.file-analysis-action:focus-visible {
-  outline: 3px solid var(--accent) !important;
-  outline-offset: 2px;
-  box-shadow: none !important;
-}
 
-
-/* M10.5 root correction: touch ring is selected by completed click, not native focus. */
-#file-analysis-screen.touch-action-mode .file-analysis-action,
-#file-analysis-screen.touch-action-mode .file-analysis-action:focus,
-#file-analysis-screen.touch-action-mode .file-analysis-action:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
-}
-#file-analysis-screen.touch-action-mode .file-analysis-action.is-action-focused {
-  outline: 3px solid var(--accent) !important;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent) !important;
-}
+/* Keyboard users get the standard visible focus indicator on whichever action
+   receives keyboard focus; non-focused buttons stay unringed. */
 #file-analysis-screen.keyboard-action-mode .file-analysis-action:focus-visible {
   outline: 3px solid var(--accent) !important;
   outline-offset: 2px;
