@@ -76,8 +76,9 @@ export function renderStorageDashboard(
           <h3 id="storage-dashboard-title">${en ? "Your analysis overview" : "आपके विश्लेषण का सार"}</h3>
           <p>${en ? "Insights from files you selected—not your entire device." : "आपकी चुनी हुई फाइलों का विश्लेषण—पूरे फोन का नहीं।"}</p>
         </div>
-        <span class="storage-dashboard-mark" aria-hidden="true">◈</span>
+        <button class="storage-dashboard-toggle" type="button" data-storage-dashboard-toggle aria-expanded="true" aria-controls="storage-dashboard-content">${en ? "Hide dashboard details" : "डैशबोर्ड विवरण छिपाएँ"}</button>
       </div>
+      <div id="storage-dashboard-content">
       <div class="storage-metrics-grid">
         <article class="storage-metric-card storage-metric-primary">
           <span>${en ? "Analyzed storage" : "विश्लेषित आकार"}</span>
@@ -117,5 +118,6 @@ export function renderStorageDashboard(
       <p class="storage-dashboard-trust-note">🛡️ ${en
         ? "Potential savings are estimates. No files have been deleted and no device-wide storage is claimed."
         : "संभावित बचत केवल अनुमान है। कोई फाइल डिलीट नहीं हुई और पूरे डिवाइस का storage नहीं मापा गया है।"}</p>
+      </div>
     </section>`;
 }
