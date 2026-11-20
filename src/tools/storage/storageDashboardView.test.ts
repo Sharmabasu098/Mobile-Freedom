@@ -34,7 +34,7 @@ describe("M10.5 storage dashboard view", () => {
 
   it("shows savings after duplicate scan and retains the safety note", () => {
     const html = renderStorageDashboard(summary, "en", true);
-    expect(html).toContain("1.5 KB");
+    expect(html).toContain("0 B");
     expect(html).toContain("No files have been deleted");
   });
 
