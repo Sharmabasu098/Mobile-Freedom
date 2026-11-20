@@ -3130,7 +3130,7 @@ function openFileAnalysis(): void {
 
         <button
           id="file-analysis-run"
-          class="control-button"
+          class="control-button file-analysis-action"
           type="button"
           style="margin-top:18px;background:var(--accent);color:white;"
         >
@@ -3143,7 +3143,7 @@ function openFileAnalysis(): void {
 
         <button
           id="file-duplicates-run"
-          class="control-button"
+          class="control-button file-analysis-action"
           type="button"
           style="margin-top:12px;"
         >
@@ -3162,7 +3162,7 @@ function openFileAnalysis(): void {
 
         <button
   id="file-similar-run"
-  class="control-button"
+  class="control-button file-analysis-action"
   type="button"
   style="margin-top:12px;"
 >
@@ -3392,6 +3392,22 @@ function openFileAnalysis(): void {
 
   const storageDashboard =
     screen.querySelector<HTMLDivElement>("#storage-dashboard");
+
+  storageDashboard?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const toggle = target.closest<HTMLButtonElement>("[data-storage-dashboard-toggle]");
+    if (!toggle) return;
+    const content = storageDashboard.querySelector<HTMLElement>("#storage-dashboard-content");
+    if (!content) return;
+    const expanded = toggle.getAttribute("aria-expanded") === "true";
+    content.hidden = expanded;
+    toggle.setAttribute("aria-expanded", String(!expanded));
+    toggle.textContent = expanded
+      ? (language === "en" ? "Show dashboard details" : "डैशबोर्ड विवरण दिखाएँ")
+      : (language === "en" ? "Hide dashboard details" : "डैशबोर्ड विवरण छिपाएँ");
+    toggle.focus();
+  });
 
   let latestAnalyzedFiles: ReturnType<typeof analyzeFiles> = [];
   let latestDuplicateGroups: Awaited<ReturnType<typeof findExactDuplicates>> = [];
