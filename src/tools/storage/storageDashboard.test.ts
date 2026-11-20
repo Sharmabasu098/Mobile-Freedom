@@ -144,3 +144,51 @@ describe("M10.3 large-file intelligence", () => {
     expect(() => summarizeStorage([], [], { largestFilesLimit: 1.5 })).toThrow();
   });
 });
+
+
+describe("M10.4 duplicate potential savings acceptance tests", () => {
+  const duplicateGroup = (hash: string, sizes: number[], potentialSavings = -999): DuplicateFileGroup => {
+    const groupFiles = sizes.map((size, index) => ({ name: `dup-${index}.bin`, size } as File));
+    return { hash, files: groupFiles, totalSize: sizes.reduce((sum, size) => sum + size, 0), potentialSavings };
+  };
+
+  it("recalculates savings from actual file sizes instead of trusting the supplied value", () => {
+    expect(summarizeStorage([], [duplicateGroup("hash-a", [10, 10], 0)]).potentialDuplicateSavings).toBe(10);
+  });
+
+  it("calculates savings by retaining the largest file in a group", () => {
+    expect(summarizeStorage([], [duplicateGroup("hash-a", [5, 10, 15], 1)]).potentialDuplicateSavings).toBe(20);
+  });
+
+  it("sums independent duplicate groups correctly", () => {
+    expect(summarizeStorage([], [duplicateGroup("hash-a", [10, 10]), duplicateGroup("hash-b", [7, 7, 7])]).potentialDuplicateSavings).toBe(24);
+  });
+
+  it("ignores groups with fewer than two files", () => {
+    const summary = summarizeStorage([], [duplicateGroup("single", [50])]);
+    expect(summary.duplicateGroupCount).toBe(0);
+    expect(summary.potentialDuplicateSavings).toBe(0);
+  });
+
+  it("handles zero-byte duplicate files safely", () => {
+    expect(summarizeStorage([], [duplicateGroup("zero", [0, 0, 0])]).potentialDuplicateSavings).toBe(0);
+  });
+
+  it("excludes a group containing an invalid file size", () => {
+    expect(summarizeStorage([], [duplicateGroup("invalid", [10, Number.NaN])]).potentialDuplicateSavings).toBe(0);
+  });
+
+  it("does not count the same hash group twice", () => {
+    const group = duplicateGroup("same-hash", [10, 10]);
+    const summary = summarizeStorage([], [group, group]);
+    expect(summary.potentialDuplicateSavings).toBe(10);
+    expect(summary.duplicateGroupCount).toBe(1);
+  });
+
+  it("prevents the same file object from being counted in overlapping groups", () => {
+    const shared = { name: "shared.bin", size: 10 } as File;
+    const groupA: DuplicateFileGroup = { hash: "a", files: [shared, { name: "a.bin", size: 10 } as File], totalSize: 20, potentialSavings: 10 };
+    const groupB: DuplicateFileGroup = { hash: "b", files: [shared, { name: "b.bin", size: 10 } as File], totalSize: 20, potentialSavings: 10 };
+    expect(summarizeStorage([], [groupA, groupB]).potentialDuplicateSavings).toBe(10);
+  });
+});
