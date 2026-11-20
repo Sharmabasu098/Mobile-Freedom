@@ -3390,6 +3390,23 @@ function openFileAnalysis(): void {
       "#file-analysis-large-list"
     );
 
+  const storageDashboard =
+    screen.querySelector<HTMLDivElement>("#storage-dashboard");
+
+  let latestAnalyzedFiles: ReturnType<typeof analyzeFiles> = [];
+  let latestDuplicateGroups: Awaited<ReturnType<typeof findExactDuplicates>> = [];
+  let duplicateScanCompleted = false;
+
+  function refreshStorageDashboard(): void {
+    if (!storageDashboard) return;
+    const thresholdMB = Number(thresholdInput.value);
+    const summary = summarizeStorage(latestAnalyzedFiles, latestDuplicateGroups, {
+      largeFileThreshold: thresholdMB * 1024 * 1024,
+      largestFilesLimit: 10,
+    });
+    storageDashboard.innerHTML = renderStorageDashboard(summary, language, duplicateScanCompleted);
+  }
+
   if (
     !backButton ||
     !fileInput ||
@@ -3503,6 +3520,9 @@ function openFileAnalysis(): void {
 
     try {
       const analyzedFiles = analyzeFiles(files);
+      latestAnalyzedFiles = analyzedFiles;
+      latestDuplicateGroups = [];
+      duplicateScanCompleted = false;
 
       const largeFiles = findLargeFiles(files, {
         largeFileThreshold:
@@ -3510,6 +3530,7 @@ function openFileAnalysis(): void {
       });
 
       const totalSize = calculateTotalSize(files);
+      refreshStorageDashboard();
 
       fileList.replaceChildren();
       largeFileList.replaceChildren();
@@ -3611,6 +3632,10 @@ function openFileAnalysis(): void {
         failedFiles.push({ file, error });
          },
        );
+
+      latestDuplicateGroups = groups;
+      duplicateScanCompleted = true;
+      refreshStorageDashboard();
 
       if (groups.length === 0) {
         const message = document.createElement("p");
