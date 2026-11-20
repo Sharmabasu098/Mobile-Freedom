@@ -26,7 +26,9 @@ Provide a mobile-first dashboard that summarizes only file data actually selecte
 
 3. **M10.3 — Large Files**
    - Show the largest analyzed files with name/type/size where those fields are available.
-   - Sorting must be deterministic (size descending; stable tie-breaker).
+   - Provide a deterministic top-N list (default 10, configurable) alongside the threshold-based large-file list.
+   - Sorting must be deterministic (size descending; name ascending tie-breaker).
+   - Validate the top-N limit and keep threshold list and top-N list conceptually separate.
 
 4. **M10.4 — Duplicate Potential Savings**
    - Present potential savings as an estimate, not actual freed storage.
