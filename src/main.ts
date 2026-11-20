@@ -3393,16 +3393,35 @@ function openFileAnalysis(): void {
   const storageDashboard =
     screen.querySelector<HTMLDivElement>("#storage-dashboard");
 
-  // One visual selection state for touch actions. Use click (not pointerdown)
-  // so the ring is updated only after the browser completes the button action.
+  // Android can report synthetic click.detail inconsistently. Track input modality
+  // from pointer and keyboard events instead of guessing from click.detail.
+  let actionInputMode: "pointer" | "keyboard" = "keyboard";
+
+  screen.addEventListener("pointerdown", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || !target.closest(".file-analysis-action")) return;
+    actionInputMode = "pointer";
+  });
+
+  screen.addEventListener("keydown", (event) => {
+    if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Enter" || event.key === " ") {
+      actionInputMode = "keyboard";
+      screen.classList.remove("touch-action-mode");
+      screen.classList.add("keyboard-action-mode");
+      screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
+        .forEach((button) => button.classList.remove("is-action-focused"));
+    }
+  });
+
+
+  // Select the touch ring after click completes, independent of click.detail.
   screen.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const action = target.closest<HTMLButtonElement>(".file-analysis-action");
     if (!action) return;
 
-    if (event.detail === 0) {
-      // Keyboard activation: native focus-visible is retained.
+    if (actionInputMode === "keyboard") {
       screen.classList.remove("touch-action-mode");
       screen.classList.add("keyboard-action-mode");
       screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
@@ -3410,23 +3429,14 @@ function openFileAnalysis(): void {
       return;
     }
 
-    // Touch/mouse activation: only the clicked action gets the custom ring.
     screen.classList.add("touch-action-mode");
     screen.classList.remove("keyboard-action-mode");
     screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
       .forEach((button) => button.classList.remove("is-action-focused"));
     action.classList.add("is-action-focused");
-    action.blur(); // remove sticky native focus; custom ring remains on selected action
+    action.blur();
   });
 
-  screen.addEventListener("keydown", (event) => {
-    if (event.key === "Tab" || event.key.startsWith("Arrow")) {
-      screen.classList.remove("touch-action-mode");
-      screen.classList.add("keyboard-action-mode");
-      screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
-        .forEach((button) => button.classList.remove("is-action-focused"));
-    }
-  });
 
   let dashboardExpanded = true;
 
