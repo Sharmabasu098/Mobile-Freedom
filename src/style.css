@@ -610,3 +610,26 @@ button:active {
   outline-offset: 2px;
   box-shadow: none !important;
 }
+
+
+/* M10.5 root correction: touch ring is selected by completed click, not native focus. */
+#file-analysis-screen.touch-action-mode .file-analysis-action,
+#file-analysis-screen.touch-action-mode .file-analysis-action:focus,
+#file-analysis-screen.touch-action-mode .file-analysis-action:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+#file-analysis-screen.touch-action-mode .file-analysis-action.is-action-focused {
+  outline: 3px solid var(--accent) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent) !important;
+}
+#file-analysis-screen.keyboard-action-mode .file-analysis-action:focus-visible {
+  outline: 3px solid var(--accent) !important;
+  outline-offset: 2px;
+  box-shadow: none !important;
+}
+#file-analysis-screen.keyboard-action-mode .file-analysis-action:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
