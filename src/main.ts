@@ -3401,9 +3401,20 @@ function openFileAnalysis(): void {
     if (!(target instanceof HTMLElement)) return;
     const action = target.closest<HTMLButtonElement>(".file-analysis-action");
     if (!action) return;
+    // Pointer/touch interaction owns the visual ring; suppress the browser's
+    // sticky focus-visible ring until keyboard navigation resumes.
+    screen.classList.add("touch-action-mode");
     screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
       .forEach((button) => button.classList.remove("is-action-focused"));
     action.classList.add("is-action-focused");
+  });
+
+  screen.addEventListener("keydown", (event) => {
+    if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Enter" || event.key === " ") {
+      screen.classList.remove("touch-action-mode");
+      screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
+        .forEach((button) => button.classList.remove("is-action-focused"));
+    }
   });
 
   let dashboardExpanded = true;
