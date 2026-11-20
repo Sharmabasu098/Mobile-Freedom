@@ -126,10 +126,32 @@ export function summarizeStorage(
   const largeFiles = sortedFiles.filter((file) => file.size >= threshold);
   const largestFiles = sortedFiles.slice(0, largestFilesLimit);
 
-  const potentialDuplicateSavings = duplicateGroups.reduce(
-    (sum, group) => sum + Math.max(0, group.potentialSavings),
-    0,
-  );
+  // M10.4: derive potential savings from validated file sizes, never trust
+  // cached group totals/savings. Deduplicate groups and reject overlapping
+  // file membership to avoid counting the same file across groups.
+  const seenHashes = new Set<string>();
+  const usedFiles = new Set<File>();
+  let duplicateGroupCount = 0;
+  let potentialDuplicateSavings = 0;
+
+  for (const group of duplicateGroups) {
+    if (!group.hash || seenHashes.has(group.hash)) continue;
+    seenHashes.add(group.hash);
+
+    const uniqueFiles = Array.from(new Set(group.files));
+    if (uniqueFiles.length < 2) continue;
+    if (uniqueFiles.some((file) => !Number.isFinite(file.size) || file.size < 0)) continue;
+    if (uniqueFiles.some((file) => usedFiles.has(file))) continue;
+
+    const sizes = uniqueFiles.map((file) => file.size);
+    const groupTotal = sizes.reduce((sum, size) => sum + size, 0);
+    const retainedSize = Math.max(...sizes);
+    const savings = Math.max(0, groupTotal - retainedSize);
+
+    uniqueFiles.forEach((file) => usedFiles.add(file));
+    duplicateGroupCount += 1;
+    potentialDuplicateSavings += savings;
+  }
 
   return {
     analyzedFileCount: files.length,
@@ -140,7 +162,7 @@ export function summarizeStorage(
     largestFiles,
     largestFilesLimit,
     largeFileThreshold: threshold,
-    duplicateGroupCount: duplicateGroups.length,
+    duplicateGroupCount,
     potentialDuplicateSavings,
   };
 }
