@@ -42,10 +42,10 @@ describe("M10.1 storage dashboard aggregation", () => {
     expect(summary.largeFileThreshold).toBe(100);
   });
 
-  it("sums only supplied duplicate-group potential savings", () => {
+  it("calculates duplicate-group savings from valid file members", () => {
     const groups = [
-      { hash: "1", files: [] as File[], totalSize: 500, potentialSavings: 300 },
-      { hash: "2", files: [] as File[], totalSize: 200, potentialSavings: 150 },
+      { hash: "1", files: [{ name: "a", size: 500 } as File, { name: "b", size: 800 } as File], totalSize: 1300, potentialSavings: 300 },
+      { hash: "2", files: [{ name: "c", size: 200 } as File, { name: "d", size: 350 } as File], totalSize: 550, potentialSavings: 150 },
     ] satisfies DuplicateFileGroup[];
     const summary = summarizeStorage([file("x", 700)], groups);
     expect(summary.duplicateGroupCount).toBe(2);
@@ -157,7 +157,7 @@ describe("M10.4 duplicate potential savings acceptance tests", () => {
   });
 
   it("calculates savings by retaining the largest file in a group", () => {
-    expect(summarizeStorage([], [duplicateGroup("hash-a", [5, 10, 15], 1)]).potentialDuplicateSavings).toBe(20);
+    expect(summarizeStorage([], [duplicateGroup("hash-a", [5, 10, 15], 1)]).potentialDuplicateSavings).toBe(15);
   });
 
   it("sums independent duplicate groups correctly", () => {
