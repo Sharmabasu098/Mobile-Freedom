@@ -588,8 +588,9 @@ button:active {
 /* File Analysis action buttons use native keyboard focus-visible.
    No persistent custom touch focus decoration is applied. */
 
-/* M10.5 root-cause fix: Android Chrome can retain touch focus on Analyze Files.
-   Remove its persistent native outline while leaving other controls unchanged. */
-#file-analysis-run:focus-visible {
-  outline: none;
+/* The touch-selected action receives the one visual ring. */
+#file-analysis-screen .file-analysis-action.is-touch-selected {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
 }
