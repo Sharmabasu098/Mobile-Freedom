@@ -112,3 +112,35 @@ describe("M10.2 file-type intelligence categories", () => {
     ]);
   });
 });
+
+
+describe("M10.3 large-file intelligence", () => {
+  it("returns largest analyzed files in deterministic order and limits the list", () => {
+    const summary = summarizeStorage([
+      file("z.bin", 50, "application/octet-stream"),
+      file("c.bin", 300, "application/octet-stream"),
+      file("b.bin", 300, "application/octet-stream"),
+      file("a.bin", 500, "application/octet-stream"),
+    ], [], { largestFilesLimit: 3 });
+    expect(summary.largestFiles.map((item) => item.name)).toEqual(["a.bin", "b.bin", "c.bin"]);
+    expect(summary.largestFilesLimit).toBe(3);
+  });
+
+
+  it("keeps the threshold large-file list separate from the top-largest list", () => {
+    const summary = summarizeStorage([
+      file("one.dat", 100, "application/octet-stream"),
+      file("two.dat", 90, "application/octet-stream"),
+      file("three.dat", 80, "application/octet-stream"),
+    ], [], { largeFileThreshold: 90, largestFilesLimit: 2 });
+    expect(summary.largeFiles.map((item) => item.name)).toEqual(["one.dat", "two.dat"]);
+    expect(summary.largestFiles.map((item) => item.name)).toEqual(["one.dat", "two.dat"]);
+  });
+
+
+  it("allows a zero largest-files limit and rejects invalid limits", () => {
+    expect(summarizeStorage([file("x", 1)], [], { largestFilesLimit: 0 }).largestFiles).toEqual([]);
+    expect(() => summarizeStorage([], [], { largestFilesLimit: -1 })).toThrow();
+    expect(() => summarizeStorage([], [], { largestFilesLimit: 1.5 })).toThrow();
+  });
+});
