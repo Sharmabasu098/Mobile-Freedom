@@ -3393,24 +3393,34 @@ function openFileAnalysis(): void {
   const storageDashboard =
     screen.querySelector<HTMLDivElement>("#storage-dashboard");
 
-  // Touch selection marker: only the pressed action keeps the custom ring.
-  // Do not force DOM focus on pointerdown; native focus and action clicks remain
-  // independent. Keyboard users retain the browser's focus-visible treatment.
-  screen.addEventListener("pointerdown", (event) => {
+  // One visual selection state for touch actions. Use click (not pointerdown)
+  // so the ring is updated only after the browser completes the button action.
+  screen.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const action = target.closest<HTMLButtonElement>(".file-analysis-action");
     if (!action) return;
-    // Pointer/touch interaction owns the visual ring; suppress the browser's
-    // sticky focus-visible ring until keyboard navigation resumes.
+
+    if (event.detail === 0) {
+      // Keyboard activation: native focus-visible is retained.
+      screen.classList.remove("touch-action-mode");
+      screen.classList.add("keyboard-action-mode");
+      screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
+        .forEach((button) => button.classList.remove("is-action-focused"));
+      return;
+    }
+
+    // Touch/mouse activation: only the clicked action gets the custom ring.
     screen.classList.add("touch-action-mode");
+    screen.classList.remove("keyboard-action-mode");
     screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
       .forEach((button) => button.classList.remove("is-action-focused"));
     action.classList.add("is-action-focused");
+    action.blur(); // remove sticky native focus; custom ring remains on selected action
   });
 
   screen.addEventListener("keydown", (event) => {
-    if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Enter" || event.key === " ") {
+    if (event.key === "Tab" || event.key.startsWith("Arrow")) {
       screen.classList.remove("touch-action-mode");
       screen.classList.add("keyboard-action-mode");
       screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
