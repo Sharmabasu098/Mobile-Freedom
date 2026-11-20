@@ -3412,6 +3412,7 @@ function openFileAnalysis(): void {
   screen.addEventListener("keydown", (event) => {
     if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Enter" || event.key === " ") {
       screen.classList.remove("touch-action-mode");
+      screen.classList.add("keyboard-action-mode");
       screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
         .forEach((button) => button.classList.remove("is-action-focused"));
     }
