@@ -19,8 +19,10 @@ Provide a mobile-first dashboard that summarizes only file data actually selecte
    - Keep data provenance and completeness visible; do not silently mix stale, partial, or unrelated analyses.
 
 2. **M10.2 — File-Type Intelligence**
-   - Show category totals and proportions for available types.
+   - Show category totals and proportions for available types: images, videos, documents, audio, archives, other, and unknown.
+   - Use MIME type when available and extension fallback when MIME is missing/unknown.
    - Unknown or unclassified file types must be retained in an explicit category rather than omitted.
+   - Keep category counts and byte totals reconciled to the supplied analyzed file set.
 
 3. **M10.3 — Large Files**
    - Show the largest analyzed files with name/type/size where those fields are available.
