@@ -46,9 +46,15 @@ input {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Keep the focus ring attached to the control currently focused by touch
-   or keyboard. Moving focus to another control moves the ring with it. */
-button:focus-visible,
+/* Focus rings are shown for keyboard navigation only. Android Chrome may
+   classify touch activation as :focus-visible, so touch must not create a
+   persistent action-button ring. Keyboard modality is set by main.ts. */
+.keyboard-focus-mode button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Inputs retain a visible focus indication for editing. */
 a:focus,
 input:focus {
   outline: 3px solid var(--accent);
@@ -555,9 +561,7 @@ button:active {
 }
 
 
-/* M10.5: one source of truth for File Analysis action rings.
-   Touch selection is controlled by .is-action-focused, never native focus.
-   Keyboard focus remains visible via :focus-visible. */
+/* M10.5: focus visibility is controlled by keyboard modality. */
 .storage-dashboard-toggle {
   flex: 0 0 auto;
   min-height: 42px;
