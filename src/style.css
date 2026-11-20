@@ -581,27 +581,5 @@ button:active {
 }
 #storage-dashboard-content[hidden] { display: none !important; }
 
-/* Remove the browser's native touch focus outline from these action buttons.
-   A touch-selected ring is drawn only by .is-action-focused. */
-#file-analysis-screen .file-analysis-action:focus,
-#file-analysis-screen .file-analysis-action:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
-}
-#file-analysis-screen .file-analysis-action.is-action-focused {
-  outline: 3px solid var(--accent) !important;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent) !important;
-}
-
-/* Keyboard users get the standard visible focus indicator on whichever action
-   receives keyboard focus; non-focused buttons stay unringed. */
-#file-analysis-screen.keyboard-action-mode .file-analysis-action:focus-visible {
-  outline: 3px solid var(--accent) !important;
-  outline-offset: 2px;
-  box-shadow: none !important;
-}
-#file-analysis-screen.keyboard-action-mode .file-analysis-action:not(:focus-visible) {
-  outline: none !important;
-  box-shadow: none !important;
-}
+/* File Analysis action buttons use native keyboard focus-visible.
+   No persistent custom touch focus decoration is applied. */
