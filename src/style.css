@@ -564,6 +564,10 @@ button:active {
 .touch-action-mode .file-analysis-action:focus,
 .touch-action-mode .file-analysis-action:focus-visible { outline: none !important; box-shadow: none; }
 #storage-dashboard-content[hidden] { display: none !important; }
+/* Analyze Files must not retain a native touch focus ring. Keyboard focus remains visible. */
+#file-analysis-run:focus:not(:focus-visible) { outline: none !important; }
+.touch-action-mode #file-analysis-run:focus-visible { outline: none !important; }
+.keyboard-action-mode .file-analysis-action:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 /* Mobile action focus feedback and compact dashboard disclosure control */
 .file-analysis-action.is-action-focused {
