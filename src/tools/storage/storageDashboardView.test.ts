@@ -19,6 +19,15 @@ const summary: StorageDashboardSummary = {
 };
 
 describe("M10.5 storage dashboard view", () => {
+  it("renders accessible dashboard disclosure markup", () => {
+    const html = renderStorageDashboard(summary, "en");
+    expect(html).toContain("data-storage-dashboard-toggle");
+    expect(html).toContain('aria-expanded="true"');
+    expect(html).toContain('aria-controls="storage-dashboard-content"');
+    expect(html).toContain('id="storage-dashboard-content"');
+    expect(html).toContain("Hide dashboard details");
+  });
+
   it("renders analyzed totals and an explicit selected-files context", () => {
     const html = renderStorageDashboard(summary, "en");
     expect(html).toContain("1.5 KB");
