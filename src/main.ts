@@ -3393,18 +3393,32 @@ function openFileAnalysis(): void {
   const storageDashboard =
     screen.querySelector<HTMLDivElement>("#storage-dashboard");
 
-  // On touch devices, explicitly move the visible action focus ring to the
-  // button being pressed instead of relying on browser-specific tap focus.
+  // Keep the visible focus marker synchronized with actual DOM focus.
+  // Touch presses explicitly focus the pressed action; focusin (also keyboard
+  // navigation) is the single source of truth for the marker.
   screen.addEventListener("pointerdown", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const action = target.closest<HTMLButtonElement>(".file-analysis-action");
     if (!action) return;
-    screen.querySelectorAll(".file-analysis-action.is-action-focused").forEach((button) => {
-      button.classList.remove("is-action-focused");
-    });
-    action.classList.add("is-action-focused");
     action.focus({ preventScroll: true });
+  });
+
+  screen.addEventListener("focusin", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const action = target.closest<HTMLButtonElement>(".file-analysis-action");
+    screen.querySelectorAll(".file-analysis-action.is-action-focused").forEach((button) => {
+      if (button !== action) button.classList.remove("is-action-focused");
+    });
+    if (action) action.classList.add("is-action-focused");
+  });
+
+  screen.addEventListener("focusout", (event) => {
+    const target = event.target;
+    if (target instanceof HTMLElement && target.matches(".file-analysis-action")) {
+      target.classList.remove("is-action-focused");
+    }
   });
 
   let dashboardExpanded = true;
