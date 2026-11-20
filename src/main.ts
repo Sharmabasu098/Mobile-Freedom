@@ -41,6 +41,9 @@ if (!app) {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Enter" || event.key === " ") {
     document.body.classList.add("keyboard-focus-mode");
+    document.querySelectorAll(".file-analysis-action.is-touch-selected").forEach((button) => {
+      button.classList.remove("is-touch-selected");
+    });
   }
 });
 document.addEventListener("pointerdown", (event) => {
@@ -3455,6 +3458,19 @@ function openFileAnalysis(): void {
     storageDashboard.innerHTML = renderStorageDashboard(summary, language, duplicateScanCompleted);
     bindStorageDashboardToggle();
   }
+
+  // Touch selection is a visual marker only: do not call focus().
+  // The browser's native focus and the button's action remain independent.
+  screen.addEventListener("pointerdown", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const action = target.closest<HTMLButtonElement>(".file-analysis-action");
+    if (!action || !screen.contains(action)) return;
+
+    screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-touch-selected")
+      .forEach((button) => button.classList.remove("is-touch-selected"));
+    action.classList.add("is-touch-selected");
+  });
 
   if (
     !backButton ||
