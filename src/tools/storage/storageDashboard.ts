@@ -28,6 +28,8 @@ export interface StorageDashboardSummary {
   byType: StorageTypeSummary[];
   byCategory: StorageCategorySummary[];
   largeFiles: FileAnalysisResult[];
+  largestFiles: FileAnalysisResult[];
+  largestFilesLimit: number;
   largeFileThreshold: number;
   duplicateGroupCount: number;
   potentialDuplicateSavings: number;
@@ -35,6 +37,7 @@ export interface StorageDashboardSummary {
 
 export interface StorageDashboardOptions {
   largeFileThreshold?: number;
+  largestFilesLimit?: number;
 }
 
 function getTypeLabel(file: FileAnalysisResult): string {
@@ -72,6 +75,10 @@ export function summarizeStorage(
   options: StorageDashboardOptions = {},
 ): StorageDashboardSummary {
   const threshold = options.largeFileThreshold ?? 100 * 1024 * 1024;
+  const largestFilesLimit = options.largestFilesLimit ?? 10;
+  if (!Number.isInteger(largestFilesLimit) || largestFilesLimit < 0) {
+    throw new Error("Largest-files limit must be a non-negative integer.");
+  }
   if (!Number.isFinite(threshold) || threshold < 0) {
     throw new Error("Large-file threshold must be a finite non-negative number.");
   }
@@ -115,9 +122,9 @@ export function summarizeStorage(
       };
     });
 
-  const largeFiles = files
-    .filter((file) => file.size >= threshold)
-    .sort((a, b) => b.size - a.size || a.name.localeCompare(b.name));
+  const sortedFiles = [...files].sort((a, b) => b.size - a.size || a.name.localeCompare(b.name));
+  const largeFiles = sortedFiles.filter((file) => file.size >= threshold);
+  const largestFiles = sortedFiles.slice(0, largestFilesLimit);
 
   const potentialDuplicateSavings = duplicateGroups.reduce(
     (sum, group) => sum + Math.max(0, group.potentialSavings),
@@ -130,6 +137,8 @@ export function summarizeStorage(
     byType,
     byCategory,
     largeFiles,
+    largestFiles,
+    largestFilesLimit,
     largeFileThreshold: threshold,
     duplicateGroupCount: duplicateGroups.length,
     potentialDuplicateSavings,
