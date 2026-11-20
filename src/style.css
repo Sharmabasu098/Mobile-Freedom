@@ -592,14 +592,21 @@ button:active {
   outline-offset: 2px;
 }
 
-/* M10.5 root fix: file-analysis actions use one custom touch ring only.
-   Base button:focus-visible must not leak its native ring to these controls.
-   Keyboard mode explicitly restores an accessible focus-visible ring. */
-button.file-analysis-action:focus,
-button.file-analysis-action:focus-visible {
+/* M10.5 touch-ring correction: suppress native focus rings for these three
+   action buttons in touch mode; the selected class owns the touch ring.
+   Keyboard mode keeps the focus-visible ring. */
+#file-analysis-screen.touch-action-mode button.file-analysis-action:focus,
+#file-analysis-screen.touch-action-mode button.file-analysis-action:focus-visible {
   outline: none !important;
+  box-shadow: none !important;
 }
-.keyboard-action-mode button.file-analysis-action:focus-visible {
+#file-analysis-screen.touch-action-mode button.file-analysis-action.is-action-focused {
   outline: 3px solid var(--accent) !important;
   outline-offset: 2px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent) !important;
+}
+#file-analysis-screen.keyboard-action-mode button.file-analysis-action:focus-visible {
+  outline: 3px solid var(--accent) !important;
+  outline-offset: 2px;
+  box-shadow: none !important;
 }
