@@ -3393,21 +3393,37 @@ function openFileAnalysis(): void {
   const storageDashboard =
     screen.querySelector<HTMLDivElement>("#storage-dashboard");
 
-  storageDashboard?.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const toggle = target.closest<HTMLButtonElement>("[data-storage-dashboard-toggle]");
-    if (!toggle) return;
-    const content = storageDashboard.querySelector<HTMLElement>("#storage-dashboard-content");
-    if (!content) return;
-    const expanded = toggle.getAttribute("aria-expanded") === "true";
-    content.hidden = expanded;
-    toggle.setAttribute("aria-expanded", String(!expanded));
-    toggle.textContent = expanded
-      ? (language === "en" ? "Show dashboard details" : "डैशबोर्ड विवरण दिखाएँ")
-      : (language === "en" ? "Hide dashboard details" : "डैशबोर्ड विवरण छिपाएँ");
-    toggle.focus();
-  });
+  let dashboardExpanded = true;
+
+  function bindStorageDashboardToggle(): void {
+    const toggle = storageDashboard?.querySelector<HTMLButtonElement>("[data-storage-dashboard-toggle]");
+    const content = storageDashboard?.querySelector<HTMLElement>("#storage-dashboard-content");
+    if (!toggle || !content) return;
+
+    // Bind directly to the newly rendered button so mobile taps cannot be lost
+    // through a delegated handler after the dashboard HTML is refreshed.
+    toggle.setAttribute("aria-expanded", String(dashboardExpanded));
+    content.hidden = !dashboardExpanded;
+    toggle.textContent = dashboardExpanded
+      ? (language === "en" ? "−" : "−")
+      : (language === "en" ? "+" : "+");
+    toggle.setAttribute("aria-label", dashboardExpanded
+      ? (language === "en" ? "Collapse dashboard details" : "डैशबोर्ड विवरण समेटें")
+      : (language === "en" ? "Expand dashboard details" : "डैशबोर्ड विवरण खोलें"));
+    toggle.setAttribute("title", toggle.getAttribute("aria-label") ?? "");
+
+    toggle.addEventListener("click", () => {
+      dashboardExpanded = !dashboardExpanded;
+      content.hidden = !dashboardExpanded;
+      toggle.setAttribute("aria-expanded", String(dashboardExpanded));
+      toggle.textContent = dashboardExpanded ? "−" : "+";
+      toggle.setAttribute("aria-label", dashboardExpanded
+        ? (language === "en" ? "Collapse dashboard details" : "डैशबोर्ड विवरण समेटें")
+        : (language === "en" ? "Expand dashboard details" : "डैशबोर्ड विवरण खोलें"));
+      toggle.setAttribute("title", toggle.getAttribute("aria-label") ?? "");
+      toggle.focus({ preventScroll: true });
+    });
+  }
 
   let latestAnalyzedFiles: ReturnType<typeof analyzeFiles> = [];
   let latestDuplicateGroups: Awaited<ReturnType<typeof findExactDuplicates>> = [];
@@ -3421,6 +3437,7 @@ function openFileAnalysis(): void {
       largestFilesLimit: 10,
     });
     storageDashboard.innerHTML = renderStorageDashboard(summary, language, duplicateScanCompleted);
+    bindStorageDashboardToggle();
   }
 
   if (
