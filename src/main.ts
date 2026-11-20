@@ -3393,6 +3393,20 @@ function openFileAnalysis(): void {
   const storageDashboard =
     screen.querySelector<HTMLDivElement>("#storage-dashboard");
 
+  // On touch devices, explicitly move the visible action focus ring to the
+  // button being pressed instead of relying on browser-specific tap focus.
+  screen.addEventListener("pointerdown", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const action = target.closest<HTMLButtonElement>(".file-analysis-action");
+    if (!action) return;
+    screen.querySelectorAll(".file-analysis-action.is-action-focused").forEach((button) => {
+      button.classList.remove("is-action-focused");
+    });
+    action.classList.add("is-action-focused");
+    action.focus({ preventScroll: true });
+  });
+
   let dashboardExpanded = true;
 
   function bindStorageDashboardToggle(): void {
