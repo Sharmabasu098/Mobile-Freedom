@@ -68,3 +68,18 @@ Provide a mobile-first dashboard that summarizes only file data actually selecte
 ## Work sequence
 
 Begin with M10.1 data model/aggregation functions and tests. Integrate the UI only after the calculations are independently testable. Keep all work on this feature branch and open a PR for review; do not push changes directly to `main`.
+
+
+### M10.5 — Storage Dashboard UI (implementation started)
+
+- Integrate a storage dashboard into the selected-file File Analysis results view.
+- Render analyzed total/count, potential duplicate savings (not checked until exact-duplicate scan completes), large-file count, category summary, largest files, and threshold-based large files.
+- Mobile-first responsive layout, theme variables, readable filenames (ellipsis), and semantic/accessible section labels.
+- Render values only from the current selected-file analysis and the exact-duplicate scan; do not fabricate device-wide storage data.
+- Escape filenames before HTML rendering to prevent injection.
+- Explicitly communicate that potential savings are estimates and no files have been deleted.
+- Keep exact duplicates separate from visually similar photos.
+
+
+**M10.5 renderer tests added:** total/context display, duplicate-scan pending state, post-scan estimate/safety note, category and file-list rendering, filename escaping, and empty list states.
+
