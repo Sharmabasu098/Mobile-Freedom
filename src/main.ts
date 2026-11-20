@@ -22,6 +22,8 @@ import {
 
 import { findExactDuplicates } from "./tools/storage/findDuplicates";
 import { findSimilarPhotos } from "./tools/storage/similarPhotos";
+import { summarizeStorage } from "./tools/storage/storageDashboard";
+import { renderStorageDashboard } from "./tools/storage/storageDashboardView";
 import { filterMediaFiles } from "./tools/storage/mediaFiles";
 
 type Language = "en" | "hi";
@@ -3239,6 +3241,7 @@ function openFileAnalysis(): void {
         ></p>
 
         <div id="file-analysis-results" hidden>
+          <div id="storage-dashboard" aria-live="polite"></div>
           <h3>
             ${
               language === "en"
