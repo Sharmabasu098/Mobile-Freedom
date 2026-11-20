@@ -3393,59 +3393,9 @@ function openFileAnalysis(): void {
   const storageDashboard =
     screen.querySelector<HTMLDivElement>("#storage-dashboard");
 
-  // Android can report synthetic click.detail inconsistently. Track input modality
-  // from pointer and keyboard events instead of guessing from click.detail.
-  let actionInputMode: "pointer" | "keyboard" = "keyboard";
-
-  screen.addEventListener("pointerdown", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement) || !target.closest(".file-analysis-action")) return;
-    actionInputMode = "pointer";
-  });
-
-  // Android browsers may deliver touch activation without a reliable pointerdown.
-  // Use touchstart as an explicit fallback so a touch is never mistaken for keyboard.
-  screen.addEventListener("touchstart", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement) || !target.closest(".file-analysis-action")) return;
-    actionInputMode = "pointer";
-    screen.classList.remove("keyboard-action-mode");
-  }, { passive: true });
-
-  screen.addEventListener("keydown", (event) => {
-    if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Enter" || event.key === " ") {
-      actionInputMode = "keyboard";
-      screen.classList.remove("touch-action-mode");
-      screen.classList.add("keyboard-action-mode");
-      screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
-        .forEach((button) => button.classList.remove("is-action-focused"));
-    }
-  });
-
-
-  // Select the touch ring after click completes, independent of click.detail.
-  screen.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const action = target.closest<HTMLButtonElement>(".file-analysis-action");
-    if (!action) return;
-
-    if (actionInputMode === "keyboard") {
-      screen.classList.remove("touch-action-mode");
-      screen.classList.add("keyboard-action-mode");
-      screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
-        .forEach((button) => button.classList.remove("is-action-focused"));
-      return;
-    }
-
-    screen.classList.add("touch-action-mode");
-    screen.classList.remove("keyboard-action-mode");
-    screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-action-focused")
-      .forEach((button) => button.classList.remove("is-action-focused"));
-    action.classList.add("is-action-focused");
-    action.blur();
-  });
-
+  // Action buttons rely on native keyboard focus-visible only.
+  // Touch taps must not create a persistent custom focus ring.
+  screen.classList.remove("touch-action-mode", "keyboard-action-mode");
 
   let dashboardExpanded = true;
 
