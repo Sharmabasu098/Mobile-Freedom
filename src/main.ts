@@ -3132,7 +3132,7 @@ function openFileAnalysis(): void {
           id="file-analysis-run"
           class="control-button file-analysis-action"
           type="button"
-          style="margin-top:18px;background:var(--accent);color:white;"
+          style="margin-top:18px;"
         >
           ${
             language === "en"
