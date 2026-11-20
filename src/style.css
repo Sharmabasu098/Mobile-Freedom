@@ -353,3 +353,203 @@ button:active {
     scroll-behavior: auto;
   }
 }
+
+/* M10.5 — Storage Intelligence Dashboard */
+.storage-dashboard {
+  margin: 22px 0;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 28px rgba(18, 28, 48, 0.05);
+}
+.storage-dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.storage-dashboard-eyebrow {
+  color: var(--accent);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+.storage-dashboard-header h3 {
+  margin: 7px 0;
+  font-size: clamp(1.25rem, 4vw, 1.75rem);
+}
+.storage-dashboard-header p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.storage-dashboard-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: var(--soft);
+  color: var(--accent);
+  font-size: 1.3rem;
+}
+.storage-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.storage-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg);
+}
+.storage-metric-card span {
+  color: var(--muted);
+  font-size: .8rem;
+}
+.storage-metric-card strong {
+  font-size: clamp(1.2rem, 5vw, 1.65rem);
+  overflow-wrap: anywhere;
+}
+.storage-metric-card small {
+  color: var(--muted);
+  font-size: .75rem;
+  line-height: 1.4;
+}
+.storage-metric-primary {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: var(--soft);
+}
+.storage-dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+.storage-dashboard-panel {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.storage-dashboard-panel h4 {
+  margin: 0 0 14px;
+}
+.storage-category-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px 12px;
+  margin: 12px 0;
+}
+.storage-category-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+.storage-category-name {
+  font-weight: 700;
+}
+.storage-category-meta,
+.storage-category-percent {
+  color: var(--muted);
+  font-size: .78rem;
+}
+.storage-category-track {
+  grid-column: 1 / -1;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--border);
+}
+.storage-category-track span {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.storage-file-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.storage-file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.storage-file-row:last-child {
+  border-bottom: 0;
+}
+.storage-file-rank {
+  display: grid;
+  place-items: center;
+  flex: 0 0 25px;
+  width: 25px;
+  height: 25px;
+  border-radius: 8px;
+  background: var(--soft);
+  color: var(--accent);
+  font-size: .75rem;
+  font-weight: 800;
+}
+.storage-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.storage-file-size {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 700;
+}
+.storage-empty {
+  color: var(--muted);
+  font-size: .9rem;
+}
+.storage-dashboard-trust-note {
+  margin: 15px 0 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: .82rem;
+  line-height: 1.55;
+}
+@media (min-width: 760px) {
+  .storage-metrics-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .storage-dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .storage-dashboard-panel-wide {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 380px) {
+  .storage-dashboard {
+    padding: 12px;
+    border-radius: 16px;
+  }
+  .storage-metric-card {
+    padding: 11px;
+  }
+}
