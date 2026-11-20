@@ -54,6 +54,13 @@ input {
   outline-offset: 3px;
 }
 
+/* Touch/pointer interaction must never keep the browser's default focus ring.
+   The selected file-analysis action below gets its own single touch ring. */
+body:not(.keyboard-focus-mode) button:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 /* Inputs retain a visible focus indication for editing. */
 a:focus,
 input:focus {
