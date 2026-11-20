@@ -3403,6 +3403,15 @@ function openFileAnalysis(): void {
     actionInputMode = "pointer";
   });
 
+  // Android browsers may deliver touch activation without a reliable pointerdown.
+  // Use touchstart as an explicit fallback so a touch is never mistaken for keyboard.
+  screen.addEventListener("touchstart", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || !target.closest(".file-analysis-action")) return;
+    actionInputMode = "pointer";
+    screen.classList.remove("keyboard-action-mode");
+  }, { passive: true });
+
   screen.addEventListener("keydown", (event) => {
     if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Enter" || event.key === " ") {
       actionInputMode = "keyboard";
