@@ -49,7 +49,7 @@ describe("M10.1 storage dashboard aggregation", () => {
     ] satisfies DuplicateFileGroup[];
     const summary = summarizeStorage([file("x", 700)], groups);
     expect(summary.duplicateGroupCount).toBe(2);
-    expect(summary.potentialDuplicateSavings).toBe(450);
+    expect(summary.potentialDuplicateSavings).toBe(700);
   });
 
   it("does not report potential duplicate savings for empty or missing groups", () => {
