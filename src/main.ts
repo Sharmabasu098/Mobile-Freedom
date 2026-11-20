@@ -3398,7 +3398,7 @@ function openFileAnalysis(): void {
   let duplicateScanCompleted = false;
 
   function refreshStorageDashboard(): void {
-    if (!storageDashboard) return;
+    if (!storageDashboard || !thresholdInput) return;
     const thresholdMB = Number(thresholdInput.value);
     const summary = summarizeStorage(latestAnalyzedFiles, latestDuplicateGroups, {
       largeFileThreshold: thresholdMB * 1024 * 1024,
