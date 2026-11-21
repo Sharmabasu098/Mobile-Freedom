@@ -3541,6 +3541,13 @@ function openFileAnalysis(): void {
     results.hidden = true;
     fileList.replaceChildren();
     largeFileList.replaceChildren();
+    latestAnalyzedFiles = [];
+    latestDuplicateGroups = [];
+    duplicateScanCompleted = false;
+    similarPhotoScanCompleted = false;
+    latestSimilarPhotoPairCount = undefined;
+    assistantResults.replaceChildren();
+    assistantStatus.textContent = "";
     status.textContent = "";
 
     const files = Array.from(fileInput.files ?? []);
@@ -3877,6 +3884,8 @@ function openFileAnalysis(): void {
           failedFiles.push({ file, error });
         },
       );
+      similarPhotoScanCompleted = true;
+      latestSimilarPhotoPairCount = pairs.length;
 
       if (pairs.length === 0) {
         const message = document.createElement("p");
