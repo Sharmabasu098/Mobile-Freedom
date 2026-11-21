@@ -126,7 +126,7 @@ export function generateStorageAssistantResponse(
 
   if (context.similarPhotoScanCompleted === true) {
     const pairCount = context.similarPhotoPairCount;
-    if (Number.isInteger(pairCount) && pairCount >= 0) {
+    if (pairCount !== undefined && Number.isInteger(pairCount) && pairCount >= 0) {
       insights.push({
         kind: "notice",
         title: en ? "Visually similar photos" : "दृश्य रूप से मिलती-जुलती तस्वीरें",
