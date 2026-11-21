@@ -3404,6 +3404,9 @@ function openFileAnalysis(): void {
 
   const storageDashboard =
     screen.querySelector<HTMLDivElement>("#storage-dashboard");
+  const assistantButton = screen.querySelector<HTMLButtonElement>("#storage-assistant-ask");
+  const assistantStatus = screen.querySelector<HTMLParagraphElement>("#storage-assistant-status");
+  const assistantResults = screen.querySelector<HTMLDivElement>("#storage-assistant-results");
 
   // On touch devices, explicitly move the visible action focus ring to the
   // button being pressed instead of relying on browser-specific tap focus.
@@ -3490,7 +3493,10 @@ function openFileAnalysis(): void {
     !results ||
     !total ||
     !fileList ||
-    !largeFileList
+    !largeFileList ||
+    !assistantButton ||
+    !assistantStatus ||
+    !assistantResults
   ) {
     screen.remove();
     home.hidden = false;
