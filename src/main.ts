@@ -22,6 +22,8 @@ import {
 
 import { findExactDuplicates } from "./tools/storage/findDuplicates";
 import { findSimilarPhotos } from "./tools/storage/similarPhotos";
+import { summarizeStorage } from "./tools/storage/storageDashboard";
+import { renderStorageDashboard } from "./tools/storage/storageDashboardView";
 import { filterMediaFiles } from "./tools/storage/mediaFiles";
 
 type Language = "en" | "hi";
@@ -3128,7 +3130,7 @@ function openFileAnalysis(): void {
 
         <button
           id="file-analysis-run"
-          class="control-button"
+          class="control-button file-analysis-action"
           type="button"
           style="margin-top:18px;background:var(--accent);color:white;"
         >
@@ -3141,7 +3143,7 @@ function openFileAnalysis(): void {
 
         <button
           id="file-duplicates-run"
-          class="control-button"
+          class="control-button file-analysis-action"
           type="button"
           style="margin-top:12px;"
         >
@@ -3160,7 +3162,7 @@ function openFileAnalysis(): void {
 
         <button
   id="file-similar-run"
-  class="control-button"
+  class="control-button file-analysis-action"
   type="button"
   style="margin-top:12px;"
 >
@@ -3239,6 +3241,7 @@ function openFileAnalysis(): void {
         ></p>
 
         <div id="file-analysis-results" hidden>
+          <div id="storage-dashboard" aria-live="polite"></div>
           <h3>
             ${
               language === "en"
@@ -3387,6 +3390,70 @@ function openFileAnalysis(): void {
       "#file-analysis-large-list"
     );
 
+  const storageDashboard =
+    screen.querySelector<HTMLDivElement>("#storage-dashboard");
+
+  // On touch devices, explicitly move the visible action focus ring to the
+  // button being pressed instead of relying on browser-specific tap focus.
+  screen.addEventListener("pointerdown", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const action = target.closest<HTMLButtonElement>(".file-analysis-action");
+    if (!action) return;
+    screen.querySelectorAll(".file-analysis-action.is-action-focused").forEach((button) => {
+      button.classList.remove("is-action-focused");
+    });
+    action.classList.add("is-action-focused");
+    action.focus({ preventScroll: true });
+  });
+
+  let dashboardExpanded = true;
+
+  function bindStorageDashboardToggle(): void {
+    const toggle = storageDashboard?.querySelector<HTMLButtonElement>("[data-storage-dashboard-toggle]");
+    const content = storageDashboard?.querySelector<HTMLElement>("#storage-dashboard-content");
+    if (!toggle || !content) return;
+
+    // Bind directly to the newly rendered button so mobile taps cannot be lost
+    // through a delegated handler after the dashboard HTML is refreshed.
+    toggle.setAttribute("aria-expanded", String(dashboardExpanded));
+    content.hidden = !dashboardExpanded;
+    toggle.textContent = dashboardExpanded
+      ? (language === "en" ? "−" : "−")
+      : (language === "en" ? "+" : "+");
+    toggle.setAttribute("aria-label", dashboardExpanded
+      ? (language === "en" ? "Collapse dashboard details" : "डैशबोर्ड विवरण समेटें")
+      : (language === "en" ? "Expand dashboard details" : "डैशबोर्ड विवरण खोलें"));
+    toggle.setAttribute("title", toggle.getAttribute("aria-label") ?? "");
+
+    toggle.addEventListener("click", () => {
+      dashboardExpanded = !dashboardExpanded;
+      content.hidden = !dashboardExpanded;
+      toggle.setAttribute("aria-expanded", String(dashboardExpanded));
+      toggle.textContent = dashboardExpanded ? "−" : "+";
+      toggle.setAttribute("aria-label", dashboardExpanded
+        ? (language === "en" ? "Collapse dashboard details" : "डैशबोर्ड विवरण समेटें")
+        : (language === "en" ? "Expand dashboard details" : "डैशबोर्ड विवरण खोलें"));
+      toggle.setAttribute("title", toggle.getAttribute("aria-label") ?? "");
+      toggle.focus({ preventScroll: true });
+    });
+  }
+
+  let latestAnalyzedFiles: ReturnType<typeof analyzeFiles> = [];
+  let latestDuplicateGroups: Awaited<ReturnType<typeof findExactDuplicates>> = [];
+  let duplicateScanCompleted = false;
+
+  function refreshStorageDashboard(): void {
+    if (!storageDashboard || !thresholdInput) return;
+    const thresholdMB = Number(thresholdInput.value);
+    const summary = summarizeStorage(latestAnalyzedFiles, latestDuplicateGroups, {
+      largeFileThreshold: thresholdMB * 1024 * 1024,
+      largestFilesLimit: 10,
+    });
+    storageDashboard.innerHTML = renderStorageDashboard(summary, language, duplicateScanCompleted);
+    bindStorageDashboardToggle();
+  }
+
   if (
     !backButton ||
     !fileInput ||
@@ -3500,6 +3567,9 @@ function openFileAnalysis(): void {
 
     try {
       const analyzedFiles = analyzeFiles(files);
+      latestAnalyzedFiles = analyzedFiles;
+      latestDuplicateGroups = [];
+      duplicateScanCompleted = false;
 
       const largeFiles = findLargeFiles(files, {
         largeFileThreshold:
@@ -3507,6 +3577,7 @@ function openFileAnalysis(): void {
       });
 
       const totalSize = calculateTotalSize(files);
+      refreshStorageDashboard();
 
       fileList.replaceChildren();
       largeFileList.replaceChildren();
@@ -3608,6 +3679,10 @@ function openFileAnalysis(): void {
         failedFiles.push({ file, error });
          },
        );
+
+      latestDuplicateGroups = groups;
+      duplicateScanCompleted = true;
+      refreshStorageDashboard();
 
       if (groups.length === 0) {
         const message = document.createElement("p");
