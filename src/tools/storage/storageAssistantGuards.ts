@@ -14,7 +14,8 @@ export type StorageAssistantContextIssue =
   | "invalid-duplicate-savings"
   | "invalid-large-file-entry"
   | "invalid-similar-photo-count"
-  | "similar-photo-count-without-completed-scan";
+  | "similar-photo-count-without-completed-scan"
+  | "duplicate-results-without-completed-scan";
 
 export interface StorageAssistantContextValidation {
   valid: boolean;
@@ -45,6 +46,10 @@ export function validateStorageAssistantContext(
     !file || typeof file.name !== "string" || !Number.isFinite(file.size) || file.size < 0
   )) {
     issues.push("invalid-large-file-entry");
+  }
+
+  if (context?.exactDuplicateScanCompleted !== true && summary && (summary.duplicateGroupCount > 0 || summary.potentialDuplicateSavings > 0)) {
+    issues.push("duplicate-results-without-completed-scan");
   }
 
   const pairCount = context?.similarPhotoPairCount;
