@@ -3454,6 +3454,8 @@ function openFileAnalysis(): void {
   let latestAnalyzedFiles: ReturnType<typeof analyzeFiles> = [];
   let latestDuplicateGroups: Awaited<ReturnType<typeof findExactDuplicates>> = [];
   let duplicateScanCompleted = false;
+  let similarPhotoScanCompleted = false;
+  let latestSimilarPhotoPairCount: number | undefined;
 
   function refreshStorageDashboard(): void {
     if (!storageDashboard || !thresholdInput) return;
@@ -3876,7 +3878,7 @@ function openFileAnalysis(): void {
         },
       );
 
-      similarPhotoScanCompleted = true;\n      latestSimilarPhotoPairCount = pairs.length;\n\n      if (pairs.length === 0) {
+      if (pairs.length === 0) {
         const message = document.createElement("p");
 
         message.textContent =
@@ -3976,6 +3978,45 @@ function openFileAnalysis(): void {
 
     } finally {
       similarButton.disabled = false;
+    }
+  });
+
+  assistantButton.addEventListener("click", () => {
+    assistantResults.replaceChildren();
+    assistantStatus.textContent = language === "en" ? "Preparing grounded suggestions..." : "डेटा-आधारित सुझाव तैयार हो रहे हैं...";
+    try {
+      const thresholdMB = Number(thresholdInput.value);
+      const summary = summarizeStorage(latestAnalyzedFiles, latestDuplicateGroups, {
+        largeFileThreshold: Number.isFinite(thresholdMB) && thresholdMB >= 0 ? thresholdMB * 1024 * 1024 : undefined,
+        largestFilesLimit: 10,
+      });
+      const response = generateStorageAssistantResponse({
+        summary,
+        exactDuplicateScanCompleted: duplicateScanCompleted,
+        similarPhotoScanCompleted,
+        ...(similarPhotoScanCompleted ? { similarPhotoPairCount: latestSimilarPhotoPairCount ?? 0 } : {}),
+      }, language);
+      response.insights.forEach((insight) => {
+        const card = document.createElement("article");
+        card.className = "tool-card";
+        card.style.marginTop = "12px";
+        const heading = document.createElement("h4");
+        heading.textContent = insight.title;
+        const message = document.createElement("p");
+        message.textContent = insight.message;
+        card.append(heading, message);
+        assistantResults.append(card);
+      });
+      const disclaimer = document.createElement("p");
+      disclaimer.textContent = response.disclaimer;
+      disclaimer.style.color = "var(--muted)";
+      assistantResults.append(disclaimer);
+      assistantStatus.textContent = language === "en" ? "Suggestions ready." : "सुझाव तैयार हैं।";
+    } catch {
+      assistantResults.replaceChildren();
+      assistantStatus.textContent = language === "en"
+        ? "Suggestions could not be prepared. Please rerun analysis."
+        : "सुझाव तैयार नहीं हो सके। कृपया विश्लेषण फिर चलाएँ।";
     }
   });
 
