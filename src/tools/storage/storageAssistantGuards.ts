@@ -15,7 +15,12 @@ export type StorageAssistantContextIssue =
   | "invalid-large-file-entry"
   | "invalid-similar-photo-count"
   | "similar-photo-count-without-completed-scan"
-  | "duplicate-results-without-completed-scan";
+  | "duplicate-results-without-completed-scan"
+  | "duplicate-results-impossible-for-file-count"
+  | "duplicate-savings-exceeds-total"
+  | "large-file-count-exceeds-analyzed"
+  | "invalid-large-file-name"
+  | "similar-photo-count-exceeds-possible-pairs";
 
 export interface StorageAssistantContextValidation {
   valid: boolean;
@@ -48,6 +53,18 @@ export function validateStorageAssistantContext(
     issues.push("invalid-large-file-entry");
   }
 
+  if (summary && Number.isInteger(summary.analyzedFileCount) && summary.analyzedFileCount >= 0 && Number.isInteger(summary.duplicateGroupCount) && summary.duplicateGroupCount > 0 && summary.analyzedFileCount < 2) {
+    issues.push("duplicate-results-impossible-for-file-count");
+  }
+  if (summary && Number.isFinite(summary.totalSize) && summary.totalSize >= 0 && Number.isFinite(summary.potentialDuplicateSavings) && summary.potentialDuplicateSavings > summary.totalSize) {
+    issues.push("duplicate-savings-exceeds-total");
+  }
+  if (summary && Array.isArray(summary.largeFiles) && Number.isInteger(summary.analyzedFileCount) && summary.analyzedFileCount >= 0 && summary.largeFiles.length > summary.analyzedFileCount) {
+    issues.push("large-file-count-exceeds-analyzed");
+  }
+  if (summary && Array.isArray(summary.largeFiles) && summary.largeFiles.some(file => typeof file?.name === "string" && safeAssistantFileName(file.name).trim().length === 0)) {
+    issues.push("invalid-large-file-name");
+  }
   if (context?.exactDuplicateScanCompleted !== true && summary && (summary.duplicateGroupCount > 0 || summary.potentialDuplicateSavings > 0)) {
     issues.push("duplicate-results-without-completed-scan");
   }
@@ -56,6 +73,10 @@ export function validateStorageAssistantContext(
   if (context?.similarPhotoScanCompleted === true &&
       (pairCount === undefined || !Number.isInteger(pairCount) || pairCount < 0)) {
     issues.push("invalid-similar-photo-count");
+  }
+  if (context?.similarPhotoScanCompleted === true && Number.isInteger(pairCount) && pairCount >= 0 && summary && Number.isInteger(summary.analyzedFileCount) && summary.analyzedFileCount >= 0) {
+    const maxPairs = summary.analyzedFileCount * (summary.analyzedFileCount - 1) / 2;
+    if (pairCount > maxPairs) issues.push("similar-photo-count-exceeds-possible-pairs");
   }
   if (context?.similarPhotoScanCompleted !== true && pairCount !== undefined) {
     issues.push("similar-photo-count-without-completed-scan");
