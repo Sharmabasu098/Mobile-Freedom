@@ -74,7 +74,7 @@ export function validateStorageAssistantContext(
       (pairCount === undefined || !Number.isInteger(pairCount) || pairCount < 0)) {
     issues.push("invalid-similar-photo-count");
   }
-  if (context?.similarPhotoScanCompleted === true && Number.isInteger(pairCount) && pairCount >= 0 && summary && Number.isInteger(summary.analyzedFileCount) && summary.analyzedFileCount >= 0) {
+  if (context?.similarPhotoScanCompleted === true && typeof pairCount === "number" && Number.isInteger(pairCount) && pairCount >= 0 && summary && Number.isInteger(summary.analyzedFileCount) && summary.analyzedFileCount >= 0) {
     const maxPairs = summary.analyzedFileCount * (summary.analyzedFileCount - 1) / 2;
     if (pairCount > maxPairs) issues.push("similar-photo-count-exceeds-possible-pairs");
   }
