@@ -5,6 +5,7 @@
  * analysis results. No network requests, file mutations, or deletion actions.
  */
 import type { StorageDashboardSummary } from "./storageDashboard";
+import { validateStorageAssistantContext, safeAssistantFileName } from "./storageAssistantGuards";
 
 export type StorageAssistantLanguage = "en" | "hi";
 export type StorageAssistantInsightKind = "summary" | "review" | "notice";
@@ -51,6 +52,22 @@ export function generateStorageAssistantResponse(
   context: StorageAssistantContext,
   language: StorageAssistantLanguage = "en",
 ): StorageAssistantResponse {
+  const validation = validateStorageAssistantContext(context);
+  if (!validation.valid) {
+    return {
+      language,
+      insights: [{
+        kind: "notice",
+        title: language === "en" ? "Analysis context needs verification" : "विश्लेषण डेटा की जाँच आवश्यक है",
+        message: language === "en"
+          ? "Some supplied analysis data is invalid or contradictory. I will not generate storage recommendations from it. Please rerun the relevant analysis."
+          : "दिया गया विश्लेषण डेटा अमान्य या आपस में विरोधाभासी है। मैं इसके आधार पर स्टोरेज सुझाव नहीं दूँगा। कृपया संबंधित विश्लेषण फिर से चलाएँ।",
+      }],
+      disclaimer: language === "en"
+        ? "No files were changed or deleted. Invalid context was blocked before insight generation."
+        : "कोई फाइल बदली या हटाई नहीं गई। अमान्य डेटा को सुझाव तैयार करने से पहले रोक दिया गया।",
+    };
+  }
   const { summary } = context;
   const en = language === "en";
   const insights: StorageAssistantInsight[] = [];
@@ -78,7 +95,7 @@ export function generateStorageAssistantResponse(
 
   const largeFiles = Array.isArray(summary.largeFiles) ? summary.largeFiles : [];
   if (largeFiles.length > 0) {
-    const examples = largeFiles.slice(0, 3).map(file => `${file.name} (${formatBytes(file.size, language)})`).join(", ");
+    const examples = largeFiles.slice(0, 3).map(file => `${safeAssistantFileName(file.name)} (${formatBytes(file.size, language)})`).join(", ");
     insights.push({
       kind: "review",
       title: en ? "Large files worth reviewing" : "बड़ी फाइलें जिन्हें देखना उपयोगी होगा",

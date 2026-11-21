@@ -68,12 +68,13 @@ describe("M11.1 evidence-grounded Storage Assistant", () => {
     expect(response.insights.some(item => item.message.includes("समान दिखना"))).toBe(true);
   });
 
-  it("handles invalid totals without fabricating a size", () => {
+  it("blocks invalid totals with a verification notice instead of fabricating a size", () => {
     const summary = { ...summarizeStorage([]), totalSize: Number.NaN };
     const response = generateStorageAssistantResponse({
       summary, exactDuplicateScanCompleted: false,
     });
-    expect(response.insights.some(item => item.title.includes("unavailable"))).toBe(true);
+    expect(response.insights.some(item => item.title.includes("needs verification"))).toBe(true);
+    expect(response.insights[0].message).toContain("will not generate storage recommendations");
     expect(response.insights[0].message).not.toContain("NaN");
   });
 });
