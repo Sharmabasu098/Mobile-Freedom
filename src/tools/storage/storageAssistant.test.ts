@@ -43,7 +43,7 @@ describe("M11.1 evidence-grounded Storage Assistant", () => {
   it("keeps visual similarity separate from exact duplicates and supports Hindi", () => {
     const summary = summarizeStorage([file("a.jpg", 100), file("b.jpg", 100)]);
     const response = generateStorageAssistantResponse({
-      summary, exactDuplicateScanCompleted: true, similarPhotoScanCompleted: true, similarPhotoPairCount: 2,
+      summary, exactDuplicateScanCompleted: true, similarPhotoScanCompleted: true, similarPhotoPairCount: 1,
     }, "hi");
     expect(response.language).toBe("hi");
     expect(response.insights.some(item => item.title.includes("मिलती-जुलती तस्वीरें"))).toBe(true);
