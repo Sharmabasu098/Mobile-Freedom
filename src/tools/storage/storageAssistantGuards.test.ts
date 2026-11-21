@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { summarizeStorage } from "./storageDashboard";
+import { generateStorageAssistantResponse } from "./storageAssistant";
 import type { FileAnalysisResult } from "./fileAnalysis";
 import {
   canGenerateStorageAssistantInsights,
@@ -19,6 +20,22 @@ describe("M11.2 context & safety guards", () => {
     const context = validContext();
     expect(validateStorageAssistantContext(context).valid).toBe(true);
     expect(canGenerateStorageAssistantInsights(context)).toBe(true);
+  });
+
+  it("blocks insight generation when context contains invalid totals", () => {
+    const context = validContext();
+    context.summary.totalSize = Number.NaN;
+    const response = generateStorageAssistantResponse(context);
+    expect(response.insights).toHaveLength(1);
+    expect(response.insights[0].title).toContain("needs verification");
+    expect(response.insights[0].message).toContain("will not generate storage recommendations");
+  });
+
+  it("rejects duplicate findings when scan is not marked completed", () => {
+    const context = validContext();
+    context.summary.duplicateGroupCount = 1;
+    context.summary.potentialDuplicateSavings = 50;
+    expect(validateStorageAssistantContext(context).issues).toContain("duplicate-results-without-completed-scan");
   });
 
   it("rejects negative and non-finite totals", () => {
