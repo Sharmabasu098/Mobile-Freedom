@@ -18,3 +18,7 @@ export function resetStorageAssistantEvidence<TFiles extends unknown[], TGroups 
     similarPhotoPairCount: undefined,
   };
 }
+/** Reject async scan results produced for a superseded file selection. */
+export function isCurrentStorageAssistantSelection(scanVersion: number, currentVersion: number): boolean {
+  return scanVersion === currentVersion;
+}
