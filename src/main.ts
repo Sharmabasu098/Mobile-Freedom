@@ -25,6 +25,7 @@ import { findSimilarPhotos } from "./tools/storage/similarPhotos";
 import { summarizeStorage } from "./tools/storage/storageDashboard";
 import { renderStorageDashboard } from "./tools/storage/storageDashboardView";
 import { filterMediaFiles } from "./tools/storage/mediaFiles";
+import { generateStorageAssistantResponse } from "./tools/storage/storageAssistant";
 
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
@@ -3242,6 +3243,17 @@ function openFileAnalysis(): void {
 
         <div id="file-analysis-results" hidden>
           <div id="storage-dashboard" aria-live="polite"></div>
+          <div id="storage-assistant-panel" class="tool-card" style="margin-top:18px;">
+            <h3>${language === "en" ? "Storage Assistant" : "स्टोरेज सहायक"}</h3>
+            <p>${language === "en" ? "Explain my selected-file analysis and suggest safe next steps." : "मेरी चुनी फाइलों के विश्लेषण को समझाएँ और सुरक्षित अगले कदम सुझाएँ।"}</p>
+            <button id="storage-assistant-ask" class="control-button" type="button" style="background:var(--accent);color:white;">
+              ${language === "en" ? "Get safe suggestions" : "सुरक्षित सुझाव पाएँ"}
+            </button>
+            <p id="storage-assistant-status" role="status" aria-live="polite"></p>
+            <div id="storage-assistant-results" aria-live="polite"></div>
+            <p style="color:var(--muted);">${language === "en" ? "Suggestions use only the selected-file analysis. No files are changed or deleted." : "सुझाव केवल चुनी गई फाइलों के विश्लेषण पर आधारित हैं। कोई फाइल बदली या डिलीट नहीं होती।"}</p>
+          </div>
+
           <h3>
             ${
               language === "en"
@@ -3392,6 +3404,9 @@ function openFileAnalysis(): void {
 
   const storageDashboard =
     screen.querySelector<HTMLDivElement>("#storage-dashboard");
+  const assistantButton = screen.querySelector<HTMLButtonElement>("#storage-assistant-ask");
+  const assistantStatus = screen.querySelector<HTMLParagraphElement>("#storage-assistant-status");
+  const assistantResults = screen.querySelector<HTMLDivElement>("#storage-assistant-results");
 
   // On touch devices, explicitly move the visible action focus ring to the
   // button being pressed instead of relying on browser-specific tap focus.
@@ -3442,6 +3457,8 @@ function openFileAnalysis(): void {
   let latestAnalyzedFiles: ReturnType<typeof analyzeFiles> = [];
   let latestDuplicateGroups: Awaited<ReturnType<typeof findExactDuplicates>> = [];
   let duplicateScanCompleted = false;
+  let similarPhotoScanCompleted = false;
+  let latestSimilarPhotoPairCount: number | undefined;
 
   function refreshStorageDashboard(): void {
     if (!storageDashboard || !thresholdInput) return;
@@ -3476,7 +3493,10 @@ function openFileAnalysis(): void {
     !results ||
     !total ||
     !fileList ||
-    !largeFileList
+    !largeFileList ||
+    !assistantButton ||
+    !assistantStatus ||
+    !assistantResults
   ) {
     screen.remove();
     home.hidden = false;
@@ -3527,6 +3547,13 @@ function openFileAnalysis(): void {
     results.hidden = true;
     fileList.replaceChildren();
     largeFileList.replaceChildren();
+    latestAnalyzedFiles = [];
+    latestDuplicateGroups = [];
+    duplicateScanCompleted = false;
+    similarPhotoScanCompleted = false;
+    latestSimilarPhotoPairCount = undefined;
+    assistantResults.replaceChildren();
+    assistantStatus.textContent = "";
     status.textContent = "";
 
     const files = Array.from(fileInput.files ?? []);
@@ -3863,6 +3890,8 @@ function openFileAnalysis(): void {
           failedFiles.push({ file, error });
         },
       );
+      similarPhotoScanCompleted = true;
+      latestSimilarPhotoPairCount = pairs.length;
 
       if (pairs.length === 0) {
         const message = document.createElement("p");
@@ -3964,6 +3993,45 @@ function openFileAnalysis(): void {
 
     } finally {
       similarButton.disabled = false;
+    }
+  });
+
+  assistantButton.addEventListener("click", () => {
+    assistantResults.replaceChildren();
+    assistantStatus.textContent = language === "en" ? "Preparing grounded suggestions..." : "डेटा-आधारित सुझाव तैयार हो रहे हैं...";
+    try {
+      const thresholdMB = Number(thresholdInput.value);
+      const summary = summarizeStorage(latestAnalyzedFiles, latestDuplicateGroups, {
+        largeFileThreshold: Number.isFinite(thresholdMB) && thresholdMB >= 0 ? thresholdMB * 1024 * 1024 : undefined,
+        largestFilesLimit: 10,
+      });
+      const response = generateStorageAssistantResponse({
+        summary,
+        exactDuplicateScanCompleted: duplicateScanCompleted,
+        similarPhotoScanCompleted,
+        ...(similarPhotoScanCompleted ? { similarPhotoPairCount: latestSimilarPhotoPairCount ?? 0 } : {}),
+      }, language);
+      response.insights.forEach((insight) => {
+        const card = document.createElement("article");
+        card.className = "tool-card";
+        card.style.marginTop = "12px";
+        const heading = document.createElement("h4");
+        heading.textContent = insight.title;
+        const message = document.createElement("p");
+        message.textContent = insight.message;
+        card.append(heading, message);
+        assistantResults.append(card);
+      });
+      const disclaimer = document.createElement("p");
+      disclaimer.textContent = response.disclaimer;
+      disclaimer.style.color = "var(--muted)";
+      assistantResults.append(disclaimer);
+      assistantStatus.textContent = language === "en" ? "Suggestions ready." : "सुझाव तैयार हैं।";
+    } catch {
+      assistantResults.replaceChildren();
+      assistantStatus.textContent = language === "en"
+        ? "Suggestions could not be prepared. Please rerun analysis."
+        : "सुझाव तैयार नहीं हो सके। कृपया विश्लेषण फिर चलाएँ।";
     }
   });
 
