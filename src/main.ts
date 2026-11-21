@@ -3562,6 +3562,7 @@ function openFileAnalysis(): void {
     duplicateScanCompleted = resetEvidence.duplicateScanCompleted;
     similarPhotoScanCompleted = resetEvidence.similarPhotoScanCompleted;
     latestSimilarPhotoPairCount = resetEvidence.similarPhotoPairCount;
+    refreshStorageDashboard();
     assistantResults.replaceChildren();
     assistantStatus.textContent = "";
     status.textContent = "";
