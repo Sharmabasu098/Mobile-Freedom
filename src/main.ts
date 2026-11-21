@@ -25,6 +25,7 @@ import { findSimilarPhotos } from "./tools/storage/similarPhotos";
 import { summarizeStorage } from "./tools/storage/storageDashboard";
 import { renderStorageDashboard } from "./tools/storage/storageDashboardView";
 import { filterMediaFiles } from "./tools/storage/mediaFiles";
+import { generateStorageAssistantResponse } from "./tools/storage/storageAssistant";
 
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
@@ -3242,6 +3243,17 @@ function openFileAnalysis(): void {
 
         <div id="file-analysis-results" hidden>
           <div id="storage-dashboard" aria-live="polite"></div>
+          <div id="storage-assistant-panel" class="tool-card" style="margin-top:18px;">
+            <h3>${language === "en" ? "Storage Assistant" : "स्टोरेज सहायक"}</h3>
+            <p>${language === "en" ? "Explain my selected-file analysis and suggest safe next steps." : "मेरी चुनी फाइलों के विश्लेषण को समझाएँ और सुरक्षित अगले कदम सुझाएँ।"}</p>
+            <button id="storage-assistant-ask" class="control-button" type="button" style="background:var(--accent);color:white;">
+              ${language === "en" ? "Get safe suggestions" : "सुरक्षित सुझाव पाएँ"}
+            </button>
+            <p id="storage-assistant-status" role="status" aria-live="polite"></p>
+            <div id="storage-assistant-results" aria-live="polite"></div>
+            <p style="color:var(--muted);">${language === "en" ? "Suggestions use only the selected-file analysis. No files are changed or deleted." : "सुझाव केवल चुनी गई फाइलों के विश्लेषण पर आधारित हैं। कोई फाइल बदली या डिलीट नहीं होती।"}</p>
+          </div>
+
           <h3>
             ${
               language === "en"
@@ -3864,7 +3876,7 @@ function openFileAnalysis(): void {
         },
       );
 
-      if (pairs.length === 0) {
+      similarPhotoScanCompleted = true;\n      latestSimilarPhotoPairCount = pairs.length;\n\n      if (pairs.length === 0) {
         const message = document.createElement("p");
 
         message.textContent =
