@@ -26,6 +26,7 @@ import { summarizeStorage } from "./tools/storage/storageDashboard";
 import { renderStorageDashboard } from "./tools/storage/storageDashboardView";
 import { filterMediaFiles } from "./tools/storage/mediaFiles";
 import { generateStorageAssistantResponse } from "./tools/storage/storageAssistant";
+import { resetStorageAssistantEvidence } from "./tools/storage/storageAssistantSession";
 
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
@@ -3547,11 +3548,18 @@ function openFileAnalysis(): void {
     results.hidden = true;
     fileList.replaceChildren();
     largeFileList.replaceChildren();
-    latestAnalyzedFiles = [];
-    latestDuplicateGroups = [];
-    duplicateScanCompleted = false;
-    similarPhotoScanCompleted = false;
-    latestSimilarPhotoPairCount = undefined;
+    const resetEvidence = resetStorageAssistantEvidence({
+      analyzedFiles: latestAnalyzedFiles,
+      duplicateGroups: latestDuplicateGroups,
+      duplicateScanCompleted,
+      similarPhotoScanCompleted,
+      similarPhotoPairCount: latestSimilarPhotoPairCount,
+    });
+    latestAnalyzedFiles = resetEvidence.analyzedFiles;
+    latestDuplicateGroups = resetEvidence.duplicateGroups;
+    duplicateScanCompleted = resetEvidence.duplicateScanCompleted;
+    similarPhotoScanCompleted = resetEvidence.similarPhotoScanCompleted;
+    latestSimilarPhotoPairCount = resetEvidence.similarPhotoPairCount;
     assistantResults.replaceChildren();
     assistantStatus.textContent = "";
     status.textContent = "";
