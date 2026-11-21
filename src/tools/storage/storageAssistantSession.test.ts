@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resetStorageAssistantEvidence } from "./storageAssistantSession";
+import { resetStorageAssistantEvidence, isCurrentStorageAssistantSelection } from "./storageAssistantSession";
 
 describe("M11.5 safety regression — selection evidence reset", () => {
   it("clears old file, duplicate, and similar-photo evidence when selection changes", () => {
@@ -30,5 +30,13 @@ describe("M11.5 safety regression — selection evidence reset", () => {
     expect(reset.duplicateScanCompleted).toBe(false);
     expect(reset.similarPhotoScanCompleted).toBe(false);
     expect(reset.analyzedFiles).toHaveLength(0);
+  });
+});
+
+
+describe("M11.5 async selection safety", () => {
+  it("accepts results only for the current selection generation", () => {
+    expect(isCurrentStorageAssistantSelection(4, 4)).toBe(true);
+    expect(isCurrentStorageAssistantSelection(4, 5)).toBe(false);
   });
 });
