@@ -97,7 +97,7 @@ describe("M11.2 context & safety guards", () => {
 
   it("blocks blank or control-only filenames in assistant evidence", () => {
     const context = validContext();
-    context.summary.largeFiles = [{ name: "\\u0000\\n", size: 10 } as FileAnalysisResult];
+    context.summary.largeFiles = [{ name: "\u0000\\n", size: 10 } as FileAnalysisResult];
     expect(validateStorageAssistantContext(context).issues).toContain("invalid-large-file-name");
   });
 
