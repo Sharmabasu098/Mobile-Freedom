@@ -5,6 +5,8 @@ import type { FileAnalysisResult } from "./fileAnalysis";
 const file = (name: string, size: number, type = "unknown", extension = ""): FileAnalysisResult => ({
   name, size, type, extension, lastModified: 0,
 });
+const duplicateFile = (name: string, size: number, type = "image/jpeg"): File =>
+  new File([new Uint8Array(size)], name, { type, lastModified: 0 });
 describe("M11.1 evidence-grounded Storage Assistant", () => {
   it("summarizes only supplied selected-file data and discloses scope", () => {
     const summary = summarizeStorage([file("photo.jpg", 2048, "image/jpeg", "jpg")]);
@@ -23,10 +25,10 @@ describe("M11.1 evidence-grounded Storage Assistant", () => {
     expect(largeInsight?.message).toContain("does not mean a file is safe to remove");
   });
   it("reports exact duplicate potential savings only after completed scan", () => {
-    const a = file("a.jpg", 100, "image/jpeg", "jpg");
-    const b = file("b.jpg", 100, "image/jpeg", "jpg");
-    const summary = summarizeStorage([a, b], [{
-      hash: "known-hash", files: [a as File, b as File], totalSize: 200, potentialSavings: 100,
+    const a = duplicateFile("a.jpg", 100);
+    const b = duplicateFile("b.jpg", 100);
+    const summary = summarizeStorage([file("a.jpg", 100, "image/jpeg", "jpg"), file("b.jpg", 100, "image/jpeg", "jpg")], [{
+      hash: "known-hash", files: [a, b], totalSize: 200, potentialSavings: 100,
     }]);
     const response = generateStorageAssistantResponse({ summary, exactDuplicateScanCompleted: true });
     expect(response.insights.some(item => item.message.includes("100 B"))).toBe(true);
