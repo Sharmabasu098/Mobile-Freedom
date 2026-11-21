@@ -37,6 +37,21 @@ if (!app) {
   );
 }
 
+// Track interaction modality so touch focus and keyboard focus are styled separately.
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Enter" || event.key === " ") {
+    document.body.classList.add("keyboard-focus-mode");
+    document.querySelectorAll(".file-analysis-action.is-touch-selected").forEach((button) => {
+      button.classList.remove("is-touch-selected");
+    });
+  }
+});
+document.addEventListener("pointerdown", (event) => {
+  if (event.pointerType === "touch" || event.pointerType === "pen" || event.pointerType === "mouse") {
+    document.body.classList.remove("keyboard-focus-mode");
+  }
+});
+
 const translations = {
   en: {
     tagline: "Useful tools. A little more freedom.",
@@ -3132,7 +3147,7 @@ function openFileAnalysis(): void {
           id="file-analysis-run"
           class="control-button file-analysis-action"
           type="button"
-          style="margin-top:18px;background:var(--accent);color:white;"
+          style="margin-top:18px;"
         >
           ${
             language === "en"
@@ -3393,19 +3408,9 @@ function openFileAnalysis(): void {
   const storageDashboard =
     screen.querySelector<HTMLDivElement>("#storage-dashboard");
 
-  // On touch devices, explicitly move the visible action focus ring to the
-  // button being pressed instead of relying on browser-specific tap focus.
-  screen.addEventListener("pointerdown", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const action = target.closest<HTMLButtonElement>(".file-analysis-action");
-    if (!action) return;
-    screen.querySelectorAll(".file-analysis-action.is-action-focused").forEach((button) => {
-      button.classList.remove("is-action-focused");
-    });
-    action.classList.add("is-action-focused");
-    action.focus({ preventScroll: true });
-  });
+  // Action buttons rely on native keyboard focus-visible only.
+  // Touch taps must not create a persistent custom focus ring.
+  screen.classList.remove("touch-action-mode", "keyboard-action-mode");
 
   let dashboardExpanded = true;
 
@@ -3435,7 +3440,7 @@ function openFileAnalysis(): void {
         ? (language === "en" ? "Collapse dashboard details" : "डैशबोर्ड विवरण समेटें")
         : (language === "en" ? "Expand dashboard details" : "डैशबोर्ड विवरण खोलें"));
       toggle.setAttribute("title", toggle.getAttribute("aria-label") ?? "");
-      toggle.focus({ preventScroll: true });
+      // Do not force focus after touch activation; preserve the user's input modality.
     });
   }
 
@@ -3453,6 +3458,19 @@ function openFileAnalysis(): void {
     storageDashboard.innerHTML = renderStorageDashboard(summary, language, duplicateScanCompleted);
     bindStorageDashboardToggle();
   }
+
+  // Touch selection is a visual marker only: do not call focus().
+  // The browser's native focus and the button's action remain independent.
+  screen.addEventListener("pointerdown", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const action = target.closest<HTMLButtonElement>(".file-analysis-action");
+    if (!action || !screen.contains(action)) return;
+
+    screen.querySelectorAll<HTMLButtonElement>(".file-analysis-action.is-touch-selected")
+      .forEach((button) => button.classList.remove("is-touch-selected"));
+    action.classList.add("is-touch-selected");
+  });
 
   if (
     !backButton ||

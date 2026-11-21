@@ -46,9 +46,22 @@ input {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Keep the focus ring attached to the control currently focused by touch
-   or keyboard. Moving focus to another control moves the ring with it. */
-button:focus,
+/* Focus rings are shown for keyboard navigation only. Android Chrome may
+   classify touch activation as :focus-visible, so touch must not create a
+   persistent action-button ring. Keyboard modality is set by main.ts. */
+.keyboard-focus-mode button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Touch/pointer interaction must never keep the browser's default focus ring.
+   The selected file-analysis action below gets its own single touch ring. */
+body:not(.keyboard-focus-mode) button:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Inputs retain a visible focus indication for editing. */
 a:focus,
 input:focus {
   outline: 3px solid var(--accent);
@@ -555,30 +568,36 @@ button:active {
 }
 
 
-/* M10.5 disclosure and consistent action focus */
-.storage-dashboard-toggle { flex: 0 0 auto; min-height: 42px; max-width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--soft); color: var(--text); font-weight: 700; cursor: pointer; }
-.storage-dashboard-toggle:focus, .file-analysis-action:focus { outline: 3px solid var(--accent); outline-offset: 2px; }
-#storage-dashboard-content[hidden] { display: none !important; }
-
-/* Mobile action focus feedback and compact dashboard disclosure control */
-.file-analysis-action.is-action-focused {
-  outline: 3px solid var(--accent) !important;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
-}
+/* M10.5: focus visibility is controlled by keyboard modality. */
 .storage-dashboard-toggle {
+  flex: 0 0 auto;
+  min-height: 42px;
+  max-width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
   display: grid;
   place-items: center;
-  flex: 0 0 42px;
   width: 42px;
-  min-height: 42px;
-  padding: 0;
   font-size: 1.35rem;
   line-height: 1;
-  font-weight: 800;
 }
-.storage-dashboard-toggle:focus,
-.storage-dashboard-toggle:active {
+.storage-dashboard-toggle:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
+}
+#storage-dashboard-content[hidden] { display: none !important; }
+
+/* File Analysis action buttons use native keyboard focus-visible.
+   No persistent custom touch focus decoration is applied. */
+
+/* The touch-selected action receives the one visual ring. */
+#file-analysis-screen .file-analysis-action.is-touch-selected {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
 }
