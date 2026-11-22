@@ -40,3 +40,33 @@ describe("M11.5 async selection safety", () => {
     expect(isCurrentStorageAssistantSelection(4, 5)).toBe(false);
   });
 });
+
+describe("M11.5-SR1 async selection safety regression", () => {
+  it("rejects a delayed scan result after selection changes", async () => {
+    let currentSelectionVersion = 1;
+    let displayedDuplicateGroups: string[] = [];
+    const scanStartedAtVersion = currentSelectionVersion;
+    let resolveScan!: (groups: string[]) => void;
+    const scanPromise = new Promise<string[]>((resolve) => { resolveScan = resolve; });
+    currentSelectionVersion += 1;
+    displayedDuplicateGroups = [];
+    resolveScan(["old-selection-group"]);
+    const staleGroups = await scanPromise;
+    if (isCurrentStorageAssistantSelection(scanStartedAtVersion, currentSelectionVersion)) {
+      displayedDuplicateGroups = staleGroups;
+    }
+    expect(currentSelectionVersion).toBe(2);
+    expect(displayedDuplicateGroups).toEqual([]);
+  });
+
+  it("accepts a delayed result when selection generation remains current", async () => {
+    const currentSelectionVersion = 7;
+    const scanStartedAtVersion = currentSelectionVersion;
+    const groups = await Promise.resolve(["current-selection-group"]);
+    let displayedDuplicateGroups: string[] = [];
+    if (isCurrentStorageAssistantSelection(scanStartedAtVersion, currentSelectionVersion)) {
+      displayedDuplicateGroups = groups;
+    }
+    expect(displayedDuplicateGroups).toEqual(["current-selection-group"]);
+  });
+});
