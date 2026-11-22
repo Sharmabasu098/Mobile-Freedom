@@ -19,13 +19,15 @@ describe("validateStorageSnapshot", () => {
     expect(validateStorageSnapshot({ ...validSnapshot, id: " " }).issues).toContain("invalid-id");
   });
 
-  it("rejects invalid timestamps", () => {
+  it("requires an ISO timestamp with timezone", () => {
     expect(validateStorageSnapshot({ ...validSnapshot, recordedAt: "not-a-date" }).issues).toContain("invalid-timestamp");
+    expect(validateStorageSnapshot({ ...validSnapshot, recordedAt: "2026-11-22" }).issues).toContain("invalid-timestamp");
   });
 
-  it("rejects negative or non-integer byte values", () => {
+  it("rejects negative, fractional, and unsafe byte values", () => {
     expect(validateStorageSnapshot({ ...validSnapshot, usedBytes: -1 }).issues).toContain("invalid-used-bytes");
     expect(validateStorageSnapshot({ ...validSnapshot, freeBytes: 1.5 }).issues).toContain("invalid-free-bytes");
+    expect(validateStorageSnapshot({ ...validSnapshot, totalBytes: Number.MAX_SAFE_INTEGER + 1 }).issues).toContain("invalid-total-bytes");
   });
 
   it("rejects contradictory storage totals", () => {
