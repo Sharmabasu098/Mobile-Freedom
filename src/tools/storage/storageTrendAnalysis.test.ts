@@ -56,7 +56,7 @@ describe("M12.3 storage trend analysis", () => {
     expect(result.snapshotsAnalyzed).toBe(3);
   });
 
-  it("rejects invalid snapshots and duplicate IDs", () => {
+  it("safely rejects malformed non-object runtime records", () => {\n    expect(analyzeStorageTrend([null as unknown as StorageSnapshot, snapshot("b", "2026-11-23T10:00:00Z", 50, 50)])).toMatchObject({\n      success: false, reason: "invalid-snapshot",\n    });\n  });\n\n  it("rejects invalid snapshots and duplicate IDs", () => {
     expect(analyzeStorageTrend([
       snapshot("a", "2026-11-22T10:00:00Z", 40, 60),
       { ...snapshot("b", "2026-11-23T10:00:00Z", 50, 50), freeBytes: 49 },
