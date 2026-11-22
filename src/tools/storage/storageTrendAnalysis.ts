@@ -25,7 +25,11 @@ export interface StorageTrendResult {
   reason?: StorageTrendFailure;
 }
 
-function isValidSnapshotRecord(value: unknown): value is StorageSnapshot {\n  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;\n  return validateStorageSnapshot(value as StorageSnapshot).valid;\n}\n\nfunction compareChronologically(a: StorageSnapshot, b: StorageSnapshot): number {
+function isValidSnapshotRecord(value: unknown): value is StorageSnapshot {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  return validateStorageSnapshot(value as StorageSnapshot).valid;
+}
+\nfunction compareChronologically(a: StorageSnapshot, b: StorageSnapshot): number {
   const timeDifference = Date.parse(a.recordedAt) - Date.parse(b.recordedAt);
   return timeDifference || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
