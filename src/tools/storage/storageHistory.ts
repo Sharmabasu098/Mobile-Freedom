@@ -14,6 +14,20 @@ export interface StorageHistoryStorage {
   removeItem(key: string): void;
 }
 
+/** Browser adapter. Accesses localStorage lazily so storage-access failures are caught by the store. */
+const browserLocalStorageAdapter: StorageHistoryStorage = {
+  getItem: (key) => window.localStorage.getItem(key),
+  setItem: (key, value) => window.localStorage.setItem(key, value),
+  removeItem: (key) => window.localStorage.removeItem(key),
+};
+
+/** Creates a storage-history store backed by the browser's localStorage. */
+export function createBrowserStorageHistoryStore(
+  capacity = DEFAULT_STORAGE_HISTORY_CAPACITY,
+) {
+  return createStorageHistoryStore(browserLocalStorageAdapter, capacity);
+}
+
 export type StorageHistoryFailure =
   | "invalid-snapshot"
   | "duplicate-id"
