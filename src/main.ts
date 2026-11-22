@@ -26,6 +26,7 @@ import { summarizeStorage } from "./tools/storage/storageDashboard";
 import { renderStorageDashboard } from "./tools/storage/storageDashboardView";
 import { filterMediaFiles } from "./tools/storage/mediaFiles";
 import { generateStorageAssistantResponse } from "./tools/storage/storageAssistant";
+import { resetStorageAssistantEvidence, isCurrentStorageAssistantSelection } from "./tools/storage/storageAssistantSession";
 
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
@@ -3459,6 +3460,7 @@ function openFileAnalysis(): void {
   let duplicateScanCompleted = false;
   let similarPhotoScanCompleted = false;
   let latestSimilarPhotoPairCount: number | undefined;
+  let fileSelectionVersion = 0;
 
   function refreshStorageDashboard(): void {
     if (!storageDashboard || !thresholdInput) return;
@@ -3544,17 +3546,38 @@ function openFileAnalysis(): void {
   }
 
   fileInput.addEventListener("change", () => {
+    fileSelectionVersion += 1;
     results.hidden = true;
     fileList.replaceChildren();
     largeFileList.replaceChildren();
-    latestAnalyzedFiles = [];
-    latestDuplicateGroups = [];
-    duplicateScanCompleted = false;
-    similarPhotoScanCompleted = false;
-    latestSimilarPhotoPairCount = undefined;
+    const resetEvidence = resetStorageAssistantEvidence({
+      analyzedFiles: latestAnalyzedFiles,
+      duplicateGroups: latestDuplicateGroups,
+      duplicateScanCompleted,
+      similarPhotoScanCompleted,
+      similarPhotoPairCount: latestSimilarPhotoPairCount,
+    });
+    latestAnalyzedFiles = resetEvidence.analyzedFiles;
+    latestDuplicateGroups = resetEvidence.duplicateGroups;
+    duplicateScanCompleted = resetEvidence.duplicateScanCompleted;
+    similarPhotoScanCompleted = resetEvidence.similarPhotoScanCompleted;
+    latestSimilarPhotoPairCount = resetEvidence.similarPhotoPairCount;
+    refreshStorageDashboard();
     assistantResults.replaceChildren();
     assistantStatus.textContent = "";
     status.textContent = "";
+    duplicateResults.hidden = true;
+    duplicateList.replaceChildren();
+    duplicateErrors.replaceChildren();
+    duplicateSummary.textContent = "";
+    duplicateStatus.textContent = "";
+    duplicateButton.disabled = false;
+    similarResults.hidden = true;
+    similarList.replaceChildren();
+    similarErrors.replaceChildren();
+    similarSummary.textContent = "";
+    similarStatus.textContent = "";
+    similarButton.disabled = false;
 
     const files = Array.from(fileInput.files ?? []);
 
@@ -3665,6 +3688,7 @@ function openFileAnalysis(): void {
 
     duplicateButton.addEventListener("click", async () => {
     const files = Array.from(fileInput.files ?? []);
+    const scanSelectionVersion = fileSelectionVersion;
 
     duplicateResults.hidden = true;
     duplicateList.replaceChildren();
@@ -3707,6 +3731,7 @@ function openFileAnalysis(): void {
          },
        );
 
+      if (!isCurrentStorageAssistantSelection(scanSelectionVersion, fileSelectionVersion)) return;
       latestDuplicateGroups = groups;
       duplicateScanCompleted = true;
       refreshStorageDashboard();
@@ -3829,17 +3854,21 @@ function openFileAnalysis(): void {
             ? "डुप्लिकेट जाँच पूरी हुई, लेकिन कुछ फाइलें जाँची नहीं जा सकीं।"
             : "डुप्लिकेट जाँच सफलतापूर्वक पूरी हुई।";
     } catch {
+      if (!isCurrentStorageAssistantSelection(scanSelectionVersion, fileSelectionVersion)) return;
       duplicateStatus.textContent =
         language === "en"
           ? "Duplicate detection could not be completed."
           : "डुप्लिकेट जाँच पूरी नहीं हो सकी।";
     } finally {
-      duplicateButton.disabled = false;
+      if (isCurrentStorageAssistantSelection(scanSelectionVersion, fileSelectionVersion)) {
+        duplicateButton.disabled = false;
+      }
     }
   });
 
     similarButton.addEventListener("click", async () => {
     const files = Array.from(fileInput.files ?? []);
+    const scanSelectionVersion = fileSelectionVersion;
 
     similarResults.hidden = true;
     similarList.replaceChildren();
@@ -3890,6 +3919,7 @@ function openFileAnalysis(): void {
           failedFiles.push({ file, error });
         },
       );
+      if (!isCurrentStorageAssistantSelection(scanSelectionVersion, fileSelectionVersion)) return;
       similarPhotoScanCompleted = true;
       latestSimilarPhotoPairCount = pairs.length;
 
@@ -3986,13 +4016,16 @@ function openFileAnalysis(): void {
             : "मिलती-जुलती तस्वीरों की जाँच सफलतापूर्वक पूरी हुई।";
 
     } catch {
+      if (!isCurrentStorageAssistantSelection(scanSelectionVersion, fileSelectionVersion)) return;
       similarStatus.textContent =
         language === "en"
           ? "Similar photo detection could not be completed."
           : "मिलती-जुलती तस्वीरों की जाँच पूरी नहीं हो सकी।";
 
     } finally {
-      similarButton.disabled = false;
+      if (isCurrentStorageAssistantSelection(scanSelectionVersion, fileSelectionVersion)) {
+        similarButton.disabled = false;
+      }
     }
   });
 
