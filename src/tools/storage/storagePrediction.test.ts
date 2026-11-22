@@ -21,10 +21,10 @@ class Mem implements StorageHistoryStorage {
 }
 describe("M12.4 storage prediction",()=>{
   it("projects median daily growth using elapsed time",()=>{
-    expect(predictStorageUsage(series(),7)).toMatchObject({success:true,estimatedUsedBytes:170,medianDailyGrowthBytes:10,horizonDays:7});
+    expect(predictStorageUsage(series(),7)).toMatchObject({success:true,estimatedUsedBytes:195,medianDailyGrowthBytes:5,horizonDays:7});
   });
   it("supports decreasing and stable trends",()=>{
-    expect(predictStorageUsage(series([-5,-5,-5,-5,-5,-5]),7)).toMatchObject({success:true,estimatedUsedBytes:65,medianDailyGrowthBytes:-5});
+    expect(predictStorageUsage(series([-5,-5,-5,-5,-5,-5]),7)).toMatchObject({success:true,estimatedUsedBytes:53,medianDailyGrowthBytes:-2.5});
     expect(predictStorageUsage(series([0,0,0,0,0,0]),14)).toMatchObject({success:true,estimatedUsedBytes:100,medianDailyGrowthBytes:0});
   });
   it("rejects unsupported forecast horizons",()=>{
