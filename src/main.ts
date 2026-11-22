@@ -24,6 +24,10 @@ import { findExactDuplicates } from "./tools/storage/findDuplicates";
 import { findSimilarPhotos } from "./tools/storage/similarPhotos";
 import { summarizeStorage } from "./tools/storage/storageDashboard";
 import { renderStorageDashboard } from "./tools/storage/storageDashboardView";
+import { createBrowserStorageHistoryStore } from "./tools/storage/storageHistory";
+import { analyzeStorageHistory } from "./tools/storage/storageTrendAnalysis";
+import { predictStorageHistory } from "./tools/storage/storagePrediction";
+import { renderStorageHistoryPanel } from "./tools/storage/storageDashboardView";
 import { filterMediaFiles } from "./tools/storage/mediaFiles";
 import { generateStorageAssistantResponse } from "./tools/storage/storageAssistant";
 import { resetStorageAssistantEvidence, isCurrentStorageAssistantSelection } from "./tools/storage/storageAssistantSession";
@@ -3462,6 +3466,7 @@ function openFileAnalysis(): void {
   let latestSimilarPhotoPairCount: number | undefined;
   let fileSelectionVersion = 0;
 
+  const storageHistoryStore = createBrowserStorageHistoryStore();
   function refreshStorageDashboard(): void {
     if (!storageDashboard || !thresholdInput) return;
     const thresholdMB = Number(thresholdInput.value);
@@ -3469,8 +3474,43 @@ function openFileAnalysis(): void {
       largeFileThreshold: thresholdMB * 1024 * 1024,
       largestFilesLimit: 10,
     });
-    storageDashboard.innerHTML = renderStorageDashboard(summary, language, duplicateScanCompleted);
+    const history = storageHistoryStore.getHistory();
+    const trend = analyzeStorageHistory(storageHistoryStore);
+    const predictions = [7, 14, 30].map((days) => predictStorageHistory(storageHistoryStore, days));
+    storageDashboard.innerHTML = renderStorageDashboard(summary, language, duplicateScanCompleted) +
+      renderStorageHistoryPanel(history, trend, predictions, language);
     bindStorageDashboardToggle();
+    const recordButton = storageDashboard.querySelector<HTMLButtonElement>("#m12-record-snapshot");
+    const totalInput = storageDashboard.querySelector<HTMLInputElement>("#m12-total-mb");
+    const usedInput = storageDashboard.querySelector<HTMLInputElement>("#m12-used-mb");
+    const snapshotStatus = storageDashboard.querySelector<HTMLParagraphElement>("#m12-snapshot-status");
+    recordButton?.addEventListener("click", () => {
+      if (!totalInput || !usedInput || !snapshotStatus) return;
+      const totalMB = Number(totalInput.value);
+      const usedMB = Number(usedInput.value);
+      const valid = Number.isFinite(totalMB) && Number.isFinite(usedMB) && totalMB > 0 && usedMB >= 0 && usedMB <= totalMB;
+      if (!valid) {
+        snapshotStatus.textContent = language === "en"
+          ? "Enter a valid total capacity and used amount (used must not exceed total)."
+          : "सही कुल क्षमता और इस्तेमाल दर्ज करें (इस्तेमाल कुल क्षमता से अधिक नहीं हो सकता)।";
+        return;
+      }
+      const totalBytes = Math.round(totalMB * 1024 * 1024);
+      const usedBytes = Math.round(usedMB * 1024 * 1024);
+      const recordedAt = new Date().toISOString();
+      const result = storageHistoryStore.addSnapshot({
+        id: `snapshot-${Date.now()}`,
+        recordedAt,
+        totalBytes,
+        usedBytes,
+        freeBytes: totalBytes - usedBytes,
+        source: "user-provided",
+      });
+      snapshotStatus.textContent = result.success
+        ? (language === "en" ? "Snapshot recorded locally." : "Snapshot स्थानीय रूप से दर्ज हुआ।")
+        : (language === "en" ? "Could not save snapshot: " + (result.reason ?? "unknown error") : "Snapshot सेव नहीं हुआ: " + (result.reason ?? "अज्ञात त्रुटि"));
+      if (result.success) refreshStorageDashboard();
+    });
   }
 
   if (
