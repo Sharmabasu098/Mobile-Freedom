@@ -43,7 +43,7 @@ describe("M12.4 storage prediction",()=>{
     expect(predictStorageUsage(sameTime,7)).toMatchObject({success:false,reason:"zero-or-invalid-interval"});
   });
   it("median handles one outlier rate deterministically",()=>{
-    const data=series([10,10,1000,10,10,10]);
+    const data=series([10,10,1000,10,10,10],10000);
     const result=predictStorageUsage(data,7);
     expect(result).toMatchObject({success:true,medianDailyGrowthBytes:10});
     expect(result).toEqual(predictStorageUsage(data,7));
