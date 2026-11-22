@@ -9,9 +9,9 @@ export type StorageSnapshotSource = "user-provided" | "browser-derived";
 export interface StorageSnapshot {
   /** Stable identifier assigned by the caller. */
   id: string;
-  /** ISO-8601 timestamp when this measurement was recorded. */
+  /** ISO-8601 timestamp with an explicit timezone. */
   recordedAt: string;
-  /** All byte values are non-negative integers. */
+  /** All byte values are non-negative safe integers. */
   totalBytes: number;
   usedBytes: number;
   freeBytes: number;
@@ -43,10 +43,11 @@ export function validateStorageSnapshot(
     issues.push("invalid-id");
   }
 
-  if (
-    typeof snapshot.recordedAt !== "string" ||
-    Number.isNaN(Date.parse(snapshot.recordedAt))
-  ) {
+  const timestampIsIsoWithTimezone =
+    typeof snapshot.recordedAt === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(snapshot.recordedAt);
+
+  if (!timestampIsIsoWithTimezone || Number.isNaN(Date.parse(snapshot.recordedAt))) {
     issues.push("invalid-timestamp");
   }
 
