@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { analyzeStorageTrend } from "./storageTrendAnalysis";
+import { analyzeStorageHistory, analyzeStorageTrend } from "./storageTrendAnalysis";
+import { createStorageHistoryStore, type StorageHistoryStorage } from "./storageHistory";
 import type { StorageSnapshot } from "./storageSnapshot";
 
 function snapshot(
@@ -12,7 +13,33 @@ function snapshot(
   return { id, recordedAt, totalBytes, usedBytes, freeBytes, source: "user-provided" };
 }
 
+class MemoryStorage implements StorageHistoryStorage {
+  private values = new Map<string, string>();
+  getItem(key: string) { return this.values.get(key) ?? null; }
+  setItem(key: string, value: string) { this.values.set(key, value); }
+  removeItem(key: string) { this.values.delete(key); }
+}
+
 describe("M12.3 storage trend analysis", () => {
+  it("retrieves M12.2 history and analyzes it for AC-01", () => {
+    const store = createStorageHistoryStore(new MemoryStorage());
+    store.addSnapshot(snapshot("a", "2026-11-22T10:00:00Z", 40, 60));
+    store.addSnapshot(snapshot("b", "2026-11-23T10:00:00Z", 55, 45));
+    expect(analyzeStorageHistory(store)).toMatchObject({ success: true, direction: "increase", usedBytesChange: 15, snapshotsAnalyzed: 2 });
+  });
+
+
+  it("returns insufficient-history when M12.2 has fewer than two snapshots", () => {
+    const store = createStorageHistoryStore(new MemoryStorage());
+    store.addSnapshot(snapshot("only", "2026-11-22T10:00:00Z", 40, 60));
+    expect(analyzeStorageHistory(store)).toMatchObject({ success: false, reason: "insufficient-history" });
+  });
+
+
+  it("propagates M12.2 read failures safely", () => {
+    const failingStore = { getHistory: () => ({ success: false as const, history: [], reason: "storage-error" as const }) };
+    expect(analyzeStorageHistory(failingStore)).toMatchObject({ success: false, reason: "history-unavailable", historyFailure: "storage-error" });
+  });
   it("requires at least two snapshots", () => {
     expect(analyzeStorageTrend([])).toMatchObject({ success: false, reason: "insufficient-history" });
     expect(analyzeStorageTrend([snapshot("one", "2026-11-22T10:00:00Z", 60, 40)]))
