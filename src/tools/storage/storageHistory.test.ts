@@ -144,7 +144,7 @@ describe("M12.2 storage history", () => {
     }
   });
 
-  it("handles storage write failures without losing the prior in-memory result", () =>;
+  it("handles storage write failures without losing the prior in-memory result", () => {
     const storage: StorageHistoryStorage = {
       getItem: () => null,
       setItem: () => { throw new Error("quota"); },
