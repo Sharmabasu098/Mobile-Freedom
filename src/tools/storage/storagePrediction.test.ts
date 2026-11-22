@@ -32,7 +32,7 @@ describe("M12.4 storage prediction",()=>{
   });
   it("rejects fewer than seven snapshots and less than seven days",()=>{
     expect(predictStorageUsage(series().slice(0,6),7)).toMatchObject({success:false,reason:"insufficient-history"});
-    expect(predictStorageUsage(series().map((s,i)=>({...s,recordedAt:new Date(Date.parse(s.recordedAt)/2).toISOString()})),7)).toMatchObject({success:false,reason:"insufficient-history"});
+    expect(predictStorageUsage(series().map((s)=>({...s,recordedAt:new Date(Date.parse(s.recordedAt)/2).toISOString()})),7)).toMatchObject({success:false,reason:"insufficient-history"});
   });
   it("rejects duplicate IDs, invalid data, and zero intervals",()=>{
     const duplicate=series(); duplicate[1]={...duplicate[1],id:duplicate[0].id};
