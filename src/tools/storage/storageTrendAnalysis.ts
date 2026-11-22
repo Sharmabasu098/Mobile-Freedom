@@ -3,13 +3,15 @@
  * Uses explicitly supplied validated snapshots only. No monitoring, scanning, or file mutation.
  */
 import { validateStorageSnapshot, type StorageSnapshot } from "./storageSnapshot";
+import type { StorageHistoryResult } from "./storageHistory";
 
 export type StorageTrendDirection = "increase" | "decrease" | "unchanged";
 
 export type StorageTrendFailure =
   | "insufficient-history"
   | "invalid-snapshot"
-  | "duplicate-snapshot-id";
+  | "duplicate-snapshot-id"
+  | "history-unavailable";
 
 export interface StorageTrendResult {
   success: boolean;
@@ -23,6 +25,7 @@ export interface StorageTrendResult {
   elapsedMs?: number;
   usedBytesPerDay?: number;
   reason?: StorageTrendFailure;
+  historyFailure?: StorageHistoryResult["reason"];
 }
 
 function isValidSnapshotRecord(value: unknown): value is StorageSnapshot {
@@ -77,4 +80,21 @@ export function analyzeStorageTrend(snapshots: readonly StorageSnapshot[]): Stor
     // A zero-duration range has a valid comparison but no meaningful rate.
     ...(elapsedMs > 0 ? { usedBytesPerDay: (usedBytesChange * 86_400_000) / elapsedMs } : {}),
   };
+}
+
+
+/** Retrieve M12.2 history through an injected history store and analyze it. */
+export function analyzeStorageHistory(
+  historyStore: { getHistory(): StorageHistoryResult },
+): StorageTrendResult {
+  const historyResult = historyStore.getHistory();
+  if (!historyResult.success) {
+    return {
+      success: false,
+      snapshotsAnalyzed: 0,
+      reason: "history-unavailable",
+      historyFailure: historyResult.reason,
+    };
+  }
+  return analyzeStorageTrend(historyResult.history);
 }
