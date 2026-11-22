@@ -36,6 +36,17 @@ describe("M12.3 storage trend analysis", () => {
   });
 
 
+  it("returns insufficient-history when M12.2 history is empty", () => {
+    const store = createStorageHistoryStore(new MemoryStorage());
+    const historyResult = store.getHistory();
+    expect(historyResult).toMatchObject({ success: true, history: [] });
+    expect(analyzeStorageHistory(store)).toMatchObject({
+      success: false,
+      snapshotsAnalyzed: 0,
+      reason: "insufficient-history",
+    });
+  });
+
   it("propagates M12.2 read failures safely", () => {
     const failingStore = { getHistory: () => ({ success: false as const, history: [], reason: "storage-error" as const }) };
     expect(analyzeStorageHistory(failingStore)).toMatchObject({ success: false, reason: "history-unavailable", historyFailure: "storage-error" });
