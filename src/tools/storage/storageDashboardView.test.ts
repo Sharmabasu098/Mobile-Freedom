@@ -73,7 +73,7 @@ describe("M10.5 storage dashboard view", () => {
 
 describe("M12 storage history dashboard UI", () => {
   it("renders the manual snapshot form, trend, prediction horizons, and limitations", () => {
-    const history = { success: true, history: [] } as const;
+    const history = { success: true, history: [] };
     const trend = { success: false, snapshotsAnalyzed: 0, reason: "insufficient-history" } as const;
     const predictions = [7, 14, 30].map((horizonDays) => ({
       success: false, horizonDays, snapshotsAnalyzed: 0, method: "robust-median-daily-growth" as const,
@@ -92,7 +92,7 @@ describe("M12 storage history dashboard UI", () => {
   });
 
   it("renders Hindi labels and limitation copy", () => {
-    const history = { success: true, history: [] } as const;
+    const history = { success: true, history: [] };
     const trend = { success: false, snapshotsAnalyzed: 0, reason: "insufficient-history" } as const;
     const predictions = [7, 14, 30].map((horizonDays) => ({
       success: false, horizonDays, snapshotsAnalyzed: 0, method: "robust-median-daily-growth" as const,
