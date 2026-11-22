@@ -300,3 +300,35 @@ Documentation commits do not automatically establish milestone completion.
 **Roadmap Scope and Order:** LOCKED
 
 **Final Rule:** No milestone is PASS until its acceptance criteria and required verification are complete.
+## 17. Future Vision — Mobile Freedom Intelligence (Planning Only)
+
+**Activation condition:** Begin detailed planning only after M12 — Storage Trend & Prediction is officially complete and verified PASS.
+
+This section records future ideas approved by the project owner. It does not add, rename, reorder, merge, skip, or change any of the locked 23 milestones. It is a vision/planning appendix only; implementation requires a separate scope and architecture review at the appropriate time.
+
+### Proposed future capabilities
+
+- **Natural Conversation:** text and voice interaction, including speech-to-text and text-to-speech where supported.
+- **Understanding Engine:** understand user intent, context, problem, and follow-up; distinguish requests from information questions.
+- **Adaptive Assistance:** Simple, Guided, and Expert explanation modes.
+- **Cross-Device Intelligence:** plan support for mobile devices, laptops, PCs/desktops, and storage drives, subject to OS capabilities and permissions.
+- **Smart Cleanup Assistance:** analyze clutter and propose cleanup; show selected items and estimated space before action.
+- **File Intelligence & Organization:** categorize, review, and organize files with previews and user control.
+- **Device Health Guidance:** help diagnose common storage, performance, startup, memory, battery, heat, and connectivity concerns where data is available.
+- **Privacy & Security Intelligence:** privacy-aware guidance, permission awareness, risk explanations, and secure handling.
+- **Intelligent Tool Selection:** recommend or invoke the appropriate toolkit capability for the user's request.
+- **Trend & Prediction Intelligence:** use verified history to explain trends and estimates, including uncertainty and limitations.
+- **Action Verification:** verify outcomes after permitted actions and report success, failure, or partial completion honestly.
+
+### Safety and design principles
+
+- Understand → Inspect → Explain → Ask permission → Act → Verify.
+- Never perform destructive actions without clear, specific user confirmation.
+- Similarity detection alone must never authorize deletion.
+- Protect system files and clearly flag sensitive or important items.
+- Respect platform permissions and limitations; never claim unavailable access.
+- Prefer privacy-first processing and minimize unnecessary data transfer.
+- Show estimates, uncertainty, and limitations honestly.
+- Keep user control, accessibility, and clear explanations central.
+
+**Status:** FUTURE VISION — NOT STARTED. Do not implement during M12 or use this appendix to expand current milestone scope.
