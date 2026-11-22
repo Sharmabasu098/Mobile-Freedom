@@ -3506,10 +3506,15 @@ function openFileAnalysis(): void {
         freeBytes: totalBytes - usedBytes,
         source: "user-provided",
       });
-      snapshotStatus.textContent = result.success
+      const statusMessage = result.success
         ? (language === "en" ? "Snapshot recorded locally." : "Snapshot स्थानीय रूप से दर्ज हुआ।")
         : (language === "en" ? "Could not save snapshot: " + (result.reason ?? "unknown error") : "Snapshot सेव नहीं हुआ: " + (result.reason ?? "अज्ञात त्रुटि"));
-      if (result.success) refreshStorageDashboard();
+      snapshotStatus.textContent = statusMessage;
+      if (result.success) {
+        refreshStorageDashboard();
+        const refreshedStatus = storageDashboard?.querySelector<HTMLParagraphElement>("#m12-snapshot-status");
+        if (refreshedStatus) refreshedStatus.textContent = statusMessage;
+      }
     });
   }
 
