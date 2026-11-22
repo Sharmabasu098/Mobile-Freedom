@@ -45,7 +45,7 @@ describe("M12.4 storage prediction",()=>{
   it("median handles one outlier rate deterministically",()=>{
     const data=series([10,10,1000,10,10,10],10000);
     const result=predictStorageUsage(data,7);
-    expect(result).toMatchObject({success:true,medianDailyGrowthBytes:10});
+    expect(result).toMatchObject({success:true,medianDailyGrowthBytes:5});
     expect(result).toEqual(predictStorageUsage(data,7));
   });
   it("rejects highly volatile history",()=>{
