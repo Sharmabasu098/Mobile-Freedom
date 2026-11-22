@@ -23,6 +23,17 @@ describe("M12.4 storage prediction",()=>{
   it("projects median daily growth using elapsed time",()=>{
     expect(predictStorageUsage(series(),7)).toMatchObject({success:true,estimatedUsedBytes:195,medianDailyGrowthBytes:5,horizonDays:7});
   });
+  it("normalizes irregular snapshot intervals using actual elapsed days",()=>{
+    const offsets=[0,1,4,8,9,12,14];
+    const dailyGrowth=10;
+    const data=offsets.map((offset,i)=>snap(String(i),offset,100+offset*dailyGrowth));
+    expect(predictStorageUsage(data,7)).toMatchObject({
+      success:true,
+      snapshotsAnalyzed:7,
+      medianDailyGrowthBytes:10,
+      estimatedUsedBytes:310,
+    });
+  });
   it("supports decreasing and stable trends",()=>{
     expect(predictStorageUsage(series([-5,-5,-5,-5,-5,-5]),7)).toMatchObject({success:true,estimatedUsedBytes:53,medianDailyGrowthBytes:-2.5});
     expect(predictStorageUsage(series([0,0,0,0,0,0]),14)).toMatchObject({success:true,estimatedUsedBytes:100,medianDailyGrowthBytes:0});
