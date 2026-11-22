@@ -3499,7 +3499,7 @@ function openFileAnalysis(): void {
       const usedBytes = Math.round(usedMB * 1024 * 1024);
       const recordedAt = new Date().toISOString();
       const result = storageHistoryStore.addSnapshot({
-        id: `snapshot-${Date.now()}`,
+        id: `snapshot-${Date.now()}-${history.history.length}`,
         recordedAt,
         totalBytes,
         usedBytes,
