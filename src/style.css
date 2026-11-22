@@ -582,3 +582,29 @@ button:active {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* M12 — Storage history, trend, and prediction cards; mobile-first. */
+.m12-history-panel { margin-top:16px; padding:16px; border:1px solid var(--border); border-radius:18px; background:var(--surface); }
+.m12-history-panel h4 { margin:0 0 8px; }
+.m12-panel-intro { color:var(--muted); font-size:.9rem; line-height:1.5; }
+.m12-snapshot-form { display:grid; grid-template-columns:1fr; gap:12px; margin:14px 0; }
+.m12-snapshot-form label { display:flex; flex-direction:column; gap:6px; font-size:.88rem; font-weight:700; }
+.m12-snapshot-form input { width:100%; min-width:0; padding:11px; border:1px solid var(--border); border-radius:10px; background:var(--bg); color:var(--text); }
+#m12-record-snapshot { min-height:44px; background:var(--accent); color:white; font-weight:700; }
+#m12-snapshot-status { margin:0; color:var(--muted); font-size:.85rem; }
+.m12-low-warning { padding:12px; border:1px solid #d97706; border-radius:12px; background:#fff7ed; color:#9a3412; font-size:.9rem; line-height:1.5; }
+:root[data-theme="dark"] .m12-low-warning { background:#3b2415; color:#fdba74; }
+.m12-trend-block,.m12-prediction-block,.m12-history-block { margin-top:16px; }
+.m12-trend-block h5,.m12-prediction-block h5,.m12-history-block h5 { margin:0 0 10px; font-size:1rem; }
+.m12-trend-summary { padding:12px; border-radius:12px; background:var(--soft); }
+.m12-trend-summary p { margin:8px 0; }
+.m12-trend-summary small { color:var(--muted); }
+.m12-prediction-grid { display:grid; grid-template-columns:1fr; gap:10px; }
+.m12-prediction-card { display:flex; flex-direction:column; gap:6px; padding:13px; border:1px solid var(--border); border-radius:13px; background:var(--bg); min-width:0; }
+.m12-prediction-card span,.m12-prediction-card small { color:var(--muted); font-size:.82rem; line-height:1.45; }
+.m12-prediction-card strong { font-size:1.3rem; overflow-wrap:anywhere; }
+.m12-history-list { list-style:none; margin:0; padding:0; }
+.m12-history-row { display:flex; flex-direction:column; gap:4px; padding:11px 0; border-bottom:1px solid var(--border); font-size:.85rem; }
+.m12-history-row:last-child { border-bottom:0; }
+.m12-history-row span,.m12-history-row small { color:var(--muted); }
+@media (min-width:600px) { .m12-snapshot-form { grid-template-columns:1fr 1fr auto; align-items:end; } .m12-prediction-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
