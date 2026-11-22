@@ -75,9 +75,10 @@ describe("M12.2 storage history", () => {
     expect(createStorageHistoryStore(storage).getHistory()).toMatchObject({
       success: false,
       history: [],
-      reason: "storage-error",
+      reason: "malformed-history",
     });
   });
+
 
   it("does not trust invalid records or duplicate IDs in persisted history", () => {
     const storage = new MemoryStorage();
