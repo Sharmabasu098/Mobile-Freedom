@@ -41,10 +41,24 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Upload production build
+        id: upload-pages
         uses: actions/upload-pages-artifact@v4
         with:
+          name: github-pages
           path: ./dist
+
+      - name: Verify Pages artifact output
+        env:
+          PAGES_ARTIFACT_ID: ${{ steps.upload-pages.outputs.artifact_id }}
+        run: |
+          if [ -z "$PAGES_ARTIFACT_ID" ]; then
+            echo "GitHub Pages artifact upload did not return an artifact ID."
+            exit 1
+          fi
+          echo "GitHub Pages artifact uploaded successfully (ID: $PAGES_ARTIFACT_ID)."
 
       - name: Deploy website
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages
