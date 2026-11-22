@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createStorageHistoryStore,
+  createBrowserStorageHistoryStore,
   DEFAULT_STORAGE_HISTORY_CAPACITY,
   STORAGE_HISTORY_KEY,
   type StorageHistoryStorage,
@@ -107,7 +108,43 @@ describe("M12.2 storage history", () => {
     expect(() => createStorageHistoryStore(new MemoryStorage(), 0)).toThrow();
   });
 
-  it("handles storage write failures without losing the prior in-memory result", () => {
+  it("reports storage read failures safely", () => {
+    const storage: StorageHistoryStorage = {
+      getItem: () => { throw new Error("blocked"); },
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    };
+    expect(createStorageHistoryStore(storage).getHistory()).toMatchObject({
+      success: false, history: [], reason: "storage-error",
+    });
+  });
+
+  it("reports clear failures safely", () => {
+    const storage: StorageHistoryStorage = {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => { throw new Error("blocked"); },
+    };
+    expect(createStorageHistoryStore(storage).clearHistory()).toMatchObject({
+      success: false, history: [], reason: "storage-error",
+    });
+  });
+
+  it("uses the browser localStorage adapter", () => {
+    const backing = new MemoryStorage();
+    vi.stubGlobal("window", { localStorage: backing });
+    try {
+      const store = createBrowserStorageHistoryStore();
+      const result = store.addSnapshot(snapshot("browser", "2026-11-22T10:00:00Z"));
+      expect(result.success).toBe(true);
+      expect(backing.getItem(STORAGE_HISTORY_KEY)).not.toBeNull();
+      expect(store.getHistory().history.map((item) => item.id)).toEqual(["browser"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("handles storage write failures without losing the prior in-memory result", () =>;
     const storage: StorageHistoryStorage = {
       getItem: () => null,
       setItem: () => { throw new Error("quota"); },
