@@ -87,7 +87,17 @@ export function analyzeStorageTrend(snapshots: readonly StorageSnapshot[]): Stor
 export function analyzeStorageHistory(
   historyStore: { getHistory(): StorageHistoryResult },
 ): StorageTrendResult {
-  const historyResult = historyStore.getHistory();
+  let historyResult: StorageHistoryResult;
+  try {
+    historyResult = historyStore.getHistory();
+  } catch {
+    return {
+      success: false,
+      snapshotsAnalyzed: 0,
+      reason: "history-unavailable",
+      historyFailure: "storage-error",
+    };
+  }
   if (!historyResult.success) {
     return {
       success: false,
