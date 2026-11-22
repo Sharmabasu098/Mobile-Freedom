@@ -25,7 +25,7 @@ export interface StorageTrendResult {
   reason?: StorageTrendFailure;
 }
 
-function compareChronologically(a: StorageSnapshot, b: StorageSnapshot): number {
+function isValidSnapshotRecord(value: unknown): value is StorageSnapshot {\n  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;\n  return validateStorageSnapshot(value as StorageSnapshot).valid;\n}\n\nfunction compareChronologically(a: StorageSnapshot, b: StorageSnapshot): number {
   const timeDifference = Date.parse(a.recordedAt) - Date.parse(b.recordedAt);
   return timeDifference || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
@@ -36,7 +36,7 @@ export function analyzeStorageTrend(snapshots: readonly StorageSnapshot[]): Stor
     return { success: false, snapshotsAnalyzed: 0, reason: "insufficient-history" };
   }
 
-  if (!snapshots.every((snapshot) => validateStorageSnapshot(snapshot).valid)) {
+  if (!snapshots.every(isValidSnapshotRecord)) {
     return { success: false, snapshotsAnalyzed: 0, reason: "invalid-snapshot" };
   }
 
