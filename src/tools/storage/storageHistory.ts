@@ -34,7 +34,7 @@ function isSnapshotRecord(value: unknown): value is StorageSnapshot {
 
 function chronological(a: StorageSnapshot, b: StorageSnapshot): number {
   const timeDifference = Date.parse(a.recordedAt) - Date.parse(b.recordedAt);
-  return timeDifference || a.id.localeCompare(b.id);
+  return timeDifference || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 
 export function createStorageHistoryStore(
@@ -46,28 +46,35 @@ export function createStorageHistoryStore(
   }
 
   function readHistory(): StorageHistoryResult {
+    let raw: string | null;
     try {
-      const raw = storage.getItem(STORAGE_HISTORY_KEY);
-      if (raw === null) return { success: true, history: [] };
-
-      const parsed: unknown = JSON.parse(raw);
-      if (!Array.isArray(parsed) || !parsed.every(isSnapshotRecord)) {
-        return { success: false, history: [], reason: "malformed-history" };
-      }
-
-      const ids = new Set<string>();
-      for (const snapshot of parsed) {
-        if (ids.has(snapshot.id)) {
-          return { success: false, history: [], reason: "malformed-history" };
-        }
-        ids.add(snapshot.id);
-      }
-
-      const history = [...parsed].sort(chronological).slice(-capacity);
-      return { success: true, history };
+      raw = storage.getItem(STORAGE_HISTORY_KEY);
     } catch {
       return { success: false, history: [], reason: "storage-error" };
     }
+    if (raw === null) return { success: true, history: [] };
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return { success: false, history: [], reason: "malformed-history" };
+    }
+
+    if (!Array.isArray(parsed) || !parsed.every(isSnapshotRecord)) {
+      return { success: false, history: [], reason: "malformed-history" };
+    }
+
+    const ids = new Set<string>();
+    for (const snapshot of parsed) {
+      if (ids.has(snapshot.id)) {
+        return { success: false, history: [], reason: "malformed-history" };
+      }
+      ids.add(snapshot.id);
+    }
+
+    const history = [...parsed].sort(chronological).slice(-capacity);
+    return { success: true, history };
   }
 
   function getHistory(): StorageHistoryResult {
