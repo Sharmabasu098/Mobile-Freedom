@@ -45,18 +45,21 @@ export function openIntentTestInterface(home: HTMLElement, language: "en" | "hi"
     screen.remove(); home.hidden = false;
     throw new Error("Intent Test Interface initialization failed.");
   }
+  const inputElement = input as HTMLTextAreaElement;
+  const statusElement = status as HTMLParagraphElement;
+  const resultsElement = results as HTMLDivElement;
   function analyze(): void {
-    const result = understandIntent(input.value);
+    const result = understandIntent(inputElement.value);
     screen.querySelector("#intent-test-intent")!.textContent = result.intent;
     screen.querySelector("#intent-test-tool")!.textContent = result.suggestedTool ?? (en ? "None" : "कोई नहीं");
     screen.querySelector("#intent-test-confidence")!.textContent = result.confidence;
     screen.querySelector("#intent-test-clarification")!.textContent = result.needsClarification ? (en ? "Yes" : "हाँ") : (en ? "No" : "नहीं");
     screen.querySelector("#intent-test-matched")!.textContent = result.matchedTerms.length ? result.matchedTerms.join(", ") : (en ? "No matched terms" : "कोई matched term नहीं");
-    results.hidden = false;
-    status.textContent = en ? "Analysis complete — actual engine output." : "विश्लेषण पूरा — वास्तविक engine परिणाम।";
+    resultsElement.hidden = false;
+    statusElement.textContent = en ? "Analysis complete — actual engine output." : "विश्लेषण पूरा — वास्तविक engine परिणाम।";
   }
   run.addEventListener("click", analyze);
-  input.addEventListener("keydown", (event) => {
+  inputElement.addEventListener("keydown", (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") analyze();
   });
   const examples: Record<string, string> = {
@@ -67,7 +70,7 @@ export function openIntentTestInterface(home: HTMLElement, language: "en" | "hi"
   };
   screen.querySelectorAll<HTMLButtonElement>("[data-intent-example]").forEach((button) => {
     button.addEventListener("click", () => {
-      input.value = examples[button.dataset["intentExample"] ?? ""] ?? "";
+      inputElement.value = examples[button.dataset["intentExample"] ?? ""] ?? "";
       analyze();
     });
   });
