@@ -25,7 +25,15 @@ export function openIntentTestInterface(home: HTMLElement, language: "en" | "hi"
         </div>
         <h4>${en ? "Matched Terms" : "मिले हुए शब्द"}</h4><p id="intent-test-matched"></p>
       </div>
-      <h3>${en ? "False-positive test cases" : "False-positive परीक्षण"}</h3>
+      <h3>${en ? "Positive routing tests" : "सही Tool-routing परीक्षण"}</h3>
+      <div class="intent-test-examples">
+        <button type="button" data-intent-example="pdf">Merge two PDF files</button>
+        <button type="button" data-intent-example="compress">Please compress image size</button>
+        <button type="button" data-intent-example="storage">Mere phone me storage kam hai, kya karun?</button>
+        <button type="button" data-intent-example="qr">Generate a QR code</button>
+        <button type="button" data-intent-example="password">Generate a strong password</button>
+      </div>
+      <h3>${en ? "False-positive / ambiguity guards" : "False-positive / अस्पष्टता सुरक्षा परीक्षण"}</h3>
       <div class="intent-test-examples">
         <button type="button" data-intent-example="generic">storage</button>
         <button type="button" data-intent-example="merge">Can you merge these things?</button>
@@ -45,7 +53,6 @@ export function openIntentTestInterface(home: HTMLElement, language: "en" | "hi"
     screen.remove(); home.hidden = false;
     throw new Error("Intent Test Interface initialization failed.");
   }
-  // Runtime guards above prove these nodes exist; explicit non-null narrowing keeps strict TypeScript satisfied.
   const inputElement = input!;
   const statusElement = status!;
   const resultsElement = results!;
@@ -64,6 +71,11 @@ export function openIntentTestInterface(home: HTMLElement, language: "en" | "hi"
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") analyze();
   });
   const examples: Record<string, string> = {
+    pdf: "Merge two PDF files",
+    compress: "Please compress image size",
+    storage: "Mere phone me storage kam hai, kya karun?",
+    qr: "Generate a QR code",
+    password: "Generate a strong password",
     generic: "storage",
     merge: "Can you merge these things?",
     multi: "Compress image and merge PDF",
