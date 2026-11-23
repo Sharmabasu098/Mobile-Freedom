@@ -25,13 +25,32 @@ describe("VF-01 deterministic intent understanding and false-positive guards", (
     expect(understandIntent("Please compress image size").intent).toBe("image-compress");
   });
 
-  it("recognizes greetings without suggesting or executing a tool", () => {
-    for (const message of ["Hello friend", "Hi", "Hey there", "नमस्ते"]) {
-      const result = understandIntent(message);
-      expect(result.intent).toBe("greeting");
-      expect(result.suggestedTool).toBe(null);
-      expect(result.needsClarification).toBe(false);
-    }
+  it("recognizes Hello friend without suggesting or executing a tool", () => {
+    const result = understandIntent("Hello friend");
+    expect(result.intent, "input: Hello friend").toBe("greeting");
+    expect(result.suggestedTool, "input: Hello friend").toBe(null);
+    expect(result.needsClarification, "input: Hello friend").toBe(false);
+  });
+
+  it("recognizes Hi without suggesting or executing a tool", () => {
+    const result = understandIntent("Hi");
+    expect(result.intent, "input: Hi").toBe("greeting");
+    expect(result.suggestedTool, "input: Hi").toBe(null);
+    expect(result.needsClarification, "input: Hi").toBe(false);
+  });
+
+  it("recognizes Hey there without suggesting or executing a tool", () => {
+    const result = understandIntent("Hey there");
+    expect(result.intent, "input: Hey there").toBe("greeting");
+    expect(result.suggestedTool, "input: Hey there").toBe(null);
+    expect(result.needsClarification, "input: Hey there").toBe(false);
+  });
+
+  it("recognizes नमस्ते without suggesting or executing a tool", () => {
+    const result = understandIntent("नमस्ते");
+    expect(result.intent, "input: नमस्ते").toBe("greeting");
+    expect(result.suggestedTool, "input: नमस्ते").toBe(null);
+    expect(result.needsClarification, "input: नमस्ते").toBe(false);
   });
 
   it("does not let a greeting suppress a single tool intent", () => {
