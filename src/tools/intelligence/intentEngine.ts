@@ -2,7 +2,7 @@ export type IntelligenceIntent =
   | "image-compress" | "image-convert" | "image-resize"
   | "pdf-merge" | "pdf-split" | "qr-generate" | "password-generate"
   | "unit-convert" | "text-utilities" | "file-analysis"
-  | "general-help" | "unknown";
+  | "general-help" | "greeting" | "unknown";
 
 export type IntentMatch = {
   intent: IntelligenceIntent;
@@ -32,6 +32,13 @@ const intentRules: IntentRule[] = [
 export function understandIntent(input: string): IntentMatch {
   const text = input.trim().toLocaleLowerCase();
   if (!text) return { intent: "unknown", confidence: "low", matchedTerms: [], needsClarification: true, suggestedTool: null };
+
+  const greetingPhrases = ["hello", "hello friend", "hi", "hi friend", "hey", "hey friend", "good morning", "good afternoon", "good evening", "how are you", "नमस्ते", "नमस्कार", "प्रणाम", "हैलो", "हाय", "हाय दोस्त", "नमस्ते दोस्त", "namaste", "namaskar", "pranam", "kaise ho", "kaise hain", "hello dost", "hi dost"];
+  const normalized = text.replace(/[!?.。，,।\\s]+$/g, "").replace(/\\s+/g, " ");
+  const greeting = greetingPhrases.find(phrase => normalized === phrase.toLocaleLowerCase());
+  if (greeting) {
+    return { intent: "greeting", confidence: "high", matchedTerms: [greeting], needsClarification: false, suggestedTool: null };
+  }
 
   const matches = intentRules
     .map(rule => ({ rule, terms: rule.terms.filter(term => text.includes(term.toLocaleLowerCase())) }))
