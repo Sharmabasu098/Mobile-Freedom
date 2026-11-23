@@ -582,3 +582,15 @@ button:active {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* VF-01 Phase 2 — real intent test interface */
+.intent-test-card textarea { display:block; width:100%; max-width:100%; box-sizing:border-box; margin:10px 0 14px; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--surface, var(--card)); color:var(--text); font:inherit; resize:vertical; }
+.intent-test-run { width:100%; margin:10px 0; background:var(--accent); color:#fff; }
+.intent-test-result-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:12px 0; }
+.intent-test-result-grid > div { min-width:0; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--soft); }
+.intent-test-result-grid small,.intent-test-result-grid strong { display:block; }
+.intent-test-result-grid small { color:var(--muted); margin-bottom:6px; }
+.intent-test-result-grid strong { overflow-wrap:anywhere; }
+.intent-test-examples { display:grid; grid-template-columns:1fr; gap:8px; }
+.intent-test-examples button { min-height:40px; border:1px solid var(--border); border-radius:10px; background:var(--soft); color:var(--text); padding:8px 12px; text-align:left; }
+@media (min-width:520px) { .intent-test-examples { grid-template-columns:repeat(2,minmax(0,1fr)); } }
