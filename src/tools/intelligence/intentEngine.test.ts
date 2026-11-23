@@ -29,6 +29,20 @@ describe("VF-01 deterministic intent understanding and false-positive guards", (
     }
   });
 
+  it("does not let a greeting suppress a single tool intent", () => {
+    const result = understandIntent("Hello, compress image");
+    expect(result.intent).toBe("image-compress");
+    expect(result.suggestedTool).toBe("Image Compressor");
+    expect(result.needsClarification).toBe(false);
+  });
+
+  it("preserves multi-intent when the message also begins with a greeting", () => {
+    const result = understandIntent("Hello, compress image and merge PDF");
+    expect(result.intent).toBe("multi-intent");
+    expect(result.suggestedTool).toBe(null);
+    expect(result.needsClarification).toBe(true);
+  });
+
   it("asks clarification for empty or unrelated input", () => {
     expect(understandIntent("").needsClarification).toBe(true);
     expect(understandIntent("random unrelated sentence").intent).toBe("unknown");
