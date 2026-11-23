@@ -45,9 +45,10 @@ export function openIntentTestInterface(home: HTMLElement, language: "en" | "hi"
     screen.remove(); home.hidden = false;
     throw new Error("Intent Test Interface initialization failed.");
   }
-  const inputElement = input as HTMLTextAreaElement;
-  const statusElement = status as HTMLParagraphElement;
-  const resultsElement = results as HTMLDivElement;
+  // Runtime guards above prove these nodes exist; explicit non-null narrowing keeps strict TypeScript satisfied.
+  const inputElement = input!;
+  const statusElement = status!;
+  const resultsElement = results!;
   function analyze(): void {
     const result = understandIntent(inputElement.value);
     screen.querySelector("#intent-test-intent")!.textContent = result.intent;
