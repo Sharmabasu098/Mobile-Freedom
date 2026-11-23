@@ -28,7 +28,7 @@ const intentRules: Array<{ intent: IntelligenceIntent; tool: string; terms: stri
   { intent: "image-compress", tool: "Image Compressor", terms: ["compress image", "image compression", "photo compress", " तस्वीर छोटी", "फोटो छोटी", "इमेज छोटी", "फोटो का size कम", "image size कम", "छवि छोटी"] },
   { intent: "image-convert", tool: "Image Converter", terms: ["convert image", "image format", "jpg to png", "png to jpg", "फोटो format", "इमेज convert", "फोटो बदल"] },
   { intent: "image-resize", tool: "Image Resizer", terms: ["resize image", "image dimensions", "photo resize", "फोटो का आकार", "इमेज resize", "फोटो का size बदल"] },
-  { intent: "pdf-merge", tool: "PDF Merger", terms: ["merge pdf", "combine pdf", "join pdf", "pdf जोड़", "pdf जोड़", "pdf मिल", "pdf एक साथ"] },
+  { intent: "pdf-merge", tool: "PDF Merger", terms: ["merge pdf", "combine pdf", "join pdf", "pdf merge", "merge कर", "merge", "pdf जोड़", "pdf जोड़", "pdf मिल", "pdf एक साथ", "pdf ek saath", "pdf ek sath"] },
   { intent: "pdf-split", tool: "PDF Splitter", terms: ["split pdf", "separate pdf", "pdf अलग", "pdf के पेज अलग", "pdf बांट", "pdf बाँट"] },
   { intent: "qr-generate", tool: "QR Code Generator", terms: ["qr code", "qr बन", "क्यूआर", "क्यू r"] },
   { intent: "password-generate", tool: "Password Generator", terms: ["generate password", "strong password", "password बन", "पासवर्ड बन", "पासवर्ड generate"] },
