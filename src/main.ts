@@ -13,6 +13,7 @@ import {
 import { mergePdfFiles } from "./tools/pdf/pdfMerger";
 import { splitPdfFile } from "./tools/pdf/pdfSplitter";
 import QRCode from "qrcode";
+import { openIntentTestInterface } from "./tools/intelligence/intentTestInterface";
 
 import {
   analyzeFiles,
@@ -170,6 +171,15 @@ const tools = [
     descriptionEn: "Useful everyday text tools.",
     descriptionHi: "रोज़मर्रा के उपयोगी टेक्स्ट टूल्स।",
     keywords: "text words characters",
+  },
+  {
+    icon: "🧠",
+    category: "utility",
+    en: "Intent Test Interface",
+    hi: "इंटेंट टेस्ट इंटरफेस",
+    descriptionEn: "Test how Mobile Freedom understands messages.",
+    descriptionHi: "जाँचें कि Mobile Freedom आपकी बात कैसे समझता है।",
+    keywords: "intent test intelligence understand message",
   },
   {
   icon: "📁",
@@ -366,6 +376,12 @@ function renderTools(): void {
       ${language === "en" ? "Open tool" : "टूल खोलें"}
     </button>
   `
+  : tool.en === "Intent Test Interface"
+  ? `
+    <button class="tool-status compressor-open" type="button" data-open-intent-test>
+      ${language === "en" ? "Test message" : "संदेश जाँचें"}
+    </button>
+  `
   : tool.en === "File Analysis"
   ? `
     <button
@@ -389,6 +405,14 @@ function renderTools(): void {
   empty.hidden = filtered.length > 0;
   empty.textContent = translations[language].empty;
 }
+
+// VF-01 Phase 2: launch the actual deterministic classifier interface.
+element<HTMLDivElement>("tool-grid").addEventListener("click", (event) => {
+  const target = event.target;
+  if (target instanceof HTMLElement && target.closest("[data-open-intent-test]")) {
+    openIntentTestInterface(element<HTMLElement>("home"), language);
+  }
+});
 
 function render(): void {
   const t = translations[language];
