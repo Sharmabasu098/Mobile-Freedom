@@ -9,20 +9,30 @@ describe("VF-01 deterministic intent understanding and false-positive guards", (
     expect(result.needsClarification).toBe(false);
   });
 
-  it("routes explicit Hindi storage cleanup intent", () => {
-    const result = understandIntent("Mere phone me storage kam hai, kya karun?");
+  it("routes the exact observed phone-storage phrase to File Analysis", () => {
+    const result = understandIntent("Mere phone ka storage kam ho gaya hai");
     expect(result.intent).toBe("file-analysis");
     expect(result.suggestedTool).toBe("File Analysis");
+    expect(result.needsClarification).toBe(false);
   });
 
   it("recognizes English image compression", () => {
     expect(understandIntent("Please compress image size").intent).toBe("image-compress");
   });
 
+  it("recognizes greetings without suggesting or executing a tool", () => {
+    for (const message of ["Hello friend", "Hi", "Hey there", "नमस्ते"]) {
+      const result = understandIntent(message);
+      expect(result.intent).toBe("greeting");
+      expect(result.suggestedTool).toBe(null);
+      expect(result.needsClarification).toBe(false);
+    }
+  });
+
   it("asks clarification for empty or unrelated input", () => {
     expect(understandIntent("").needsClarification).toBe(true);
-    expect(understandIntent("hello friend").intent).toBe("unknown");
-    expect(understandIntent("hello friend").needsClarification).toBe(true);
+    expect(understandIntent("random unrelated sentence").intent).toBe("unknown");
+    expect(understandIntent("random unrelated sentence").needsClarification).toBe(true);
   });
 
   it("does not route generic storage mentions", () => {
@@ -40,11 +50,13 @@ describe("VF-01 deterministic intent understanding and false-positive guards", (
     expect(result.needsClarification).toBe(true);
   });
 
-  it("returns clarification instead of selecting when multiple tools match", () => {
+  it("explicitly identifies multiple intents without selecting a tool", () => {
     const result = understandIntent("Compress image and merge PDF");
-    expect(result.intent).toBe("unknown");
+    expect(result.intent).toBe("multi-intent");
     expect(result.suggestedTool).toBe(null);
     expect(result.needsClarification).toBe(true);
+    expect(result.matchedTerms).toContain("compress image");
+    expect(result.matchedTerms).toContain("merge pdf");
   });
 
   it("recognizes explicit password generation but never executes it", () => {
