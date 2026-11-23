@@ -41,7 +41,7 @@ export function understandIntent(input: string): IntentMatch {
 
   // A real tool intent takes priority over greeting text.
   const greeting = matches.length === 0
-    ? greetingTerms.find(term => text === term || (term.length > 3 && text.startsWith(term + " ")))
+    ? greetingTerms.find(term => text === term || (term.length >= 3 && text.startsWith(term + " ")))
     : undefined;
   if (greeting) {
     return { intent: "greeting", confidence: "high", matchedTerms: [greeting], needsClarification: false, suggestedTool: null };
