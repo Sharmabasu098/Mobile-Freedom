@@ -35,14 +35,17 @@ export function understandIntent(input: string): IntentMatch {
   const text = input.trim().toLocaleLowerCase();
   if (!text) return { intent: "unknown", confidence: "low", matchedTerms: [], needsClarification: true, suggestedTool: null };
 
-  const greeting = greetingTerms.find(term => text === term || (term.length > 3 && text.startsWith(term + " ")));
-  if (greeting) {
-    return { intent: "greeting", confidence: "high", matchedTerms: [greeting], needsClarification: false, suggestedTool: null };
-  }
-
   const matches = intentRules
     .map(rule => ({ rule, terms: rule.terms.filter(term => text.includes(term.toLocaleLowerCase())) }))
     .filter(item => item.terms.length > 0);
+
+  // A real tool intent takes priority over greeting text.
+  const greeting = matches.length === 0
+    ? greetingTerms.find(term => text === term || (term.length > 3 && text.startsWith(term + " ")))
+    : undefined;
+  if (greeting) {
+    return { intent: "greeting", confidence: "high", matchedTerms: [greeting], needsClarification: false, suggestedTool: null };
+  }
 
   // Multiple distinct tool matches are explicitly reported as multi-intent;
   // no tool is selected or executed without the user clarifying.
