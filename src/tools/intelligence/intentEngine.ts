@@ -26,7 +26,7 @@ const intentRules: IntentRule[] = [
   { intent: "password-generate", tool: "Password Generator", terms: ["generate password", "strong password", "password बनाना", "पासवर्ड बनाना", "पासवर्ड generate"] },
   { intent: "unit-convert", tool: "Unit Converter", terms: ["convert units", "unit converter", "किलोमीटर से मील", "मीटर से फीट", "kg to", "cm to", "inch to", "units convert"] },
   { intent: "text-utilities", tool: "Text Utilities", terms: ["word count", "character count", "uppercase", "lowercase", "text format", "शब्द गिनना", "अक्षर गिनना", "text बदलना"] },
-  { intent: "file-analysis", tool: "File Analysis", terms: ["storage कम है", "storage कम हो गई", "space कम है", "disk space कम", "file analysis", "large files", "duplicate files", "duplicate photos", "फाइल बड़ी", "जगह खाली करना", "स्टोरेज कम", "फोन की storage", "फोन में जगह कम", "phone storage full", "storage full", "phone memory full"] },
+  { intent: "file-analysis", tool: "File Analysis", terms: ["storage कम है", "storage कम हो गई", "space कम है", "disk space कम", "file analysis", "large files", "duplicate files", "duplicate photos", "फाइल बड़ी", "जगह खाली करना", "स्टोरेज कम", "फोन की storage", "फोन में जगह कम", "phone storage full", "storage full", "phone memory full", "phone me storage kam", "mere phone me storage kam", "phone mein storage kam", "mere phone mein storage kam", "storage kam hai", "storage kam ho gaya", "storage kam ho gayi"] },
 ];
 
 export function understandIntent(input: string): IntentMatch {
