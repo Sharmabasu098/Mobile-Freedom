@@ -9,11 +9,16 @@ describe("VF-01 deterministic intent understanding and false-positive guards", (
     expect(result.needsClarification).toBe(false);
   });
 
-  it("routes the exact observed phone-storage phrase to File Analysis", () => {
-    const result = understandIntent("Mere phone ka storage kam ho gaya hai");
-    expect(result.intent).toBe("file-analysis");
-    expect(result.suggestedTool).toBe("File Analysis");
-    expect(result.needsClarification).toBe(false);
+  it("routes both observed phone-storage phrases to File Analysis", () => {
+    for (const message of [
+      "Mere phone ka storage kam ho gaya hai",
+      "Mere phone me storage kam hai, kya karun?",
+    ]) {
+      const result = understandIntent(message);
+      expect(result.intent).toBe("file-analysis");
+      expect(result.suggestedTool).toBe("File Analysis");
+      expect(result.needsClarification).toBe(false);
+    }
   });
 
   it("recognizes English image compression", () => {
