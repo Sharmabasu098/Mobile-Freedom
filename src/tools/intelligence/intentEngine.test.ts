@@ -26,7 +26,26 @@ describe("VF-01 deterministic intent understanding and false-positive guards", (
     expect(understandIntent("hello friend").suggestedTool).toBe(null);
   });
 
-  it("recognizes common greetings without routing a tool", () => {\n    for (const message of ["Hello", "Hi friend", "Good morning", "How are you", "नमस्ते", "नमस्कार", "प्रणाम", "Namaste", "Kaise ho"]) {\n      const result = understandIntent(message);\n      expect(result.intent).toBe("greeting");\n      expect(result.suggestedTool).toBe(null);\n      expect(result.needsClarification).toBe(false);\n    }\n  });\n\n  it("does not route generic storage mentions", () => {
+  it("recognizes common greetings without routing a tool", () => {
+    for (const message of [
+      "Hello",
+      "Hi friend",
+      "Good morning",
+      "How are you",
+      "नमस्ते",
+      "नमस्कार",
+      "प्रणाम",
+      "Namaste",
+      "Kaise ho",
+    ]) {
+      const result = understandIntent(message);
+      expect(result.intent).toBe("greeting");
+      expect(result.suggestedTool).toBe(null);
+      expect(result.needsClarification).toBe(false);
+    }
+  });
+
+  it("does not route generic storage mentions", () => {
     for (const message of ["Tell me about storage", "storage", "My phone is slow", "I have a problem"]) {
       const result = understandIntent(message);
       expect(result.suggestedTool).toBe(null);
