@@ -125,3 +125,52 @@ describe("VF-01.4 context-aware intent", () => {
     expect(result.needsClarification).toBe(true);
   });
 });
+
+
+describe("VF-01.5 follow-up regression guards", () => {
+  it("does not route unrelated follow-ups through stale resize context", () => {
+    for (const message of ["aur kar do", "ab kya karna hai", "thoda achha karo"]) {
+      const result = understandIntentWithContext(message, { previousIntent: "image-resize" });
+      expect(result.intent).toBe("unknown");
+      expect(result.suggestedTool).toBe(null);
+      expect(result.needsClarification).toBe(true);
+    }
+  });
+
+  it("does not route unrelated follow-ups through stale compression context", () => {
+    for (const message of ["aur kar do", "ab kya karna hai", "thoda achha karo"]) {
+      const result = understandIntentWithContext(message, { previousIntent: "image-compress" });
+      expect(result.intent).toBe("unknown");
+      expect(result.suggestedTool).toBe(null);
+      expect(result.needsClarification).toBe(true);
+    }
+  });
+
+  it("does not cross-contaminate resize and compression follow-ups", () => {
+    const resizeWithCompressPhrase = understandIntentWithContext("thoda aur compress karo", { previousIntent: "image-resize" });
+    expect(resizeWithCompressPhrase.intent).toBe("unknown");
+    expect(resizeWithCompressPhrase.suggestedTool).toBe(null);
+    expect(resizeWithCompressPhrase.needsClarification).toBe(true);
+
+    const compressWithResizePhrase = understandIntentWithContext("aur chhota karo", { previousIntent: "image-compress" });
+    expect(compressWithResizePhrase.intent).toBe("unknown");
+    expect(compressWithResizePhrase.suggestedTool).toBe(null);
+    expect(compressWithResizePhrase.needsClarification).toBe(true);
+  });
+
+  it("keeps unsupported Hindi/Hinglish follow-ups ambiguous", () => {
+    for (const message of ["और कर दो", "थोड़ा और", "kar do na"]) {
+      const result = understandIntentWithContext(message, { previousIntent: "image-resize" });
+      expect(result.intent).toBe("unknown");
+      expect(result.suggestedTool).toBe(null);
+      expect(result.needsClarification).toBe(true);
+    }
+  });
+
+  it("allows explicit new requests to override old context", () => {
+    const result = understandIntentWithContext("photo compress karna hai", { previousIntent: "image-resize" });
+    expect(result.intent).toBe("image-compress");
+    expect(result.suggestedTool).toBe("Image Compressor");
+    expect(result.needsClarification).toBe(false);
+  });
+});
