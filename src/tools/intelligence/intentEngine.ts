@@ -17,12 +17,12 @@ type IntentRule = { intent: IntelligenceIntent; tool: string; terms: string[] };
 // Match only relatively specific phrases. Generic words such as "storage", "merge",
 // "size", or "slow" intentionally do not trigger a tool on their own.
 const intentRules: IntentRule[] = [
-  { intent: "image-compress", tool: "Image Compressor", terms: ["compress image", "image compression", "photo compress", "फोटो का size कम", "फोटो छोटी", "इमेज छोटी", "छवि छोटी", "image size कम"] },
+  { intent: "image-compress", tool: "Image Compressor", terms: ["compress image", "image compression", "photo compress", "फोटो compress", "फोटो का size कम", "फोटो छोटी", "इमेज छोटी", "छवि छोटी", "image size कम", "image ka size kam"] },
   { intent: "image-convert", tool: "Image Converter", terms: ["convert image", "image format", "jpg to png", "png to jpg", "फोटो format", "इमेज convert", "फोटो का format बदल"] },
-  { intent: "image-resize", tool: "Image Resizer", terms: ["resize image", "image dimensions", "photo resize", "फोटो का आकार बदल", "इमेज resize", "फोटो का size बदल"] },
-  { intent: "pdf-merge", tool: "PDF Merger", terms: ["merge pdf", "combine pdf", "join pdf", "pdf merge", "pdf ek saath", "pdf ek sath", "pdf एक साथ", "pdf जोड़", "pdf जोड़", "pdf मिलाकर", "दो pdf जोड़", "दो pdf मिला"] },
+  { intent: "image-resize", tool: "Image Resizer", terms: ["resize image", "resize photo", "resize this photo", "image dimensions", "photo resize", "फोटो resize", "फोटो का आकार बदल", "इमेज resize", "फोटो का size बदल", "image ko chhota", "image ko chota", "photo ko chhota", "photo ko chota"] },
+  { intent: "pdf-merge", tool: "PDF Merger", terms: ["merge pdf", "combine pdf", "join pdf", "pdf merge", "pdf merge कर", "pdf merge kar", "pdf ek saath", "pdf ek sath", "pdf एक साथ", "pdf जोड़", "pdf जोड़", "pdf मिलाकर", "दो pdf जोड़", "दो pdf मिला", "दो pdf files जोड़", "दो pdf file जोड़", "do pdf combine", "do pdf files jod"] },
   { intent: "pdf-split", tool: "PDF Splitter", terms: ["split pdf", "separate pdf", "pdf अलग", "pdf के पेज अलग", "pdf बांट", "pdf बाँट", "pdf split"] },
-  { intent: "qr-generate", tool: "QR Code Generator", terms: ["qr code", "क्यूआर कोड", "qr बनाना", "qr generate"] },
+  { intent: "qr-generate", tool: "QR Code Generator", terms: ["qr code", "क्यूआर कोड", "qr बनाना", "qr generate", "qr code बना"] },
   { intent: "password-generate", tool: "Password Generator", terms: ["generate password", "strong password", "password बनाना", "पासवर्ड बनाना", "पासवर्ड generate"] },
   { intent: "unit-convert", tool: "Unit Converter", terms: ["convert units", "unit converter", "किलोमीटर से मील", "मीटर से फीट", "kg to", "cm to", "inch to", "units convert"] },
   { intent: "text-utilities", tool: "Text Utilities", terms: ["word count", "character count", "uppercase", "lowercase", "text format", "शब्द गिनना", "अक्षर गिनना", "text बदलना"] },

@@ -52,4 +52,46 @@ describe("VF-01 deterministic intent understanding and false-positive guards", (
     expect(result.intent).toBe("password-generate");
     expect(result.suggestedTool).toBe("Password Generator");
   });
+  it("understands Hindi and Hinglish image compression variations", () => {
+    for (const message of ["फोटो compress करो", "Photo compress karna hai", "Image ka size kam karo"]) {
+      const result = understandIntent(message);
+      expect(result.intent).toBe("image-compress");
+      expect(result.suggestedTool).toBe("Image Compressor");
+      expect(result.needsClarification).toBe(false);
+    }
+  });
+
+  it("understands mixed Hindi-English PDF merge requests", () => {
+    for (const message of ["PDF merge कर दो", "दो PDF files जोड़ दो", "Do PDF combine karna hai"]) {
+      const result = understandIntent(message);
+      expect(result.intent).toBe("pdf-merge");
+      expect(result.suggestedTool).toBe("PDF Merger");
+      expect(result.needsClarification).toBe(false);
+    }
+  });
+
+  it("understands Hindi and Hinglish image resizing variations", () => {
+    for (const message of ["फोटो resize करना है", "Resize this photo", "Image ko chhota karna hai"]) {
+      const result = understandIntent(message);
+      expect(result.intent).toBe("image-resize");
+      expect(result.suggestedTool).toBe("Image Resizer");
+      expect(result.needsClarification).toBe(false);
+    }
+  });
+
+  it("understands Hindi QR generation request", () => {
+    const result = understandIntent("QR code बना दो");
+    expect(result.intent).toBe("qr-generate");
+    expect(result.suggestedTool).toBe("QR Code Generator");
+    expect(result.needsClarification).toBe(false);
+  });
+
+  it("keeps unrelated mixed-language phrases from false-routing", () => {
+    for (const message of ["photo aur PDF ke baare mein batao", "size kam kaise hota hai"]) {
+      const result = understandIntent(message);
+      expect(result.suggestedTool).toBe(null);
+      expect(result.needsClarification).toBe(true);
+    }
+  });
+
 });
