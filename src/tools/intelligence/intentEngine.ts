@@ -30,7 +30,7 @@ const intentRules: IntentRule[] = [
 ];
 
 function normalizeIntentInput(input: string): string {
-  return input.trim().toLocaleLowerCase().replace(/\\s+/g, " ");
+  return input.trim().toLocaleLowerCase().replace(/\s+/g, " ");
 }
 
 export function understandIntent(input: string): IntentMatch {
