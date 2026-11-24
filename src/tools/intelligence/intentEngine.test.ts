@@ -97,6 +97,13 @@ describe("VF-01 deterministic intent understanding and false-positive guards", (
     expect(result.matchedTerms).toContain("merge pdf");
   });
 
+  it("routes QR code requests to the QR Code Generator without executing it", () => {
+    const result = understandIntent("Generate a QR code");
+    expect(result.intent).toBe("qr-generate");
+    expect(result.suggestedTool).toBe("QR Code Generator");
+    expect(result.needsClarification).toBe(false);
+  });
+
   it("recognizes explicit password generation but never executes it", () => {
     const result = understandIntent("Generate a strong password");
     expect(result.intent).toBe("password-generate");
