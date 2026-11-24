@@ -69,3 +69,29 @@ export function understandIntent(input: string): IntentMatch {
     suggestedTool: best.rule.tool,
   };
 }
+
+
+export type IntentContext = { previousIntent?: IntelligenceIntent };
+
+/** Resolve short follow-ups only when a compatible previous intent is available. */
+export function understandIntentWithContext(input: string, context?: IntentContext): IntentMatch {
+  const direct = understandIntent(input);
+  // Explicit new requests always override conversational context.
+  if (direct.intent !== "unknown") return direct;
+
+  const text = input.trim().toLocaleLowerCase();
+  const previous = context?.previousIntent;
+  const followUpPhrases = ["aur chhota karo", "aur chota karo", "thoda aur chhota", "thoda aur chota", "make it smaller", "smaller please"];
+  const resizeFollowUp = followUpPhrases.some(phrase => text.includes(phrase));
+  if (previous === "image-resize" && resizeFollowUp) {
+    return { intent: "image-resize", confidence: "medium", matchedTerms: followUpPhrases.filter(phrase => text.includes(phrase)), needsClarification: false, suggestedTool: "Image Resizer" };
+  }
+
+  const compressFollowUpPhrases = ["thoda aur compress karo", "aur compress karo", "compress it more", "make it smaller file"];
+  const compressFollowUp = compressFollowUpPhrases.some(phrase => text.includes(phrase));
+  if (previous === "image-compress" && compressFollowUp) {
+    return { intent: "image-compress", confidence: "medium", matchedTerms: compressFollowUpPhrases.filter(phrase => text.includes(phrase)), needsClarification: false, suggestedTool: "Image Compressor" };
+  }
+
+  return direct;
+}
