@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StorageDashboardSummary } from "./storageDashboard";
 import { renderStorageDashboard } from "./storageDashboardView";
+import { renderStorageHistoryPanel } from "./storageDashboardView";
 
 const summary: StorageDashboardSummary = {
   analyzedFileCount: 2,
@@ -67,5 +68,39 @@ describe("M10.5 storage dashboard view", () => {
     const html = renderStorageDashboard(empty, "en");
     expect(html).toContain("No analyzed files yet.");
     expect(html).toContain("No files meet the large-file threshold.");
+  });
+});
+
+describe("M12 storage history dashboard UI", () => {
+  it("renders the manual snapshot form, trend, prediction horizons, and limitations", () => {
+    const history = { success: true, history: [] };
+    const trend = { success: false, snapshotsAnalyzed: 0, reason: "insufficient-history" } as const;
+    const predictions = [7, 14, 30].map((horizonDays) => ({
+      success: false, horizonDays, snapshotsAnalyzed: 0, method: "robust-median-daily-growth" as const,
+      limitations: ["history needed"], reason: "insufficient-history" as const,
+    }));
+    const html = renderStorageHistoryPanel(history, trend, predictions, "en");
+    expect(html).toContain("Storage history & trend");
+    expect(html).toContain("m12-total-mb");
+    expect(html).toContain("m12-used-mb");
+    expect(html).toContain("Record snapshot");
+    expect(html).toContain("7-day estimate");
+    expect(html).toContain("14-day estimate");
+    expect(html).toContain("30-day estimate");
+    expect(html).toContain("not guaranteed forecasts");
+    expect(html).toContain("not live device storage");
+  });
+
+  it("renders Hindi labels and limitation copy", () => {
+    const history = { success: true, history: [] };
+    const trend = { success: false, snapshotsAnalyzed: 0, reason: "insufficient-history" } as const;
+    const predictions = [7, 14, 30].map((horizonDays) => ({
+      success: false, horizonDays, snapshotsAnalyzed: 0, method: "robust-median-daily-growth" as const,
+      limitations: ["history needed"], reason: "insufficient-history" as const,
+    }));
+    const html = renderStorageHistoryPanel(history, trend, predictions, "hi");
+    expect(html).toContain("स्टोरेज इतिहास और रुझान");
+    expect(html).toContain("माप दर्ज करें");
+    expect(html).toContain("निश्चित भविष्यवाणी नहीं");
   });
 });
