@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - vf01-intent-engine-integration
   pull_request:
     branches:
       - main
+      - vf01-real-intent-test-interface
   workflow_dispatch:
 
 permissions:

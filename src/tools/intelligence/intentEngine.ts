@@ -2,7 +2,7 @@ export type IntelligenceIntent =
   | "image-compress" | "image-convert" | "image-resize"
   | "pdf-merge" | "pdf-split" | "qr-generate" | "password-generate"
   | "unit-convert" | "text-utilities" | "file-analysis"
-  | "general-help" | "unknown";
+  | "greeting" | "general-help" | "multi-intent" | "unknown";
 
 export type IntentMatch = {
   intent: IntelligenceIntent;
@@ -29,6 +29,8 @@ const intentRules: IntentRule[] = [
   { intent: "file-analysis", tool: "File Analysis", terms: ["storage कम है", "storage कम हो गई", "space कम है", "disk space कम", "file analysis", "large files", "duplicate files", "duplicate photos", "फाइल बड़ी", "जगह खाली करना", "स्टोरेज कम", "फोन की storage", "फोन में जगह कम", "phone storage full", "storage full", "phone memory full", "phone me storage kam", "mere phone me storage kam", "phone mein storage kam", "mere phone mein storage kam", "storage kam hai", "storage kam ho gaya", "storage kam ho gayi"] },
 ];
 
+const greetingTerms = ["hello friend", "hello", "hi friend", "hi", "hey friend", "hey", "namaste", "नमस्ते", "नमस्कार", "राम राम", "सलाम"];
+
 export function understandIntent(input: string): IntentMatch {
   const text = input.trim().toLocaleLowerCase();
   if (!text) return { intent: "unknown", confidence: "low", matchedTerms: [], needsClarification: true, suggestedTool: null };
@@ -37,11 +39,20 @@ export function understandIntent(input: string): IntentMatch {
     .map(rule => ({ rule, terms: rule.terms.filter(term => text.includes(term.toLocaleLowerCase())) }))
     .filter(item => item.terms.length > 0);
 
-  // Multiple distinct tool matches are ambiguous: do not choose one automatically.
+  // A real tool intent takes priority over greeting text.
+  const greeting = matches.length === 0
+    ? greetingTerms.find(term => text === term || (term.length >= 3 && text.startsWith(term + " ")))
+    : undefined;
+  if (greeting) {
+    return { intent: "greeting", confidence: "high", matchedTerms: [greeting], needsClarification: false, suggestedTool: null };
+  }
+
+  // Multiple distinct tool matches are explicitly reported as multi-intent;
+  // no tool is selected or executed without the user clarifying.
   if (matches.length > 1) {
     return {
-      intent: "unknown",
-      confidence: "low",
+      intent: "multi-intent",
+      confidence: "medium",
       matchedTerms: matches.flatMap(item => item.terms),
       needsClarification: true,
       suggestedTool: null,

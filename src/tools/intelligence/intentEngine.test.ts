@@ -9,20 +9,68 @@ describe("VF-01 deterministic intent understanding and false-positive guards", (
     expect(result.needsClarification).toBe(false);
   });
 
-  it("routes explicit Hindi storage cleanup intent", () => {
-    const result = understandIntent("Mere phone me storage kam hai, kya karun?");
-    expect(result.intent).toBe("file-analysis");
-    expect(result.suggestedTool).toBe("File Analysis");
+  it("routes both observed phone-storage phrases to File Analysis", () => {
+    for (const message of [
+      "Mere phone ka storage kam ho gaya hai",
+      "Mere phone me storage kam hai, kya karun?",
+    ]) {
+      const result = understandIntent(message);
+      expect(result.intent).toBe("file-analysis");
+      expect(result.suggestedTool).toBe("File Analysis");
+      expect(result.needsClarification).toBe(false);
+    }
   });
 
   it("recognizes English image compression", () => {
     expect(understandIntent("Please compress image size").intent).toBe("image-compress");
   });
 
+  it("recognizes Hello friend without suggesting or executing a tool", () => {
+    const result = understandIntent("Hello friend");
+    expect(result.intent, "input: Hello friend").toBe("greeting");
+    expect(result.suggestedTool, "input: Hello friend").toBe(null);
+    expect(result.needsClarification, "input: Hello friend").toBe(false);
+  });
+
+  it("recognizes Hi without suggesting or executing a tool", () => {
+    const result = understandIntent("Hi");
+    expect(result.intent, "input: Hi").toBe("greeting");
+    expect(result.suggestedTool, "input: Hi").toBe(null);
+    expect(result.needsClarification, "input: Hi").toBe(false);
+  });
+
+  it("recognizes Hey there without suggesting or executing a tool", () => {
+    const result = understandIntent("Hey there");
+    expect(result.intent, "input: Hey there").toBe("greeting");
+    expect(result.suggestedTool, "input: Hey there").toBe(null);
+    expect(result.needsClarification, "input: Hey there").toBe(false);
+  });
+
+  it("recognizes नमस्ते without suggesting or executing a tool", () => {
+    const result = understandIntent("नमस्ते");
+    expect(result.intent, "input: नमस्ते").toBe("greeting");
+    expect(result.suggestedTool, "input: नमस्ते").toBe(null);
+    expect(result.needsClarification, "input: नमस्ते").toBe(false);
+  });
+
+  it("does not let a greeting suppress a single tool intent", () => {
+    const result = understandIntent("Hello, compress image");
+    expect(result.intent).toBe("image-compress");
+    expect(result.suggestedTool).toBe("Image Compressor");
+    expect(result.needsClarification).toBe(false);
+  });
+
+  it("preserves multi-intent when the message also begins with a greeting", () => {
+    const result = understandIntent("Hello, compress image and merge PDF");
+    expect(result.intent).toBe("multi-intent");
+    expect(result.suggestedTool).toBe(null);
+    expect(result.needsClarification).toBe(true);
+  });
+
   it("asks clarification for empty or unrelated input", () => {
     expect(understandIntent("").needsClarification).toBe(true);
-    expect(understandIntent("hello friend").intent).toBe("unknown");
-    expect(understandIntent("hello friend").needsClarification).toBe(true);
+    expect(understandIntent("random unrelated sentence").intent).toBe("unknown");
+    expect(understandIntent("random unrelated sentence").needsClarification).toBe(true);
   });
 
   it("does not route generic storage mentions", () => {
@@ -40,11 +88,13 @@ describe("VF-01 deterministic intent understanding and false-positive guards", (
     expect(result.needsClarification).toBe(true);
   });
 
-  it("returns clarification instead of selecting when multiple tools match", () => {
+  it("explicitly identifies multiple intents without selecting a tool", () => {
     const result = understandIntent("Compress image and merge PDF");
-    expect(result.intent).toBe("unknown");
+    expect(result.intent).toBe("multi-intent");
     expect(result.suggestedTool).toBe(null);
     expect(result.needsClarification).toBe(true);
+    expect(result.matchedTerms).toContain("compress image");
+    expect(result.matchedTerms).toContain("merge pdf");
   });
 
   it("recognizes explicit password generation but never executes it", () => {
