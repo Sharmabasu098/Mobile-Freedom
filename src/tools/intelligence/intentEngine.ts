@@ -29,8 +29,12 @@ const intentRules: IntentRule[] = [
   { intent: "file-analysis", tool: "File Analysis", terms: ["storage कम है", "storage कम हो गई", "space कम है", "disk space कम", "file analysis", "large files", "duplicate files", "duplicate photos", "फाइल बड़ी", "जगह खाली करना", "स्टोरेज कम", "फोन की storage", "फोन में जगह कम", "phone storage full", "storage full", "phone memory full", "phone me storage kam", "mere phone me storage kam", "phone mein storage kam", "mere phone mein storage kam", "storage kam hai", "storage kam ho gaya", "storage kam ho gayi"] },
 ];
 
+function normalizeIntentInput(input: string): string {
+  return input.trim().toLocaleLowerCase().replace(/\\s+/g, " ");
+}
+
 export function understandIntent(input: string): IntentMatch {
-  const text = input.trim().toLocaleLowerCase();
+  const text = normalizeIntentInput(input);
   if (!text) return { intent: "unknown", confidence: "low", matchedTerms: [], needsClarification: true, suggestedTool: null };
 
   const matches = intentRules
@@ -79,7 +83,7 @@ export function understandIntentWithContext(input: string, context?: IntentConte
   // Explicit new requests always override conversational context.
   if (direct.intent !== "unknown") return direct;
 
-  const text = input.trim().toLocaleLowerCase();
+  const text = normalizeIntentInput(input);
   const previous = context?.previousIntent;
   const followUpPhrases = ["aur chhota karo", "aur chota karo", "thoda aur chhota", "thoda aur chota", "make it smaller", "smaller please"];
   const resizeFollowUp = followUpPhrases.some(phrase => text.includes(phrase));
