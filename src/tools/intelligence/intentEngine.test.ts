@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { understandIntent } from "./intentEngine";
+import { understandIntent, understandIntentWithContext } from "./intentEngine";
 
 describe("VF-01 deterministic intent understanding and false-positive guards", () => {
   it("routes a specific Hinglish PDF merge request", () => {
