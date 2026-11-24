@@ -95,3 +95,33 @@ describe("VF-01 deterministic intent understanding and false-positive guards", (
   });
 
 });
+
+
+describe("VF-01.4 context-aware intent", () => {
+  it("uses prior intent context for a clear follow-up", () => {
+    const result = understandIntentWithContext("aur chhota karo", { previousIntent: "image-resize" });
+    expect(result.intent).toBe("image-resize");
+    expect(result.suggestedTool).toBe("Image Resizer");
+    expect(result.needsClarification).toBe(false);
+  });
+
+  it("uses prior context for a short compression follow-up", () => {
+    const result = understandIntentWithContext("thoda aur compress karo", { previousIntent: "image-compress" });
+    expect(result.intent).toBe("image-compress");
+    expect(result.suggestedTool).toBe("Image Compressor");
+    expect(result.needsClarification).toBe(false);
+  });
+
+  it("does not apply context to an explicit new unrelated request", () => {
+    const result = understandIntentWithContext("QR code bana do", { previousIntent: "image-resize" });
+    expect(result.intent).toBe("qr-generate");
+    expect(result.suggestedTool).toBe("QR Code Generator");
+  });
+
+  it("does not route vague follow-ups without usable context", () => {
+    const result = understandIntentWithContext("aur chhota karo");
+    expect(result.intent).toBe("unknown");
+    expect(result.suggestedTool).toBe(null);
+    expect(result.needsClarification).toBe(true);
+  });
+});
