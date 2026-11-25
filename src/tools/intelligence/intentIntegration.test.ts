@@ -88,7 +88,7 @@ describe("VF-02.1 targeted context-resolution integration", () => {
   });
 
   it("explicit previous intent takes precedence over scoped history", () => {
-    expect(resolveIntentRoute("aur compress", { previousIntent: "image-resize", scopeId: "conversation-1", history: [{ scopeId: "conversation-1", text: "compress image" }] }))
+    expect(resolveIntentRoute("aur chhota karo", { previousIntent: "image-resize", scopeId: "conversation-1", history: [{ scopeId: "conversation-1", text: "compress image" }] }))
       .toEqual({ kind: "open-tool", toolId: "image-resize" });
   });
 });
