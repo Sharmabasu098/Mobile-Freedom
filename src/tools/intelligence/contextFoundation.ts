@@ -33,7 +33,7 @@ const contextlessFollowUpPatterns = [
 ];
 
 function isContextlessFollowUp(message: string): boolean {
-  const normalized = message.trim().toLocaleLowerCase().replace(/[.!?।,]+/g, " ").replace(/\s+/g, " ");
+  const normalized = message.trim().toLocaleLowerCase().replace(/[.!?।,]+/g, " ").replace(/\s+/g, " ").trim();
   return contextlessFollowUpPatterns.some((pattern) => pattern.test(normalized));
 }
 
