@@ -91,7 +91,7 @@ export function understandIntentWithContext(input: string, context?: IntentConte
     return { intent: "image-resize", confidence: "medium", matchedTerms: followUpPhrases.filter(phrase => text.includes(phrase)), needsClarification: false, suggestedTool: "Image Resizer" };
   }
 
-  const compressFollowUpPhrases = ["thoda aur compress karo", "aur compress karo", "compress it more", "make it smaller file"];
+  const compressFollowUpPhrases = ["thoda aur compress karo", "aur compress karo", "compress it more", "make it smaller file", "aur compress"];
   const compressFollowUp = compressFollowUpPhrases.some(phrase => text.includes(phrase));
   if (previous === "image-compress" && compressFollowUp) {
     return { intent: "image-compress", confidence: "medium", matchedTerms: compressFollowUpPhrases.filter(phrase => text.includes(phrase)), needsClarification: false, suggestedTool: "Image Compressor" };
