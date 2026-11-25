@@ -24,6 +24,7 @@ const contextlessFollowUpPatterns = [
   /^(continue|next|do it|go ahead|proceed|carry on|keep going)$/i,
   /^(aage|age|aur|haan|han|yes|ok|okay|theek hai)$/i,
   /^(आगे|अगला|अगले|करो|हाँ|हां|ठीक है|और)$/i,
+  /^(?:ठीक है\s+)?(?:आगे|अगला कदम|अगले कदम)$/i,
   /^(?:aur|अौर|और)\s+(?:kar\s+do|kar|karo|कर\s+दो|कर|करो|कर देना)$/i,
   /^(?:next|अगला|अगले)\s+(?:step|कदम)$/i,
   /^(?:wahi|वही)\s+(?:aage|आगे)\s+(?:karo|करो)?$/i,
