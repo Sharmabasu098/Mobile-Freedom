@@ -40,10 +40,13 @@ export function resolveIntentRoute(input: string, context?: IntentResolutionCont
     previousMessage: context?.previousMessage,
     isFollowUp: context?.isFollowUp,
     scopeId: context?.scopeId,
+    history: context?.history,
   });
   if (snapshot.needsClarification) return { kind: "clarify" };
 
-  const latestHistoryText = snapshot.relevantHistory.at(-1)?.text;\n  const historyIntent = latestHistoryText ? understandIntent(latestHistoryText) : undefined;\n  const previousIntent = context?.previousIntent ?? (historyIntent && !historyIntent.needsClarification ? historyIntent.intent : undefined);\n  const match = understandIntentWithContext(input, { previousIntent });
+  const latestHistoryText = snapshot.relevantHistory.at(-1)?.text;
+  const historyIntent = latestHistoryText ? understandIntent(latestHistoryText) : undefined;\n  const previousIntent = context?.previousIntent ?? (historyIntent && !historyIntent.needsClarification ? historyIntent.intent : undefined);
+  const match = understandIntentWithContext(input, { previousIntent });
   if (match.needsClarification || match.confidence === "low") return { kind: "clarify" };
 
   const toolId = intentToTool[match.intent];
