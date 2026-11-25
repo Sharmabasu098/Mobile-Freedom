@@ -85,13 +85,13 @@ export function understandIntentWithContext(input: string, context?: IntentConte
 
   const text = normalizeIntentInput(input);
   const previous = context?.previousIntent;
-  const followUpPhrases = ["aur chhota karo", "aur chota karo", "thoda aur chhota", "thoda aur chota", "make it smaller", "smaller please"];
+  const followUpPhrases = ["aur chhota karo", "aur chota karo", "thoda aur chhota", "thoda aur chota", "make it smaller", "smaller please", "aur kar do", "aur karo", "next step", "continue", "go ahead", "keep going", "wahi aage karo"];
   const resizeFollowUp = followUpPhrases.some(phrase => text.includes(phrase));
   if (previous === "image-resize" && resizeFollowUp) {
     return { intent: "image-resize", confidence: "medium", matchedTerms: followUpPhrases.filter(phrase => text.includes(phrase)), needsClarification: false, suggestedTool: "Image Resizer" };
   }
 
-  const compressFollowUpPhrases = ["thoda aur compress karo", "aur compress karo", "compress it more", "make it smaller file"];
+  const compressFollowUpPhrases = ["thoda aur compress karo", "aur compress karo", "compress it more", "make it smaller file", "aur kar do", "aur compress", "next step", "continue", "go ahead", "keep going"];
   const compressFollowUp = compressFollowUpPhrases.some(phrase => text.includes(phrase));
   if (previous === "image-compress" && compressFollowUp) {
     return { intent: "image-compress", confidence: "medium", matchedTerms: compressFollowUpPhrases.filter(phrase => text.includes(phrase)), needsClarification: false, suggestedTool: "Image Compressor" };
