@@ -6,6 +6,9 @@
 
 import "./style.css";
 
+import { resolveIntentRoute } from "./tools/intelligence/intentIntegration";
+import { getCommandUiCopy } from "./tools/intelligence/commandUi";
+
 import {
   compressImage,
   processImage,
@@ -222,6 +225,13 @@ app.innerHTML = `
           <button type="submit" id="search-button"></button>
         </form>
         <p id="search-status" role="status" aria-live="polite"></p>
+
+        <form class="command-wrap" id="command-form" aria-label="Command input">
+          <label id="command-label" for="command-input"></label>
+          <input id="command-input" type="text" autocomplete="off" />
+          <button id="command-button" type="submit"></button>
+        </form>
+        <p id="command-status" role="status" aria-live="polite"></p>
       </div>
     </section>
 
@@ -402,6 +412,10 @@ function render(): void {
   element("hero-title").textContent = t.tagline;
   element("hero-description").textContent = t.description;
   element<HTMLInputElement>("search-input").placeholder = t.placeholder;
+  const commandCopy = getCommandUiCopy(language);
+  element<HTMLLabelElement>("command-label").textContent = commandCopy.label;
+  element<HTMLInputElement>("command-input").placeholder = commandCopy.placeholder;
+  element("command-button").textContent = commandCopy.submit;
   element("search-button").textContent = t.search;
   element("tools-heading").textContent = t.heading;
   element("tools-subtitle").textContent = t.subtitle;
@@ -439,6 +453,31 @@ element("search-form").addEventListener("submit", (event) => {
 element<HTMLInputElement>("search-input").addEventListener("input", () => {
   query = element<HTMLInputElement>("search-input").value.trim();
   renderTools();
+});
+
+element("command-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const input = element<HTMLInputElement>("command-input");
+  const status = element<HTMLParagraphElement>("command-status");
+  const copy = getCommandUiCopy(language);
+  const route = resolveIntentRoute(input.value);
+  if (route.kind === "clarify") {
+    status.textContent = copy.clarify;
+    return;
+  }
+  status.textContent = "";
+  switch (route.toolId) {
+    case "image-compress": openImageCompressor(); break;
+    case "image-convert": openImageConverter(); break;
+    case "image-resize": openImageResizer(); break;
+    case "pdf-merge": openPdfMerger(); break;
+    case "pdf-split": openPdfSplitter(); break;
+    case "qr-generate": openQrGenerator(); break;
+    case "password-generate": openPasswordGenerator(); break;
+    case "unit-convert": openUnitConverter(); break;
+    case "text-utilities": openTextUtilities(); break;
+    case "file-analysis": openFileAnalysis(); break;
+  }
 });
 
 document

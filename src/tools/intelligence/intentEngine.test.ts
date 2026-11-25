@@ -200,3 +200,24 @@ describe("VF-01.6 input normalization regression guards", () => {
     expect(result.needsClarification).toBe(true);
   });
 });
+
+describe("VF-01.8 Hinglish routing mobile failure regression", () => {
+  it("routes photographed Hinglish image compression phrase", () => {
+    const result = understandIntent("फोटो compress करो");
+    expect(result.intent).toBe("image-compress");
+    expect(result.suggestedTool).toBe("Image Compressor");
+    expect(result.needsClarification).toBe(false);
+  });
+  it("routes photographed Hinglish image resize phrase", () => {
+    const result = understandIntent("image ko resize kar do");
+    expect(result.intent).toBe("image-resize");
+    expect(result.suggestedTool).toBe("Image Resizer");
+    expect(result.needsClarification).toBe(false);
+  });
+  it("routes photographed Hinglish PDF merge phrase", () => {
+    const result = understandIntent("PDF जोड़ दो");
+    expect(result.intent).toBe("pdf-merge");
+    expect(result.suggestedTool).toBe("PDF Merger");
+    expect(result.needsClarification).toBe(false);
+  });
+});

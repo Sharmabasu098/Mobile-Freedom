@@ -182,6 +182,50 @@ button:active {
   cursor: pointer;
 }
 
+/* VF-01.8 — Separate natural-language command input */
+.command-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  max-width: 680px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.command-wrap label {
+  flex: 0 0 100%;
+  color: var(--muted);
+  font-size: .85rem;
+  font-weight: 700;
+}
+.command-wrap input {
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+}
+.command-wrap button {
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+#command-status {
+  max-width: 680px;
+  min-height: 1.25em;
+  color: var(--muted);
+}
+
 .section {
   padding: 30px 0 42px;
 }
