@@ -76,4 +76,19 @@ describe("VF-02.1 targeted context-resolution integration", () => {
     expect(resolveIntentRoute("compress image and merge PDF", { previousIntent: "image-resize" }))
       .toEqual({ kind: "clarify" });
   });
+
+  it("resolves follow-up from history in the matching scope", () => {
+    expect(resolveIntentRoute("aur chhota karo", { scopeId: "conversation-1", history: [{ scopeId: "conversation-1", text: "resize photo" }] }))
+      .toEqual({ kind: "open-tool", toolId: "image-resize" });
+  });
+
+  it("ignores history from a different scope", () => {
+    expect(resolveIntentRoute("aur chhota karo", { scopeId: "conversation-1", history: [{ scopeId: "conversation-2", text: "resize photo" }] }))
+      .toEqual({ kind: "clarify" });
+  });
+
+  it("explicit previous intent takes precedence over scoped history", () => {
+    expect(resolveIntentRoute("aur compress", { previousIntent: "image-resize", scopeId: "conversation-1", history: [{ scopeId: "conversation-1", text: "compress image" }] }))
+      .toEqual({ kind: "open-tool", toolId: "image-resize" });
+  });
 });
