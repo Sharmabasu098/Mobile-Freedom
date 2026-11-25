@@ -20,19 +20,21 @@ export type ConversationContext = {
   needsClarification: boolean;
 };
 
-const contextlessFollowUpTerms = new Set([
-  "continue",
-  "next",
-  "do it",
-  "go ahead",
-  "aage",
-  "आगे",
-  "अगला",
-  "अगले",
-  "करो",
-  "haan",
-  "yes",
-]);
+const contextlessFollowUpPatterns = [
+  /^(continue|next|do it|go ahead|proceed|carry on|keep going)$/i,
+  /^(aage|age|aur|haan|han|yes|ok|okay|theek hai)$/i,
+  /^(आगे|अगला|अगले|करो|हाँ|हां|ठीक है|और)$/i,
+  /^(?:aur|अौर|और)\s+(?:kar|karo|कर|करो|do|कर देना)$/i,
+  /^(?:next|अगला|अगले)\s+(?:step|कदम)$/i,
+  /^(?:wahi|वही)\s+(?:aage|आगे)\s+(?:karo|करो)?$/i,
+  /^(?:ab|अब)\s+(?:kya|क्या)(?:\s+karu|\s+करूँ)?$/i,
+  /^(?:go|move)\s+(?:on|ahead)$/i,
+];
+
+function isContextlessFollowUp(message: string): boolean {
+  const normalized = message.trim().toLocaleLowerCase().replace(/[.!?।,]+$/g, "").replace(/\s+/g, " ");
+  return contextlessFollowUpPatterns.some((pattern) => pattern.test(normalized));
+}
 
 /**
  * Build a short-lived, explicitly supplied context snapshot.
@@ -40,8 +42,6 @@ const contextlessFollowUpTerms = new Set([
  */
 export function buildConversationContext(input: ContextFoundationInput): ConversationContext {
   const currentMessage = input.currentMessage.trim();
-  const normalized = currentMessage.toLowerCase();
-  const isContextlessFollowUp = contextlessFollowUpTerms.has(normalized);
   const followUpOf = input.isFollowUp && input.previousMessage?.trim()
     ? input.previousMessage.trim()
     : null;
@@ -54,6 +54,6 @@ export function buildConversationContext(input: ContextFoundationInput): Convers
     activeTask: input.activeTask?.trim() || null,
     followUpOf,
     relevantHistory,
-    needsClarification: isContextlessFollowUp && !input.activeTask?.trim() && !followUpOf,
+    needsClarification: isContextlessFollowUp(currentMessage) && !input.activeTask?.trim() && !followUpOf,
   };
 }
