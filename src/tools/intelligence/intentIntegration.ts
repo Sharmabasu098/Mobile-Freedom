@@ -1,5 +1,5 @@
-import { buildConversationContext } from "./contextFoundation";
-import { understandIntentWithContext, type IntelligenceIntent } from "./intentEngine";
+import { buildConversationContext, type ContextHistoryItem } from "./contextFoundation";
+import { understandIntent, understandIntentWithContext, type IntelligenceIntent } from "./intentEngine";
 
 export type IntentToolId =
   | "image-compress" | "image-convert" | "image-resize"
@@ -43,7 +43,7 @@ export function resolveIntentRoute(input: string, context?: IntentResolutionCont
   });
   if (snapshot.needsClarification) return { kind: "clarify" };
 
-  const match = understandIntentWithContext(input, { previousIntent: context?.previousIntent });
+  const latestHistoryText = snapshot.relevantHistory.at(-1)?.text;\n  const historyIntent = latestHistoryText ? understandIntent(latestHistoryText) : undefined;\n  const previousIntent = context?.previousIntent ?? (historyIntent && !historyIntent.needsClarification ? historyIntent.intent : undefined);\n  const match = understandIntentWithContext(input, { previousIntent });
   if (match.needsClarification || match.confidence === "low") return { kind: "clarify" };
 
   const toolId = intentToTool[match.intent];
