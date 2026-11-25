@@ -174,3 +174,29 @@ describe("VF-01.5 follow-up regression guards", () => {
     expect(result.needsClarification).toBe(false);
   });
 });
+
+
+describe("VF-01.6 input normalization regression guards", () => {
+  it("recognizes intent phrases despite repeated whitespace", () => {
+    for (const message of ["Please   compress image size", "Photo   compress   karna hai", "Resize   this   photo"]) {
+      const result = understandIntent(message);
+      expect(result.needsClarification).toBe(false);
+      expect(result.intent).not.toBe("unknown");
+    }
+  });
+
+  it("recognizes Hindi and mixed-language requests with repeated whitespace", () => {
+    for (const message of ["PDF   merge   कर   दो", "Image   ka   size   kam   karo"]) {
+      const result = understandIntent(message);
+      expect(result.needsClarification).toBe(false);
+      expect(result.intent).not.toBe("unknown");
+    }
+  });
+
+  it("keeps normalized multi-tool requests ambiguous", () => {
+    const result = understandIntent("Compress   image   and   merge   PDF");
+    expect(result.intent).toBe("unknown");
+    expect(result.suggestedTool).toBe(null);
+    expect(result.needsClarification).toBe(true);
+  });
+});
