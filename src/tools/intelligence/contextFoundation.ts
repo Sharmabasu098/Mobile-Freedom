@@ -55,6 +55,6 @@ export function buildConversationContext(input: ContextFoundationInput): Convers
     activeTask: input.activeTask?.trim() || null,
     followUpOf,
     relevantHistory,
-    needsClarification: isContextlessFollowUp(currentMessage) && !input.activeTask?.trim() && !followUpOf,
+    needsClarification: isContextlessFollowUp(currentMessage) && !input.activeTask?.trim() && !followUpOf && relevantHistory.length === 0,
   };
 }
