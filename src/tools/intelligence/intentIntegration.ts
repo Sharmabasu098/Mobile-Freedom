@@ -24,6 +24,7 @@ export type IntentResolutionContext = {
   previousMessage?: string | null;
   isFollowUp?: boolean;
   scopeId?: string | null;
+  history?: ContextHistoryItem[];
 };
 
 /**
@@ -45,7 +46,8 @@ export function resolveIntentRoute(input: string, context?: IntentResolutionCont
   if (snapshot.needsClarification) return { kind: "clarify" };
 
   const latestHistoryText = snapshot.relevantHistory.at(-1)?.text;
-  const historyIntent = latestHistoryText ? understandIntent(latestHistoryText) : undefined;\n  const previousIntent = context?.previousIntent ?? (historyIntent && !historyIntent.needsClarification ? historyIntent.intent : undefined);
+  const historyIntent = latestHistoryText ? understandIntent(latestHistoryText) : undefined;
+  const previousIntent = context?.previousIntent ?? (historyIntent && !historyIntent.needsClarification ? historyIntent.intent : undefined);
   const match = understandIntentWithContext(input, { previousIntent });
   if (match.needsClarification || match.confidence === "low") return { kind: "clarify" };
 
