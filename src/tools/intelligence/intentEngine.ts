@@ -87,8 +87,8 @@ export function understandIntentWithContext(input: string, context?: IntentConte
   const previous = context?.previousIntent;
   const followUpPhrases = ["aur chhota karo", "aur chota karo", "thoda aur chhota", "thoda aur chota", "make it smaller", "smaller please"];
   const resizeFollowUp = followUpPhrases.some(phrase => text.includes(phrase))
-    || /\\b(?:aur|thoda)\\s+(?:chhota|chota|smaller)\\s+(?:kar|karo|please)\\b/i.test(text)
-    || /\\b(?:make|do)\\s+(?:it|this)\\s+smaller\\b/i.test(text);
+    || /\b(?:aur|thoda)\s+(?:chhota|chota|smaller)\s+(?:kar|karo|kar do|please)\b/i.test(text)
+    || /\b(?:make|do)\s+(?:it|this)\s+smaller\b/i.test(text);
   if (previous === "image-resize" && resizeFollowUp) {
     return { intent: "image-resize", confidence: "medium", matchedTerms: followUpPhrases.filter(phrase => text.includes(phrase)), needsClarification: false, suggestedTool: "Image Resizer" };
   }
