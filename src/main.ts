@@ -534,6 +534,15 @@ console.info("Mobile Freedom: M4 homepage initialized.");
 let compressorObjectUrls: string[] = [];
 
 function openImageCompressor(): void {
+  shortTermMemory.update(commandMemoryScope, {
+    activeTask: "compress image",
+    selectedTool: "image-compress",
+    currentComponent: "image-compress",
+    toolPurpose: "Reduce image file size",
+    progress: "Image Compressor opened",
+    pendingAction: "Compress selected image(s)",
+    nextStep: "Continue with image compression or a related follow-up",
+  });
   const home = element<HTMLElement>("home");
 
   // Prevent duplicate compressor screens.
@@ -1211,6 +1220,15 @@ function openImageConverter(): void {
 let resizerObjectUrls: string[] = [];
 
 function openImageResizer(): void {
+  shortTermMemory.update(commandMemoryScope, {
+    activeTask: "resize photo",
+    selectedTool: "image-resize",
+    currentComponent: "image-resize",
+    toolPurpose: "Change image dimensions",
+    progress: "Image Resizer opened",
+    pendingAction: "Resize selected image(s)",
+    nextStep: "Continue resizing or provide a related follow-up",
+  });
   const home = element<HTMLElement>("home");
 
   document.getElementById("image-resizer-screen")?.remove();
