@@ -6,7 +6,7 @@
 
 import "./style.css";
 
-import { resolveIntentRoute } from "./tools/intelligence/intentIntegration";
+import { resolveHomepageCommand } from "./tools/intelligence/intentIntegration";
 import { getCommandUiCopy } from "./tools/intelligence/commandUi";
 import { createShortTermMemory } from "./tools/intelligence/shortTermMemory";
 
@@ -465,31 +465,13 @@ element("command-form").addEventListener("submit", (event) => {
   const input = element<HTMLInputElement>("command-input");
   const status = element<HTMLParagraphElement>("command-status");
   const copy = getCommandUiCopy(language);
-  const previousState = shortTermMemory.get(commandMemoryScope);
-  const route = resolveIntentRoute(input.value, {
-    selectedTool: previousState?.selectedTool,
-    activeTask: previousState?.activeTask,
-    previousMessage: previousState?.activeTask,
-    isFollowUp: Boolean(previousState?.activeTask),
-    scopeId: commandMemoryScope,
-  });
+  const route = resolveHomepageCommand(input.value, shortTermMemory, commandMemoryScope);
   if (route.kind === "clarify") {
     status.textContent = copy.clarify;
     return;
   }
   status.textContent = "";
-  shortTermMemory.update(commandMemoryScope, {
-    activeTask: input.value.trim(),
-    activeStep: "Intent resolved and tool route selected",
-    currentFile: null,
-    currentComponent: route.toolId,
-    selectedTool: route.toolId,
-    toolPurpose: input.value.trim(),
-    latestProblem: null,
-    progress: "Command recognized; selected tool is being opened",
-    pendingAction: "Open selected tool",
-    nextStep: "Use the selected tool or provide the next command",
-  });
+
   switch (route.toolId) {
     case "image-compress": openImageCompressor(); break;
     case "image-convert": openImageConverter(); break;
