@@ -33,9 +33,28 @@ function normalizeIntentInput(input: string): string {
   return input.trim().toLocaleLowerCase().replace(/\s+/g, " ");
 }
 
+const toolCommandAliases: Record<string, IntelligenceIntent> = {
+  "image-compress": "image-compress", "image compressor": "image-compress",
+  "image-convert": "image-convert", "image converter": "image-convert",
+  "image-resize": "image-resize", "image resizer": "image-resize",
+  "pdf-merge": "pdf-merge", "pdf merger": "pdf-merge", "pdf merge": "pdf-merge",
+  "pdf-split": "pdf-split", "pdf splitter": "pdf-split",
+  "qr-generate": "qr-generate", "qr code generator": "qr-generate",
+  "password-generate": "password-generate", "password generator": "password-generate",
+  "unit-convert": "unit-convert", "unit converter": "unit-convert",
+  "text-utilities": "text-utilities", "text utilities": "text-utilities",
+  "file-analysis": "file-analysis", "file analysis": "file-analysis",
+};
+
 export function understandIntent(input: string): IntentMatch {
   const text = normalizeIntentInput(input);
   if (!text) return { intent: "unknown", confidence: "low", matchedTerms: [], needsClarification: true, suggestedTool: null };
+
+  const aliasIntent = toolCommandAliases[text];
+  if (aliasIntent) {
+    const rule = intentRules.find(item => item.intent === aliasIntent)!;
+    return { intent: aliasIntent, confidence: "high", matchedTerms: [text], needsClarification: false, suggestedTool: rule.tool };
+  }
 
   const matches = intentRules
     .map(rule => ({ rule, terms: rule.terms.filter(term => text.includes(term.toLocaleLowerCase())) }))
