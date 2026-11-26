@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveIntentRoute } from "./intentIntegration";
+import { resolveIntentRoute, resolveHomepageCommand } from "./intentIntegration";
 import { createShortTermMemory } from "./shortTermMemory";
 
 describe("VF-01.8 command integration — Test-First routing and safety", () => {
@@ -83,6 +83,18 @@ describe("VF-02.1 targeted context-resolution integration", () => {
       scopeId: scope,
     });
     expect(followUpRoute).toEqual({ kind: "open-tool", toolId: "image-resize" });
+  });
+
+  it("tests the homepage command handler memory retrieval and follow-up route end-to-end", () => {
+    const memory = createShortTermMemory(() => 100);
+    const scope = "mobile-freedom-home-command";
+    expect(resolveHomepageCommand("resize photo", memory, scope)).toEqual({ kind: "open-tool", toolId: "image-resize" });
+    const savedAfterFirst = memory.get(scope);
+    expect(savedAfterFirst?.selectedTool).toBe("image-resize");
+    expect(savedAfterFirst?.activeTask).toBe("resize photo");
+    expect(resolveHomepageCommand("aur chhota karo", memory, scope)).toEqual({ kind: "open-tool", toolId: "image-resize" });
+    expect(memory.get(scope)?.selectedTool).toBe("image-resize");
+    expect(memory.get(scope)?.activeTask).toBe("aur chhota karo");
   });
 
   it("resolves resize follow-up from selected tool context when active task text is unavailable", () => {
