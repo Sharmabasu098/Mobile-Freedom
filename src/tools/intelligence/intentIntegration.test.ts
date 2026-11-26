@@ -15,6 +15,10 @@ describe("VF-01.8 command integration — Test-First routing and safety", () => 
     expect(resolveIntentRoute("Do PDF combine karna hai")).toEqual({ kind: "open-tool", toolId: "pdf-merge" });
   });
 
+  it.each(["image-resize", "Image Resizer"])("routes canonical tool command alias '%s' directly", (command) => {
+    expect(resolveIntentRoute(command)).toEqual({ kind: "open-tool", toolId: "image-resize" });
+  });
+
   it("maps every supported intent to an existing tool id", () => {
     const cases: Array<[string, string]> = [
       ["Please compress image size", "image-compress"], ["convert image to png", "image-convert"],
@@ -83,6 +87,14 @@ describe("VF-02.1 targeted context-resolution integration", () => {
       scopeId: scope,
     });
     expect(followUpRoute).toEqual({ kind: "open-tool", toolId: "image-resize" });
+  });
+
+  it("routes image-resize identifier through homepage memory and then resolves Hindi follow-up", () => {
+    const memory = createShortTermMemory(() => 100);
+    const scope = "homepage-command-alias";
+    expect(resolveHomepageCommand("image-resize", memory, scope)).toEqual({ kind: "open-tool", toolId: "image-resize" });
+    expect(memory.get(scope)?.selectedTool).toBe("image-resize");
+    expect(resolveHomepageCommand("aur chhota karo", memory, scope)).toEqual({ kind: "open-tool", toolId: "image-resize" });
   });
 
   it("tests the homepage command handler memory retrieval and follow-up route end-to-end", () => {
