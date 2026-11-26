@@ -57,6 +57,11 @@ describe("VF-02.1 targeted context-resolution integration", () => {
     (message) => expect(resolveIntentRoute(message)).toEqual({ kind: "clarify" }),
   );
 
+  it("does not route follow-ups from an unknown selected tool value", () => {
+    expect(resolveIntentRoute("aur chhota karo", { selectedTool: "unknown-tool" }))
+      .toEqual({ kind: "clarify" });
+  });
+
   it("resolves resize follow-up from selected tool context when active task text is unavailable", () => {
     expect(resolveIntentRoute("aur chhota karo", { selectedTool: "image-resize" }))
       .toEqual({ kind: "open-tool", toolId: "image-resize" });
