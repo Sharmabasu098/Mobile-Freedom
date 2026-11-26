@@ -57,6 +57,16 @@ describe("VF-02.1 targeted context-resolution integration", () => {
     (message) => expect(resolveIntentRoute(message)).toEqual({ kind: "clarify" }),
   );
 
+  it("resolves resize follow-up from selected tool context when active task text is unavailable", () => {
+    expect(resolveIntentRoute("aur chhota karo", { selectedTool: "image-resize" }))
+      .toEqual({ kind: "open-tool", toolId: "image-resize" });
+  });
+
+  it("resolves compression follow-up from selected tool context when active task text is unavailable", () => {
+    expect(resolveIntentRoute("aur compress", { selectedTool: "image-compress" }))
+      .toEqual({ kind: "open-tool", toolId: "image-compress" });
+  });
+
   it("resolves compatible image-resize follow-up from short-term active task", () => {
     expect(resolveIntentRoute("aur chhota karo", { activeTask: "resize photo", previousMessage: "resize photo", isFollowUp: true, scopeId: "home-command" }))
       .toEqual({ kind: "open-tool", toolId: "image-resize" });
