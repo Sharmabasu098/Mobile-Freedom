@@ -20,7 +20,7 @@ const intentToTool: Partial<Record<IntelligenceIntent, IntentToolId>> = {
 
 export type IntentResolutionContext = {
   previousIntent?: IntelligenceIntent;
-  selectedTool?: IntentToolId | null;
+  selectedTool?: string | null;
   activeTask?: string | null;
   previousMessage?: string | null;
   isFollowUp?: boolean;
@@ -50,8 +50,11 @@ export function resolveIntentRoute(input: string, context?: IntentResolutionCont
   const historyIntent = latestHistoryText ? understandIntent(latestHistoryText) : undefined;
   const activeTaskIntent = context?.activeTask ? understandIntent(context.activeTask) : undefined;
   const previousMessageIntent = context?.previousMessage ? understandIntent(context.previousMessage) : undefined;
+  const selectedToolIntent = context?.selectedTool
+    ? (Object.entries(intentToTool).find(([, toolId]) => toolId === context.selectedTool)?.[0] as IntelligenceIntent | undefined)
+    : undefined;
   const previousIntent = context?.previousIntent
-    ?? context?.selectedTool
+    ?? selectedToolIntent
     ?? (activeTaskIntent && !activeTaskIntent.needsClarification ? activeTaskIntent.intent : undefined)
     ?? (previousMessageIntent && !previousMessageIntent.needsClarification ? previousMessageIntent.intent : undefined)
     ?? (historyIntent && !historyIntent.needsClarification ? historyIntent.intent : undefined);
