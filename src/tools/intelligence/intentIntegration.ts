@@ -20,6 +20,7 @@ const intentToTool: Partial<Record<IntelligenceIntent, IntentToolId>> = {
 
 export type IntentResolutionContext = {
   previousIntent?: IntelligenceIntent;
+  selectedTool?: string | null;
   activeTask?: string | null;
   previousMessage?: string | null;
   isFollowUp?: boolean;
@@ -47,11 +48,62 @@ export function resolveIntentRoute(input: string, context?: IntentResolutionCont
 
   const latestHistoryText = snapshot.relevantHistory.at(-1)?.text;
   const historyIntent = latestHistoryText ? understandIntent(latestHistoryText) : undefined;
-  const previousIntent = context?.previousIntent ?? (historyIntent && !historyIntent.needsClarification ? historyIntent.intent : undefined);
+  const activeTaskIntent = context?.activeTask ? understandIntent(context.activeTask) : undefined;
+  const previousMessageIntent = context?.previousMessage ? understandIntent(context.previousMessage) : undefined;
+  const selectedToolIntent = context?.selectedTool
+    ? (Object.entries(intentToTool).find(([, toolId]) => toolId === context.selectedTool)?.[0] as IntelligenceIntent | undefined)
+    : undefined;
+  const previousIntent = context?.previousIntent
+    ?? selectedToolIntent
+    ?? (activeTaskIntent && !activeTaskIntent.needsClarification ? activeTaskIntent.intent : undefined)
+    ?? (previousMessageIntent && !previousMessageIntent.needsClarification ? previousMessageIntent.intent : undefined)
+    ?? (historyIntent && !historyIntent.needsClarification ? historyIntent.intent : undefined);
   const match = understandIntentWithContext(input, { previousIntent });
   if (match.needsClarification || match.confidence === "low") return { kind: "clarify" };
 
   const toolId = intentToTool[match.intent];
   if (!toolId) return { kind: "clarify" };
   return { kind: "open-tool", toolId };
+}
+
+export type HomepageCommandMemory = {
+  get(scopeId: string): { activeTask: string | null; selectedTool: string | null } | null;
+  update(scopeId: string, patch: { activeTask: string; activeStep: string; currentFile: string | null; currentComponent: string; selectedTool: string; toolPurpose: string; latestProblem: string | null; progress: string; pendingAction: string; nextStep: string }): unknown;
+};
+
+
+/** The homepage's actual command-resolution + memory-update path, kept pure enough to regression-test. */
+export function resolveHomepageCommand(input: string, memory: HomepageCommandMemory, scopeId: string): IntentRoute {
+  const previousState = memory.get(scopeId);
+  const route = resolveIntentRoute(input, {
+    selectedTool: previousState?.selectedTool,
+    activeTask: previousState?.activeTask,
+    previousMessage: previousState?.activeTask,
+    isFollowUp: Boolean(previousState?.activeTask),
+    scopeId,
+  });
+  if (route.kind === "open-tool") {
+    memory.update(scopeId, {
+      activeTask: input.trim(), activeStep: "Intent resolved and tool route selected",
+      currentFile: null, currentComponent: route.toolId, selectedTool: route.toolId,
+      toolPurpose: input.trim(), latestProblem: null,
+      progress: "Command recognized; selected tool is being opened",
+      pendingAction: "Open selected tool",
+      nextStep: "Use the selected tool or provide the next command",
+    });
+  }
+  return route;
+}
+
+export type HomepageCommandHandler = {
+  clarify(): void;
+  openTool(toolId: IntentToolId): void;
+};
+
+/** Shared submit boundary used by the homepage DOM handler and regression tests. */
+export function handleHomepageCommandSubmission(input: string, memory: HomepageCommandMemory, scopeId: string, handler: HomepageCommandHandler): IntentRoute {
+  const route = resolveHomepageCommand(input, memory, scopeId);
+  if (route.kind === "clarify") handler.clarify();
+  else handler.openTool(route.toolId);
+  return route;
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { resolveIntentRoute } from "./intentIntegration";
+import { resolveIntentRoute, resolveHomepageCommand, handleHomepageCommandSubmission } from "./intentIntegration";
+import { createShortTermMemory } from "./shortTermMemory";
 
 describe("VF-01.8 command integration — Test-First routing and safety", () => {
   it("routes a clear image compression command to a tool-opening route only", () => {
@@ -12,6 +13,10 @@ describe("VF-01.8 command integration — Test-First routing and safety", () => 
 
   it("routes clear Hinglish commands", () => {
     expect(resolveIntentRoute("Do PDF combine karna hai")).toEqual({ kind: "open-tool", toolId: "pdf-merge" });
+  });
+
+  it.each(["image-resize", "Image Resizer"])("routes canonical tool command alias '%s' directly", (command) => {
+    expect(resolveIntentRoute(command)).toEqual({ kind: "open-tool", toolId: "image-resize" });
   });
 
   it("maps every supported intent to an existing tool id", () => {
@@ -56,6 +61,90 @@ describe("VF-02.1 targeted context-resolution integration", () => {
     "clarifies contextless follow-up '%s'",
     (message) => expect(resolveIntentRoute(message)).toEqual({ kind: "clarify" }),
   );
+
+  it("does not route follow-ups from an unknown selected tool value", () => {
+    expect(resolveIntentRoute("aur chhota karo", { selectedTool: "unknown-tool" }))
+      .toEqual({ kind: "clarify" });
+  });
+
+  it("regresses the homepage memory flow: resize photo then aur chhota karo", () => {
+    const memory = createShortTermMemory(() => 100);
+    const scope = "mobile-freedom-home-command";
+    const firstRoute = resolveIntentRoute("resize photo", { scopeId: scope });
+    expect(firstRoute).toEqual({ kind: "open-tool", toolId: "image-resize" });
+    if (firstRoute.kind !== "open-tool") return;
+    memory.update(scope, { activeTask: "resize photo", selectedTool: firstRoute.toolId, currentComponent: firstRoute.toolId });
+    // Mirrors openImageResizer() storing its active task/tool after the homepage routes.
+    memory.update(scope, { activeTask: "resize photo", selectedTool: "image-resize", currentComponent: "image-resize" });
+    const saved = memory.get(scope);
+    expect(saved?.selectedTool).toBe("image-resize");
+    expect(saved?.activeTask).toBe("resize photo");
+    const followUpRoute = resolveIntentRoute("aur chhota karo", {
+      selectedTool: saved?.selectedTool,
+      activeTask: saved?.activeTask,
+      previousMessage: saved?.activeTask,
+      isFollowUp: Boolean(saved?.activeTask),
+      scopeId: scope,
+    });
+    expect(followUpRoute).toEqual({ kind: "open-tool", toolId: "image-resize" });
+  });
+
+
+  it("runs the actual homepage submission boundary and dispatches the follow-up to Image Resizer", () => {
+    const memory = createShortTermMemory(() => 100);
+    const scope = "homepage-dom-submit-boundary";
+    const opened: string[] = [];
+    let clarifications = 0;
+    const handler = {
+      clarify: () => { clarifications += 1; },
+      openTool: (toolId: any) => { opened.push(toolId); },
+    };
+    expect(handleHomepageCommandSubmission("resize photo", memory, scope, handler)).toEqual({ kind: "open-tool", toolId: "image-resize" });
+    expect(opened).toEqual(["image-resize"]);
+    expect(memory.get(scope)?.selectedTool).toBe("image-resize");
+    expect(handleHomepageCommandSubmission("aur chhota karo", memory, scope, handler)).toEqual({ kind: "open-tool", toolId: "image-resize" });
+    expect(opened).toEqual(["image-resize", "image-resize"]);
+    expect(clarifications).toBe(0);
+  });
+  it("routes image-resize identifier through homepage memory and then resolves Hindi follow-up", () => {
+    const memory = createShortTermMemory(() => 100);
+    const scope = "homepage-command-alias";
+    expect(resolveHomepageCommand("image-resize", memory, scope)).toEqual({ kind: "open-tool", toolId: "image-resize" });
+    expect(memory.get(scope)?.selectedTool).toBe("image-resize");
+    expect(resolveHomepageCommand("aur chhota karo", memory, scope)).toEqual({ kind: "open-tool", toolId: "image-resize" });
+  });
+
+  it("tests the homepage command handler memory retrieval and follow-up route end-to-end", () => {
+    const memory = createShortTermMemory(() => 100);
+    const scope = "mobile-freedom-home-command";
+    expect(resolveHomepageCommand("resize photo", memory, scope)).toEqual({ kind: "open-tool", toolId: "image-resize" });
+    const savedAfterFirst = memory.get(scope);
+    expect(savedAfterFirst?.selectedTool).toBe("image-resize");
+    expect(savedAfterFirst?.activeTask).toBe("resize photo");
+    expect(resolveHomepageCommand("aur chhota karo", memory, scope)).toEqual({ kind: "open-tool", toolId: "image-resize" });
+    expect(memory.get(scope)?.selectedTool).toBe("image-resize");
+    expect(memory.get(scope)?.activeTask).toBe("aur chhota karo");
+  });
+
+  it("resolves resize follow-up from selected tool context when active task text is unavailable", () => {
+    expect(resolveIntentRoute("aur chhota karo", { selectedTool: "image-resize" }))
+      .toEqual({ kind: "open-tool", toolId: "image-resize" });
+  });
+
+  it("resolves compression follow-up from selected tool context when active task text is unavailable", () => {
+    expect(resolveIntentRoute("aur compress", { selectedTool: "image-compress" }))
+      .toEqual({ kind: "open-tool", toolId: "image-compress" });
+  });
+
+  it("resolves compatible image-resize follow-up from short-term active task", () => {
+    expect(resolveIntentRoute("aur chhota karo", { activeTask: "resize photo", previousMessage: "resize photo", isFollowUp: true, scopeId: "home-command" }))
+      .toEqual({ kind: "open-tool", toolId: "image-resize" });
+  });
+
+  it("resolves compression follow-up from short-term active task", () => {
+    expect(resolveIntentRoute("aur compress", { activeTask: "compress image", previousMessage: "compress image", isFollowUp: true, scopeId: "home-command" }))
+      .toEqual({ kind: "open-tool", toolId: "image-compress" });
+  });
 
   it("resolves compatible image-resize follow-up from explicit prior intent", () => {
     expect(resolveIntentRoute("aur chhota karo", { previousIntent: "image-resize", isFollowUp: true, previousMessage: "resize photo" }))

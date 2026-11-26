@@ -6,8 +6,9 @@
 
 import "./style.css";
 
-import { resolveIntentRoute } from "./tools/intelligence/intentIntegration";
+import { resolveHomepageCommand } from "./tools/intelligence/intentIntegration";
 import { getCommandUiCopy } from "./tools/intelligence/commandUi";
+import { createShortTermMemory } from "./tools/intelligence/shortTermMemory";
 
 import {
   compressImage,
@@ -37,6 +38,10 @@ import { resetStorageAssistantEvidence, isCurrentStorageAssistantSelection } fro
 
 type Language = "en" | "hi";
 type Category = "all" | "image" | "document" | "utility";
+
+// VF-02.2 — Short-Term Memory wired into the homepage command workflow.
+const shortTermMemory = createShortTermMemory();
+const commandMemoryScope = "mobile-freedom-home-command";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -460,12 +465,13 @@ element("command-form").addEventListener("submit", (event) => {
   const input = element<HTMLInputElement>("command-input");
   const status = element<HTMLParagraphElement>("command-status");
   const copy = getCommandUiCopy(language);
-  const route = resolveIntentRoute(input.value);
+  const route = resolveHomepageCommand(input.value, shortTermMemory, commandMemoryScope);
   if (route.kind === "clarify") {
     status.textContent = copy.clarify;
     return;
   }
   status.textContent = "";
+
   switch (route.toolId) {
     case "image-compress": openImageCompressor(); break;
     case "image-convert": openImageConverter(); break;
@@ -511,6 +517,15 @@ console.info("Mobile Freedom: M4 homepage initialized.");
 let compressorObjectUrls: string[] = [];
 
 function openImageCompressor(): void {
+  shortTermMemory.update(commandMemoryScope, {
+    activeTask: "compress image",
+    selectedTool: "image-compress",
+    currentComponent: "image-compress",
+    toolPurpose: "Reduce image file size",
+    progress: "Image Compressor opened",
+    pendingAction: "Compress selected image(s)",
+    nextStep: "Continue with image compression or a related follow-up",
+  });
   const home = element<HTMLElement>("home");
 
   // Prevent duplicate compressor screens.
@@ -1188,6 +1203,15 @@ function openImageConverter(): void {
 let resizerObjectUrls: string[] = [];
 
 function openImageResizer(): void {
+  shortTermMemory.update(commandMemoryScope, {
+    activeTask: "resize photo",
+    selectedTool: "image-resize",
+    currentComponent: "image-resize",
+    toolPurpose: "Change image dimensions",
+    progress: "Image Resizer opened",
+    pendingAction: "Resize selected image(s)",
+    nextStep: "Continue resizing or provide a related follow-up",
+  });
   const home = element<HTMLElement>("home");
 
   document.getElementById("image-resizer-screen")?.remove();
