@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveIntentRoute } from "./intentIntegration";
+import { createShortTermMemory } from "./shortTermMemory";
 
 describe("VF-01.8 command integration — Test-First routing and safety", () => {
   it("routes a clear image compression command to a tool-opening route only", () => {
@@ -60,6 +61,28 @@ describe("VF-02.1 targeted context-resolution integration", () => {
   it("does not route follow-ups from an unknown selected tool value", () => {
     expect(resolveIntentRoute("aur chhota karo", { selectedTool: "unknown-tool" }))
       .toEqual({ kind: "clarify" });
+  });
+
+  it("regresses the homepage memory flow: resize photo then aur chhota karo", () => {
+    const memory = createShortTermMemory(() => 100);
+    const scope = "mobile-freedom-home-command";
+    const firstRoute = resolveIntentRoute("resize photo", { scopeId: scope });
+    expect(firstRoute).toEqual({ kind: "open-tool", toolId: "image-resize" });
+    if (firstRoute.kind !== "open-tool") return;
+    memory.update(scope, { activeTask: "resize photo", selectedTool: firstRoute.toolId, currentComponent: firstRoute.toolId });
+    // Mirrors openImageResizer() storing its active task/tool after the homepage routes.
+    memory.update(scope, { activeTask: "resize photo", selectedTool: "image-resize", currentComponent: "image-resize" });
+    const saved = memory.get(scope);
+    expect(saved?.selectedTool).toBe("image-resize");
+    expect(saved?.activeTask).toBe("resize photo");
+    const followUpRoute = resolveIntentRoute("aur chhota karo", {
+      selectedTool: saved?.selectedTool,
+      activeTask: saved?.activeTask,
+      previousMessage: saved?.activeTask,
+      isFollowUp: Boolean(saved?.activeTask),
+      scopeId: scope,
+    });
+    expect(followUpRoute).toEqual({ kind: "open-tool", toolId: "image-resize" });
   });
 
   it("resolves resize follow-up from selected tool context when active task text is unavailable", () => {
