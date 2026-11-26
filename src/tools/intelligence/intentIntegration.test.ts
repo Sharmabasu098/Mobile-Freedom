@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveIntentRoute, resolveHomepageCommand } from "./intentIntegration";
+import { resolveIntentRoute, resolveHomepageCommand, handleHomepageCommandSubmission } from "./intentIntegration";
 import { createShortTermMemory } from "./shortTermMemory";
 
 describe("VF-01.8 command integration — Test-First routing and safety", () => {
@@ -89,6 +89,23 @@ describe("VF-02.1 targeted context-resolution integration", () => {
     expect(followUpRoute).toEqual({ kind: "open-tool", toolId: "image-resize" });
   });
 
+
+  it("runs the actual homepage submission boundary and dispatches the follow-up to Image Resizer", () => {
+    const memory = createShortTermMemory(() => 100);
+    const scope = "homepage-dom-submit-boundary";
+    const opened: string[] = [];
+    let clarifications = 0;
+    const handler = {
+      clarify: () => { clarifications += 1; },
+      openTool: (toolId: any) => { opened.push(toolId); },
+    };
+    expect(handleHomepageCommandSubmission("resize photo", memory, scope, handler)).toEqual({ kind: "open-tool", toolId: "image-resize" });
+    expect(opened).toEqual(["image-resize"]);
+    expect(memory.get(scope)?.selectedTool).toBe("image-resize");
+    expect(handleHomepageCommandSubmission("aur chhota karo", memory, scope, handler)).toEqual({ kind: "open-tool", toolId: "image-resize" });
+    expect(opened).toEqual(["image-resize", "image-resize"]);
+    expect(clarifications).toBe(0);
+  });
   it("routes image-resize identifier through homepage memory and then resolves Hindi follow-up", () => {
     const memory = createShortTermMemory(() => 100);
     const scope = "homepage-command-alias";
