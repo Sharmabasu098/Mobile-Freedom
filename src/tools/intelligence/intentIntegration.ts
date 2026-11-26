@@ -47,7 +47,12 @@ export function resolveIntentRoute(input: string, context?: IntentResolutionCont
 
   const latestHistoryText = snapshot.relevantHistory.at(-1)?.text;
   const historyIntent = latestHistoryText ? understandIntent(latestHistoryText) : undefined;
-  const previousIntent = context?.previousIntent ?? (historyIntent && !historyIntent.needsClarification ? historyIntent.intent : undefined);
+  const activeTaskIntent = context?.activeTask ? understandIntent(context.activeTask) : undefined;
+  const previousMessageIntent = context?.previousMessage ? understandIntent(context.previousMessage) : undefined;
+  const previousIntent = context?.previousIntent
+    ?? (activeTaskIntent && !activeTaskIntent.needsClarification ? activeTaskIntent.intent : undefined)
+    ?? (previousMessageIntent && !previousMessageIntent.needsClarification ? previousMessageIntent.intent : undefined)
+    ?? (historyIntent && !historyIntent.needsClarification ? historyIntent.intent : undefined);
   const match = understandIntentWithContext(input, { previousIntent });
   if (match.needsClarification || match.confidence === "low") return { kind: "clarify" };
 
