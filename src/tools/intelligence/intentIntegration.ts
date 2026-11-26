@@ -94,3 +94,16 @@ export function resolveHomepageCommand(input: string, memory: HomepageCommandMem
   }
   return route;
 }
+
+export type HomepageCommandHandler = {
+  clarify(): void;
+  openTool(toolId: IntentToolId): void;
+};
+
+/** Shared submit boundary used by the homepage DOM handler and regression tests. */
+export function handleHomepageCommandSubmission(input: string, memory: HomepageCommandMemory, scopeId: string, handler: HomepageCommandHandler): IntentRoute {
+  const route = resolveHomepageCommand(input, memory, scopeId);
+  if (route.kind === "clarify") handler.clarify();
+  else handler.openTool(route.toolId);
+  return route;
+}
