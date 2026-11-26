@@ -467,6 +467,7 @@ element("command-form").addEventListener("submit", (event) => {
   const copy = getCommandUiCopy(language);
   const previousState = shortTermMemory.get(commandMemoryScope);
   const route = resolveIntentRoute(input.value, {
+    selectedTool: previousState?.selectedTool,
     activeTask: previousState?.activeTask,
     previousMessage: previousState?.activeTask,
     isFollowUp: Boolean(previousState?.activeTask),
