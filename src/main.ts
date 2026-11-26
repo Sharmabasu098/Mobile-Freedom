@@ -472,7 +472,7 @@ element("command-form").addEventListener("submit", (event) => {
   }
   status.textContent = "";
 
-  switch (toolId) {
+  switch (route.toolId) {
     case "image-compress": openImageCompressor(); break;
     case "image-convert": openImageConverter(); break;
     case "image-resize": openImageResizer(); break;
@@ -483,9 +483,7 @@ element("command-form").addEventListener("submit", (event) => {
     case "unit-convert": openUnitConverter(); break;
     case "text-utilities": openTextUtilities(); break;
     case "file-analysis": openFileAnalysis(); break;
-      }
-    },
-  });
+  }
 });
 
 document
