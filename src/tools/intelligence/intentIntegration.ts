@@ -65,3 +65,32 @@ export function resolveIntentRoute(input: string, context?: IntentResolutionCont
   if (!toolId) return { kind: "clarify" };
   return { kind: "open-tool", toolId };
 }
+
+export type HomepageCommandMemory = {
+  get(scopeId: string): { activeTask: string | null; selectedTool: string | null } | null;
+  update(scopeId: string, patch: { activeTask: string; activeStep: string; currentFile: string | null; currentComponent: string; selectedTool: string; toolPurpose: string; latestProblem: string | null; progress: string; pendingAction: string; nextStep: string }): unknown;
+};
+
+
+/** The homepage's actual command-resolution + memory-update path, kept pure enough to regression-test. */
+export function resolveHomepageCommand(input: string, memory: HomepageCommandMemory, scopeId: string): IntentRoute {
+  const previousState = memory.get(scopeId);
+  const route = resolveIntentRoute(input, {
+    selectedTool: previousState?.selectedTool,
+    activeTask: previousState?.activeTask,
+    previousMessage: previousState?.activeTask,
+    isFollowUp: Boolean(previousState?.activeTask),
+    scopeId,
+  });
+  if (route.kind === "open-tool") {
+    memory.update(scopeId, {
+      activeTask: input.trim(), activeStep: "Intent resolved and tool route selected",
+      currentFile: null, currentComponent: route.toolId, selectedTool: route.toolId,
+      toolPurpose: input.trim(), latestProblem: null,
+      progress: "Command recognized; selected tool is being opened",
+      pendingAction: "Open selected tool",
+      nextStep: "Use the selected tool or provide the next command",
+    });
+  }
+  return route;
+}
