@@ -20,8 +20,9 @@ function sentenceParts(input: string): string[] {
 }
 
 function extractPreference(part: string): string | null {
-  const englishPrefer = part.match(/\b(?:i prefer|i like|from now on,? (?:use|give|answer|keep)|please use)\b(.+)/i);
-  if (englishPrefer) return normalizeText(englishPrefer[1]).replace(/[.!?।]+$/, "");
+  if (/\\b(?:i prefer|i like|from now on,? (?:use|give|answer|keep)|please use)\\b/i.test(part)) {
+    return part.replace(/[.!?।]+$/, "");
+  }
   if (/मुझे/.test(part) && /पसंद/.test(part)) return part.replace(/[.!?।]+$/, "");
   if (/mujhe/i.test(part) && /(chahiye|pasand)/i.test(part)) return part.replace(/[.!?।]+$/, "");
   if (/technical details.*english.*explanation.*hindi/i.test(part)) return part.replace(/[.!?।]+$/, "");
