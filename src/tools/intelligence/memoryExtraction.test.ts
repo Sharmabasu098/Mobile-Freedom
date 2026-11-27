@@ -85,9 +85,9 @@ describe("VF-02.4.2 Memory Extraction — test-first contract", () => {
     const result = extractMemoryCandidates("Generally I prefer concise answers. For coding explanations, I prefer detailed step-by-step answers.");
     const preferences = result.filter((candidate) => candidate.category === "preference");
     expect(preferences.length).toBeGreaterThanOrEqual(2);
-    expect(preferences.map((candidate) => candidate.value.toLowerCase().join?.("") ?? candidate.value.toLowerCase()).join(" "))
+    expect(preferences.map((candidate) => candidate.value.toLowerCase()).join(" "))
       .toContain("coding");
-    expect(preferences.map((candidate) => candidate.value.toLowerCase().join?.("") ?? candidate.value.toLowerCase()).join(" "))
+    expect(preferences.map((candidate) => candidate.value.toLowerCase()).join(" "))
       .toContain("concise");
   });
 
