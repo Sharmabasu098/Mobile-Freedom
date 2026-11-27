@@ -20,7 +20,7 @@ function sentenceParts(input: string): string[] {
 }
 
 function extractPreference(part: string): string | null {
-  if (/\b(?:i prefer|i like|from now on.*prefer|from now on,? (?:use|give|answer|keep)|please use)\b/i.test(part)) {
+  if (/\b(?:i prefer|i still prefer|i like|from now on.*prefer|from now on,? (?:use|give|answer|keep)|please use)\b/i.test(part)) {
     return part.replace(/[.!?।]+$/, "");
   }
   if (/मुझे/.test(part) && /पसंद/.test(part)) return part.replace(/[.!?।]+$/, "");
