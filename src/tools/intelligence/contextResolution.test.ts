@@ -81,11 +81,16 @@ describe("VF-02.3 Context Resolution Engine — AC-01 to AC-10 test-first", () =
 
   it("AC-09: missing or stale context does not guess a tool", () => {
     const missing = resolveConversationContext({ message: "aur karo", scopeId: "A", now: NOW });
+    const at24Hours = resolveConversationContext({
+      message: "aur karo", scopeId: "A", now: NOW,
+      activeTask: fresh("A", "image-resize", "image-resize", NOW - 86_400_000),
+    });
     const stale = resolveConversationContext({
       message: "aur karo", scopeId: "A", now: NOW,
       activeTask: fresh("A", "image-resize", "image-resize", NOW - 86_400_001),
     });
     expect(missing).toMatchObject({ status: "clarify", intent: null, toolId: null });
+    expect(at24Hours).toMatchObject({ status: "resolved", toolId: "image-resize", source: "active-task" });
     expect(stale).toMatchObject({ status: "clarify", intent: null, toolId: null });
   });
 
