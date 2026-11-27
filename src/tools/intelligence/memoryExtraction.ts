@@ -30,10 +30,10 @@ function extractPreference(part: string): string | null {
 }
 
 function extractProject(part: string): string | null {
-  const hasName = /mobile freedom|racenova/i.test(part);
-  if (hasName && /project|working on|यह project|my project|project is called|project.*है/i.test(part)) {
-    return part.replace(/[.!?।]+$/, "");
-  }
+  // Require an explicit project-context phrase, but allow arbitrary project names.
+  const explicitProject = /\\b(?:project\\s+(?:is called|called|named)|(?:my|the)\\s+project|working on\\s+(?:the\\s+)?project|working on\\s+project|project)\\b/i.test(part) ||
+    /यह project|मेरा project|project.*है/i.test(part);
+  if (explicitProject) return part.replace(/[.!?।]+$/, "");
   return null;
 }
 
@@ -58,7 +58,7 @@ function extractFromParts(parts: string[]): MemoryCandidate[] {
     if (preference) preferences.push(preference);
   }
 
-  const scoped = preferences.filter((p) => /coding|code|technical details|explanation/i.test(p));
+  const scoped = preferences.filter((p) => /\\b(?:coding|code|technical details|explanation|travel|travel planning|for [a-z][a-z -]{1,30})\\b/i.test(p));
   const general = preferences.filter((p) => !scoped.includes(p));
   if (general.length) candidates.push({ category: "preference", value: general[general.length - 1], durable: true });
   for (const value of scoped) candidates.push({ category: "preference", value, durable: true });
