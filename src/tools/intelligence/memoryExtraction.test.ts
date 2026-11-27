@@ -164,4 +164,30 @@ describe("VF-02.4.2 Memory Extraction — test-first contract", () => {
     expect(extractMemoryCandidates("Remember my bank account number is 123456789.")).toEqual([]);
   });
 
+
+  it("extracts a generic project name without a hard-coded project allowlist", () => {
+    const result = extractMemoryCandidates("I am working on Project Aurora.");
+    expect(result).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: "project", value: expect.stringContaining("Aurora") }),
+    ]));
+  });
+
+  it("preserves general and task-scoped preference boundaries for a generic domain", () => {
+    const result = extractMemoryCandidates("Generally I prefer concise answers. For travel planning, I prefer detailed itineraries.");
+    const preferences = result.filter((candidate) => candidate.category === "preference");
+    expect(preferences).toHaveLength(2);
+    const combined = preferences.map((candidate) => candidate.value.toLowerCase()).join(" ");
+    expect(combined).toContain("concise");
+    expect(combined).toContain("travel");
+    expect(combined).toContain("detailed");
+  });
+
+  it("does not let a scoped preference overwrite a general preference", () => {
+    const result = extractMemoryCandidates("Generally I prefer concise answers. For coding, I prefer detailed explanations.");
+    const preferences = result.filter((candidate) => candidate.category === "preference");
+    expect(preferences).toHaveLength(2);
+    const combined = preferences.map((candidate) => candidate.value.toLowerCase()).join(" ");
+    expect(combined).toContain("concise");
+    expect(combined).toContain("detailed");
+  });
 });
