@@ -54,7 +54,7 @@ function compatibleFollowUp(message: string, intent: IntelligenceIntent): boolea
   const text = normalize(message);
   // Keep ASCII word-boundary matching for English/Hinglish tokens, but match
   // Devanagari words directly because JavaScript \b is not Unicode-aware.
-  const englishReference = /\b(?:wahi|isko|continue|next|aage)\b/i.test(text);
+  const englishReference = /\b(?:wahi|isko|continue|next|aage)\b|\biske\s+saath\b/i.test(text);
   const hindiReference = /(?:वही|इसको|आगे)/.test(text);
   const genericContinuation = /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
   if (intent === "image-resize") return /(?:aur|thoda|और)\s*(?:chhota|chota|छोटा|smaller)/i.test(text) || englishReference || hindiReference || genericContinuation;
