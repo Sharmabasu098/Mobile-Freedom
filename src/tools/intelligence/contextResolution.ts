@@ -81,7 +81,7 @@ export function resolveConversationContext(input: ContextResolutionInput): Conte
   }
   // A generic follow-up can be unknown to the intent engine without being ambiguous.
   // Clarify only when the engine actually detected ambiguous terms or general help.
-  if (explicit.needsClarification && (explicit.intent === "general-help" || explicit.matchedTerms.length > 0)) {
+  if (explicit.needsClarification && (explicit.intent === "general-help" || explicit.matchedTerms.length > 0) && !isFollowUp(message)) {
     return clarify("The message contains multiple or ambiguous tool intents.");
   }
   if (!isFollowUp(message)) return clarify("No explicit tool intent or recognized context-dependent follow-up.");
