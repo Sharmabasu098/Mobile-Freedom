@@ -134,4 +134,34 @@ describe("VF-02.4.2 Memory Extraction — test-first contract", () => {
     expect(extractMemoryCandidates(input)).toEqual([]);
   });
 
+  it("preserves scoped bilingual preference", () => {
+    const result = extractMemoryCandidates("Technical details English में, explanation Hindi में देना।");
+    const text = result.map((candidate) => candidate.value.toLowerCase()).join(" ");
+    expect(result.some((candidate) => candidate.category === "preference")).toBe(true);
+    expect(text).toContain("english");
+    expect(text).toContain("hindi");
+  });
+
+  it("extracts the mixed-language simple and concise preference", () => {
+    const result = extractMemoryCandidates("Mujhe simple aur short answers chahiye.");
+    expect(result.some((candidate) => candidate.category === "preference" && candidate.durable === true)).toBe(true);
+  });
+
+  it("keeps active task distinct from durable project or preference", () => {
+    const result = extractMemoryCandidates("I am currently fixing the memory tests.");
+    expect(result.every((candidate) => candidate.category !== "preference" && candidate.durable !== true)).toBe(true);
+  });
+
+  it("preserves approval constraint in extracted instruction", () => {
+    const result = extractMemoryCandidates("Do not merge PRs without my approval.");
+    const instruction = result.find((candidate) => candidate.category === "instruction");
+    expect(instruction).toBeDefined();
+    expect(instruction?.value.toLowerCase()).toContain("approval");
+    expect(instruction?.value.toLowerCase()).toContain("merge");
+  });
+
+  it("does not save sensitive information even if it is phrased as a durable fact", () => {
+    expect(extractMemoryCandidates("Remember my bank account number is 123456789.")).toEqual([]);
+  });
+
 });
