@@ -74,4 +74,42 @@ describe("VF-02.4.2 Memory Extraction — test-first contract", () => {
     expect(result.some((candidate) => candidate.category === "project")).toBe(true);
     expect(result.some((candidate) => candidate.category === "instruction")).toBe(true);
   });
+  it("resolves contradictory durable preferences deterministically to the latest statement", () => {
+    const result = extractMemoryCandidates("I prefer detailed answers. From now on, I prefer concise answers.");
+    const preferences = result.filter((candidate) => candidate.category === "preference");
+    expect(preferences).toHaveLength(1);
+    expect(preferences[0].value.toLowerCase()).toContain("concise");
+  });
+
+  it("preserves a context-specific preference alongside a general preference", () => {
+    const result = extractMemoryCandidates("Generally I prefer concise answers. For coding explanations, I prefer detailed step-by-step answers.");
+    const preferences = result.filter((candidate) => candidate.category === "preference");
+    expect(preferences.length).toBeGreaterThanOrEqual(2);
+    expect(preferences.map((candidate) => candidate.value.toLowerCase().join?.("") ?? candidate.value.toLowerCase()).join(" "))
+      .toContain("coding");
+    expect(preferences.map((candidate) => candidate.value.toLowerCase().join?.("") ?? candidate.value.toLowerCase()).join(" "))
+      .toContain("concise");
+  });
+
+  it.each([
+    "Haha, that was funny!",
+    "That is ridiculous 😂",
+    "This is just a quick reaction.",
+  ])("rejects low-value casual reactions: %s", (input) => {
+    expect(extractMemoryCandidates(input)).toEqual([]);
+  });
+
+  it("extracts an explicitly requested durable non-sensitive fact", () => {
+    const result = extractMemoryCandidates("Please remember that my project is called Mobile Freedom.");
+    expect(result).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: "project" }),
+    ]));
+  });
+
+  it("recognizes explicit preference updates without discarding unrelated preferences", () => {
+    const result = extractMemoryCandidates("From now on, use Hindi for explanations. I still prefer concise answers.");
+    expect(result.some((candidate) => candidate.category === "preference" && candidate.value.toLowerCase().includes("hindi"))).toBe(true);
+    expect(result.some((candidate) => candidate.category === "preference" && candidate.value.toLowerCase().includes("concise"))).toBe(true);
+  });
+
 });
