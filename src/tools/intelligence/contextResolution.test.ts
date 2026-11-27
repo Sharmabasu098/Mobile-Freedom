@@ -50,6 +50,7 @@ describe("VF-02.3 Context Resolution Engine — AC-01 to AC-10 test-first", () =
       activeStep: "choose-pages",
     });
     expect(result).toMatchObject({ status: "resolved", toolId: "pdf-split", source: "active-task" });
+    expect(result.reason).toMatch(/workflow continuation.*choose-pages/i);
   });
 
   it("AC-06: incompatible follow-up does not open a wrong tool and asks clarification", () => {
