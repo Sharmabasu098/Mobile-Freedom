@@ -50,17 +50,22 @@ function isFresh(record: ContextResolutionRecord, now: number): boolean {
 
 function isFollowUp(text: string): boolean {
   return /\b(wahi|wahi tool|isko|iske saath|pichhla wala|previous|continue|carry on|go ahead|proceed|next step|ab aage|aage karo)\b|(?:वही|इसको|इसके साथ|पिछला वाला|अब आगे|आगे करो|अगला कदम)/i.test(text)
-    || /\b(?:aur|thoda)\s+(?:chhota|chota|smaller|compress)\b/i.test(text)\n    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text)
+    || /\b(?:aur|thoda)\s+(?:chhota|chota|smaller|compress)\b/i.test(text)
+    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text)
     || /\b(?:make|do)\s+(?:it|this)\s+smaller\b/i.test(text);
 }
 
 function compatibleFollowUp(message: string, intent: IntelligenceIntent): boolean {
   const text = normalize(message);
   if (intent === "image-resize") return /(?:aur|thoda|और)\s*(?:chhota|chota|छोटा|smaller)|\b(?:wahi|isko|continue|next|aage|आगे|वही|इसको)\b/.test(text);
-  if (intent === "image-compress") return /compress|compressed|कम|और|aur|wahi|isko|iske saath|continue|आगे|वही|इसको/.test(text)\n    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
-  if (intent === "pdf-split") return /continue|next|aage|आगे|wahi|वही|isko|इसको|page|पेज/.test(text)\n    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
-  if (intent === "pdf-merge") return /continue|next|aage|आगे|wahi|वही|isko|इसको|add|जोड़/.test(text)\n    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
-  return /wahi|isko|pichhla|previous|continue|next|aage|आगे|वही|इसको|पिछला/.test(text)\n    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
+  if (intent === "image-compress") return /compress|compressed|कम|और|aur|wahi|isko|iske saath|continue|आगे|वही|इसको/.test(text)
+    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
+  if (intent === "pdf-split") return /continue|next|aage|आगे|wahi|वही|isko|इसको|page|पेज/.test(text)
+    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
+  if (intent === "pdf-merge") return /continue|next|aage|आगे|wahi|वही|isko|इसको|add|जोड़/.test(text)
+    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
+  return /wahi|isko|pichhla|previous|continue|next|aage|आगे|वही|इसको|पिछला/.test(text)
+    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
 }
 
 function candidate(record: ContextResolutionRecord | null | undefined, scopeId: string, now: number) {
