@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-type MemoryCandidate = { category: "preference" | "project" | "instruction"; value: string; durable?: boolean };
-function extractMemoryCandidates(_input: string): MemoryCandidate[] {
-  throw new Error("VF-02.4.2 RED: memory extraction implementation not added yet");
-}
+import { extractMemoryCandidates } from "./memoryExtraction";
 
 describe("VF-02.4.2 Memory Extraction — safety regression", () => {
   it("does not attribute a quoted third-party preference to the user", () => {
