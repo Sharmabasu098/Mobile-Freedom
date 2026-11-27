@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { extractMemoryCandidates } from "./memoryExtraction";
+type MemoryCandidate = { category: "preference" | "project" | "instruction"; value: string; durable?: boolean };
+declare const extractMemoryCandidates: (input: string) => MemoryCandidate[];
 
 describe("VF-02.4.2 Memory Extraction — test-first contract", () => {
   it.each([
