@@ -57,7 +57,7 @@ function isFollowUp(text: string): boolean {
 
 function compatibleFollowUp(message: string, intent: IntelligenceIntent): boolean {
   const text = normalize(message);
-  if (intent === "image-resize") return /(?:aur|thoda|और)\s*(?:chhota|chota|छोटा|smaller)|\b(?:wahi|isko|continue|next|aage|आगे|वही|इसको)\b/.test(text);
+  if (intent === "image-resize") return /(?:aur|thoda|और)\s*(?:chhota|chota|छोटा|smaller)|\b(?:wahi|isko|continue|next|aage|आगे|वही|इसको)\b/.test(text) || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
   if (intent === "image-compress") return /compress|compressed|कम|और|aur|wahi|isko|iske saath|continue|आगे|वही|इसको/.test(text)
     || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
   if (intent === "pdf-split") return /continue|next|aage|आगे|wahi|वही|isko|इसको|page|पेज/.test(text)
