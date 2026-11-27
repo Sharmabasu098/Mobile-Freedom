@@ -4,23 +4,23 @@ export type MemoryCandidate = {
   durable?: boolean;
 };
 
-const sensitivePattern = /\\b(bank account|account number|password|passcode|medical diagnosis|diagnosis|medical details|credit card|ssn|social security)\\b|बैंक खाते|खाता नंबर|पासवर्ड|चिकित्सकीय निदान|मेडिकल विवरण/i;
-const forgetPattern = /\\b(do not remember|don't remember|forget|do not save|don't save)\\b|याद मत रखना|मत याद रखना|भूल जाना/i;
-const thirdPartyPattern = /\\b(my friend|friend says|someone else|he likes|she likes)\\b|मेरे दोस्त|मेरा मित्र/i;
-const hypotheticalPattern = /\\b(imagine|pretend|fictional|in this fictional|for an example|assume)\\b|मान लो|कल्पना करो|उदाहरण के लिए/i;
-const transientPattern = /\\b(today i am busy|today|currently fixing|translate this sentence|this week|right now)\\b|आज मैं व्यस्त|अभी ठीक कर रहा/i;
-const casualPattern = /\\b(haha|that is ridiculous|quick reaction|funny)\\b|😂/i;
+const sensitivePattern = /\b(bank account|account number|password|passcode|medical diagnosis|diagnosis|medical details|credit card|ssn|social security)\b|बैंक खाते|खाता नंबर|पासवर्ड|चिकित्सकीय निदान|मेडिकल विवरण/i;
+const forgetPattern = /\b(do not remember|don't remember|forget|do not save|don't save)\b|याद मत रखना|मत याद रखना|भूल जाना/i;
+const thirdPartyPattern = /\b(my friend|friend says|someone else|he likes|she likes)\b|मेरे दोस्त|मेरा मित्र/i;
+const hypotheticalPattern = /\b(imagine|pretend|fictional|in this fictional|for an example|assume)\b|मान लो|कल्पना करो|उदाहरण के लिए/i;
+const transientPattern = /\b(today i am busy|today|currently fixing|translate this sentence|this week|right now)\b|आज मैं व्यस्त|अभी ठीक कर रहा/i;
+const casualPattern = /\b(haha|that is ridiculous|quick reaction|funny)\b|😂/i;
 
 function normalizeText(input: string): string {
-  return input.replace(/\\s+/g, " ").trim();
+  return input.replace(/\s+/g, " ").trim();
 }
 
 function sentenceParts(input: string): string[] {
-  return input.split(/(?<=[.!?।])\\s+/).map(normalizeText).filter(Boolean);
+  return input.split(/(?<=[.!?।])\s+/).map(normalizeText).filter(Boolean);
 }
 
 function extractPreference(part: string): string | null {
-  const englishPrefer = part.match(/\\b(?:i prefer|i like|from now on,? (?:use|give|answer|keep)|please use)\\b(.+)/i);
+  const englishPrefer = part.match(/\b(?:i prefer|i like|from now on,? (?:use|give|answer|keep)|please use)\b(.+)/i);
   if (englishPrefer) return normalizeText(englishPrefer[1]).replace(/[.!?।]+$/, "");
   if (/मुझे/.test(part) && /पसंद/.test(part)) return part.replace(/[.!?।]+$/, "");
   if (/mujhe/i.test(part) && /(chahiye|pasand)/i.test(part)) return part.replace(/[.!?।]+$/, "");
@@ -37,8 +37,8 @@ function extractProject(part: string): string | null {
 }
 
 function extractInstruction(part: string): string | null {
-  if (/\\b(do not|don't|never)\\b.*\\b(merge|delete|send|publish)\\b/i.test(part) ||
-      /\\b(merge|delete|send|publish)\\b.*\\b(without my approval|only after my approval)\\b/i.test(part) ||
+  if (/\b(do not|don't|never)\b.*\b(merge|delete|send|publish)\b/i.test(part) ||
+      /\b(merge|delete|send|publish)\b.*\b(without my approval|only after my approval)\b/i.test(part) ||
       /PR merge.*(अनुमति|approval)|merge करने से पहले.*अनुमति/i.test(part)) {
     return part.replace(/[.!?।]+$/, "");
   }
