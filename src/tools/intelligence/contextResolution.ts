@@ -52,15 +52,16 @@ function isFollowUp(text: string): boolean {
 }
 function compatibleFollowUp(message: string, intent: IntelligenceIntent): boolean {
   const text = normalize(message);
-  if (intent === "image-resize") return /(?:aur|thoda|और)\s*(?:chhota|chota|छोटा|smaller)|\b(?:wahi|isko|continue|next|aage|आगे|वही|इसको)\b/.test(text) || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
-  if (intent === "image-compress") return /compress|compressed|कम|और|aur|wahi|isko|iske saath|continue|आगे|वही|इसको/.test(text)
-    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
-  if (intent === "pdf-split") return /continue|next|aage|आगे|wahi|वही|isko|इसको|page|पेज/.test(text)
-    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
-  if (intent === "pdf-merge") return /continue|next|aage|आगे|wahi|वही|isko|इसको|add|जोड़/.test(text)
-    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
-  return /wahi|isko|pichhla|previous|continue|next|aage|आगे|वही|इसको|पिछला/.test(text)
-    || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
+  // Keep ASCII word-boundary matching for English/Hinglish tokens, but match
+  // Devanagari words directly because JavaScript \b is not Unicode-aware.
+  const englishReference = /\b(?:wahi|isko|continue|next|aage)\b/i.test(text);
+  const hindiReference = /(?:वही|इसको|आगे)/.test(text);
+  const genericContinuation = /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
+  if (intent === "image-resize") return /(?:aur|thoda|और)\s*(?:chhota|chota|छोटा|smaller)/i.test(text) || englishReference || hindiReference || genericContinuation;
+  if (intent === "image-compress") return /compress|compressed|कम|और|aur/i.test(text) || englishReference || /(?:इसके साथ|आगे|वही|इसको)/.test(text) || genericContinuation;
+  if (intent === "pdf-split") return /continue|next|aage|page|पेज/i.test(text) || /(?:आगे|वही|इसको)/.test(text) || genericContinuation;
+  if (intent === "pdf-merge") return /continue|next|aage|add/i.test(text) || /(?:आगे|वही|इसको|जोड़)/.test(text) || genericContinuation;
+  return /\b(?:wahi|isko|pichhla|previous|continue|next|aage)\b/i.test(text) || /(?:आगे|वही|इसको|पिछला)/.test(text) || genericContinuation;
 }
 function candidate(record: ContextResolutionRecord | null | undefined, scopeId: string, now: number) {
   if (!record || record.scopeId !== scopeId || !isFresh(record, now)) return null;
