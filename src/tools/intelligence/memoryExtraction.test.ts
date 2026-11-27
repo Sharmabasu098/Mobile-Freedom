@@ -112,4 +112,26 @@ describe("VF-02.4.2 Memory Extraction — test-first contract", () => {
     expect(result.some((candidate) => candidate.category === "preference" && candidate.value.toLowerCase().includes("concise"))).toBe(true);
   });
 
+  it("extracts Hindi project context", () => {
+    const result = extractMemoryCandidates("यह project Mobile Freedom है।");
+    expect(result).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: "project", value: expect.stringContaining("Mobile Freedom") }),
+    ]));
+  });
+
+  it("extracts Hindi durable approval instruction", () => {
+    const result = extractMemoryCandidates("PR merge करने से पहले मुझसे अनुमति लेना।");
+    expect(result).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: "instruction" }),
+    ]));
+  });
+
+  it.each([
+    "आज मैं व्यस्त हूँ।",
+    "मेरे दोस्त को Java पसंद है।",
+    "मान लो मैं एक bakery चलाता हूँ।",
+  ])("rejects Hindi temporary, third-party, or hypothetical statements: %s", (input) => {
+    expect(extractMemoryCandidates(input)).toEqual([]);
+  });
+
 });
