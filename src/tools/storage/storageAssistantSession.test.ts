@@ -33,11 +33,44 @@ describe("M11.5 safety regression — selection evidence reset", () => {
   });
 });
 
-
 describe("M11.5 async selection safety", () => {
-  it("accepts results only for the current selection generation", () => {
-    expect(isCurrentStorageAssistantSelection(4, 4)).toBe(true);
-    expect(isCurrentStorageAssistantSelection(4, 5)).toBe(false);
+  it("rejects a scan result that resolves after the user changes file selection", async () => {
+    let currentSelectionVersion = 1;
+    let displayedDuplicateGroups: string[] = [];
+
+    const scanStartedAtVersion = currentSelectionVersion;
+    let resolveScan!: (groups: string[]) => void;
+    const scanPromise = new Promise<string[]>((resolve) => {
+      resolveScan = resolve;
+    });
+
+    // User changes selection while the first scan is still running.
+    currentSelectionVersion += 1;
+    displayedDuplicateGroups = [];
+
+    resolveScan(["old-selection-group"]);
+    const staleGroups = await scanPromise;
+
+    // Mirrors the production stale-result guard before state is committed.
+    if (isCurrentStorageAssistantSelection(scanStartedAtVersion, currentSelectionVersion)) {
+      displayedDuplicateGroups = staleGroups;
+    }
+
+    expect(currentSelectionVersion).toBe(2);
+    expect(displayedDuplicateGroups).toEqual([]);
+  });
+
+  it("accepts a scan result when the selection has not changed", async () => {
+    const currentSelectionVersion = 7;
+    const scanStartedAtVersion = currentSelectionVersion;
+    const groups = await Promise.resolve(["current-selection-group"]);
+
+    let displayedDuplicateGroups: string[] = [];
+    if (isCurrentStorageAssistantSelection(scanStartedAtVersion, currentSelectionVersion)) {
+      displayedDuplicateGroups = groups;
+    }
+
+    expect(displayedDuplicateGroups).toEqual(["current-selection-group"]);
   });
 });
 
