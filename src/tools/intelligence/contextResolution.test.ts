@@ -13,7 +13,6 @@ describe("VF-02.3 Context Resolution Engine — AC-01 to AC-10 test-first", () =
       scopeId: "A",
       now: NOW,
       activeTask: fresh("A", "image-resize", "image-resize"),
-      previousMessage: "resize photo",
       history: [fresh("A", "image-resize", "image-resize")],
     });
     expect(result).toMatchObject({ status: "resolved", intent: "pdf-merge", toolId: "pdf-merge", source: "explicit", confidence: "high" });
