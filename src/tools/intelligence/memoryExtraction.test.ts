@@ -190,4 +190,9 @@ describe("VF-02.4.2 Memory Extraction — test-first contract", () => {
     expect(combined).toContain("concise");
     expect(combined).toContain("detailed");
   });
+  it("does not treat a generic project mention as durable project context", () => {
+    const result = extractMemoryCandidates("I am currently fixing the project.");
+    expect(result.some((candidate) => candidate.category === "project")).toBe(false);
+  });
+
 });
