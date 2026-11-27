@@ -52,7 +52,7 @@ describe("VF-02.4.2 Memory Extraction — test-first contract", () => {
 
   it("keeps project facts scoped and separate", () => {
     const result = extractMemoryCandidates("Mobile Freedom is my toolkit project. RaceNova is my racing game project.");
-    expect(result.filter((candidate) => candidate.category === "project").toHaveLength(2);
+    expect(result.filter((candidate) => candidate.category === "project")).toHaveLength(2);
     expect(result.map((candidate) => candidate.value).join(" ")).toContain("Mobile Freedom");
     expect(result.map((candidate) => candidate.value).join(" ")).toContain("RaceNova");
   });
