@@ -35,26 +35,21 @@ const toolIntents: Partial<Record<IntelligenceIntent, string>> = {
   "password-generate": "password-generate", "unit-convert": "unit-convert",
   "text-utilities": "text-utilities", "file-analysis": "file-analysis",
 };
-
 const clarify = (reason: string): ContextResolutionResult => ({
   status: "clarify", intent: null, toolId: null, source: null, confidence: "low", reason,
 });
-
 function normalize(text: string): string {
   return text.trim().toLocaleLowerCase().replace(/[.!?।,]+/g, " ").replace(/\s+/g, " ").trim();
 }
-
 function isFresh(record: ContextResolutionRecord, now: number): boolean {
   return Number.isFinite(record.updatedAt) && record.updatedAt <= now && now - record.updatedAt <= STALE_AFTER_MS;
 }
-
 function isFollowUp(text: string): boolean {
   return /\b(wahi|wahi tool|isko|iske saath|pichhla wala|previous|continue|carry on|go ahead|proceed|next step|ab aage|aage karo)\b|(?:वही|इसको|इसके साथ|पिछला वाला|अब आगे|आगे करो|अगला कदम)/i.test(text)
     || /\b(?:aur|thoda)\s+(?:chhota|chota|smaller|compress)\b/i.test(text)
     || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text)
     || /\b(?:make|do)\s+(?:it|this)\s+smaller\b/i.test(text);
 }
-
 function compatibleFollowUp(message: string, intent: IntelligenceIntent): boolean {
   const text = normalize(message);
   if (intent === "image-resize") return /(?:aur|thoda|और)\s*(?:chhota|chota|छोटा|smaller)|\b(?:wahi|isko|continue|next|aage|आगे|वही|इसको)\b/.test(text) || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
@@ -67,14 +62,12 @@ function compatibleFollowUp(message: string, intent: IntelligenceIntent): boolea
   return /wahi|isko|pichhla|previous|continue|next|aage|आगे|वही|इसको|पिछला/.test(text)
     || /^(?:aur|और)\s+(?:karo|kar|करो|कर)$/i.test(text);
 }
-
 function candidate(record: ContextResolutionRecord | null | undefined, scopeId: string, now: number) {
   if (!record || record.scopeId !== scopeId || !isFresh(record, now)) return null;
   const intent = record.intent as IntelligenceIntent;
   const toolId = toolIntents[intent];
   return toolId && toolId === record.toolId ? { intent, toolId } : null;
 }
-
 /** Resolves tool-routing context only. It never executes an action. */
 export function resolveConversationContext(input: ContextResolutionInput): ContextResolutionResult {
   const message = input.message.trim();
@@ -85,8 +78,11 @@ export function resolveConversationContext(input: ContextResolutionInput): Conte
     const toolId = toolIntents[explicit.intent];
     if (toolId) return { status: "resolved", intent: explicit.intent, toolId, source: "explicit", confidence: "high", reason: "Explicit request takes priority over prior context." };
   }
-  if (explicit.needsClarification) return clarify("The message contains multiple or ambiguous tool intents.");
-
+  // A generic follow-up can be unknown to the intent engine without being ambiguous.
+  // Clarify only when the engine actually detected ambiguous terms or general help.
+  if (explicit.needsClarification && (explicit.intent === "general-help" || explicit.matchedTerms.length > 0)) {
+    return clarify("The message contains multiple or ambiguous tool intents.");
+  }
   if (!isFollowUp(message)) return clarify("No explicit tool intent or recognized context-dependent follow-up.");
 
   const active = candidate(input.activeTask, input.scopeId, input.now);
@@ -100,7 +96,6 @@ export function resolveConversationContext(input: ContextResolutionInput): Conte
   }
   const chosen = active ?? previous ?? historyCandidates.at(-1) ?? null;
   if (!chosen) return clarify("No fresh, matching context is available within this scope.");
-
   if (active && previous && active.intent !== previous.intent) return clarify("Active task and previous-message context conflict.");
   if (!compatibleFollowUp(message, chosen.intent)) return clarify("Follow-up is incompatible with the available task context.");
 
