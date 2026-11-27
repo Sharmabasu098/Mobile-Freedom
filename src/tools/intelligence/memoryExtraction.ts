@@ -31,7 +31,7 @@ function extractPreference(part: string): string | null {
 
 function extractProject(part: string): string | null {
   // Require an explicit project-context phrase, but allow arbitrary project names.
-  const explicitProject = /\b(?:project\s+(?:is called|called|named)|(?:my|the)\s+project|working on\s+(?:the\s+)?project|working on\s+project|project)\b/i.test(part) ||
+  const explicitProject = /\b(?:project\s+(?:is called|called|named)|(?:my|the)\s+project|working on\s+(?:the\s+)?project|working on\s+project|working on\s+(?:the\s+)?[A-Z][\w]*(?:\s+[A-Z][\w]*)*|project)\b/i.test(part) ||
     /यह project|मेरा project|project.*है/i.test(part);
   if (explicitProject) return part.replace(/[.!?।]+$/, "");
   return null;
