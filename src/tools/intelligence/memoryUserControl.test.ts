@@ -148,4 +148,27 @@ describe("VF-02.7 Memory Safety & User Control — test-first", () => {
     expect(store.list()).toHaveLength(1);
     expect(store.list()[0]).toMatchObject({ durable: true, schemaVersion: 1 });
   });
+
+  it("MSU-T23 sensitive English keyword boundaries are detected", () => {
+    const { control, store } = setup();
+    for (const value of ["password is secret", "my credit card number", "medical diagnosis"]) {
+      expect(() => control.save(candidate(value), true)).toThrow(/sensitive/i);
+    }
+    expect(store.list()).toHaveLength(0);
+  });
+  it("MSU-T24 retention review purges expired records from persistent storage", () => {
+    const { control, store } = setup();
+    control.save(candidate("Older preference"), true);
+    control.save(candidate("Current project", "project"), true);
+    expect(control.review({ now: 1101 })).toHaveLength(0);
+    expect(store.list()).toHaveLength(0);
+  });
+  it("MSU-T25 delete-all uses one atomic write and preserves data on storage failure", () => {
+    const { adapter, control, store } = setup();
+    control.save(candidate("Keep until clear succeeds"), true);
+    adapter.failWrites = true;
+    expect(() => control.deleteAll(true)).toThrow(/storage unavailable/i);
+    adapter.failWrites = false;
+    expect(store.list()).toHaveLength(1);
+  });
 });
