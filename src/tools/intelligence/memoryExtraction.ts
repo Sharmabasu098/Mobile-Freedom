@@ -32,13 +32,15 @@ function extractPreference(part: string): string | null {
 function extractProject(part: string): string | null {
   // Require an explicit project-context phrase, but allow arbitrary project names.
   const explicitProject = /\b(?:project\s+(?:is called|called|named)|(?:my|the)\s+(?:[\w\s-]{1,40}\s+)?project|working on\s+(?:the\s+)?project|working on\s+project|working on\s+(?:the\s+)?[A-Z][\w]*(?:\s+[A-Z][\w]*)*)\b/i.test(part) ||
+    /\bmain\s+.+\s+par\s+kaam\s+kar\s+raha\s+hoon\b/i.test(part) ||
     /यह project|मेरा project|project.*है/i.test(part);
   if (explicitProject) return part.replace(/[.!?।]+$/, "");
   return null;
 }
 
 function extractInstruction(part: string): string | null {
-  if (/\b(do not|don't|never)\b.*\b(merge|delete|send|publish)\b/i.test(part) ||
+  if (/\b(always|from now on)\b.*\b(verify|check|confirm|ensure|follow|use|keep|respect)\b/i.test(part) ||
+      /\b(do not|don't|never)\b.*\b(merge|delete|send|publish)\b/i.test(part) ||
       /\b(merge|delete|send|publish)\b.*\b(without my approval|only after my approval)\b/i.test(part) ||
       /PR merge.*(अनुमति|approval)|merge करने से पहले.*अनुमति/i.test(part)) {
     return part.replace(/[.!?।]+$/, "");
@@ -78,6 +80,6 @@ export function extractMemoryCandidates(input: string): MemoryCandidate[] {
   if (!text || sensitivePattern.test(text) || forgetPattern.test(text)) return [];
   const parts = sentenceParts(text);
   const safeParts = parts.filter((part) => !thirdPartyPattern.test(part) &&
-    !hypotheticalPattern.test(part) && !transientPattern.test(part) && !casualPattern.test(part));
+    !hypotheticalPattern.test(part) && !/\bmaybe\b/i.test(part) && !transientPattern.test(part) && !casualPattern.test(part));
   return extractFromParts(safeParts);
 }
