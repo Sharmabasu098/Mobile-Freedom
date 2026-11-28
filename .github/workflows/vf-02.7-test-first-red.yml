@@ -1,0 +1,24 @@
+name: VF-02.7 Test-First RED
+on:
+  push:
+    branches:
+      - vf-02.7-memory-safety-user-control
+    paths:
+      - src/tools/intelligence/memoryUserControl.test.ts
+      - src/tools/intelligence/memoryUserControl.ts
+      - src/tools/intelligence/persistentMemoryStorage.ts
+      - src/tools/intelligence/memoryExtraction.ts
+      - .github/workflows/vf-02.7-test-first-red.yml
+  workflow_dispatch:
+jobs:
+  memory-user-control-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run VF-02.7 test-first matrix
+        run: npx vitest run src/tools/intelligence/memoryUserControl.test.ts src/tools/intelligence/persistentMemoryStorage.test.ts
