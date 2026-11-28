@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - vf-02.7-memory-safety-user-control
+      - vf-02.7.6-acceptance-gap-fixes
   workflow_dispatch:
 
 permissions:
@@ -17,7 +18,7 @@ jobs:
       - name: Checkout isolated VF-02.7 branch
         uses: actions/checkout@v4
         with:
-          ref: vf-02.7-memory-safety-user-control
+          ref: vf-02.7.6-acceptance-gap-fixes
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
