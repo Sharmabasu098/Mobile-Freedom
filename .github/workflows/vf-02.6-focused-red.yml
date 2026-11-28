@@ -10,6 +10,8 @@ on:
       - src/tools/intelligence/memoryRetrieval.ts
       - src/tools/intelligence/persistentMemoryStorage.ts
       - src/tools/intelligence/memoryExtraction.ts
+      - src/tools/intelligence/persistentMemoryStorage.test.ts
+      - src/tools/intelligence/shortTermMemory.test.ts
       - .github/workflows/vf-02.6-focused-red.yml
   workflow_dispatch:
 
