@@ -93,7 +93,7 @@ describe("VF-02.5 Persistent Memory Storage — locked PM test matrix", () => {
 
   it("PM-09 extraction remains side-effect free", () => {
     const adapter = new FakeAdapter();
-    const store = new PersistentMemoryStore(adapter);
+    new PersistentMemoryStore(adapter);
     extractMemoryCandidates("I prefer concise answers.");
     expect(adapter.writes).toBe(0);
     expect(adapter.data).toBeNull();
