@@ -16,11 +16,12 @@ function validateCandidate(candidate: MemoryCandidate): void {
 }
 
 export class MemoryUserControl {
-  private paused = false;
+  private paused: boolean;
   private readonly clock: () => number;
   private readonly retentionMs: number;
 
   constructor(private readonly store: PersistentMemoryStore, options: MemoryUserControlOptions = {}) {
+    this.paused = this.store.getPaused();
     this.clock = options.clock ?? (() => Date.now());
     this.retentionMs = options.retentionMs ?? 365 * 24 * 60 * 60 * 1000;
     if (!Number.isFinite(this.retentionMs) || this.retentionMs < 0) {
@@ -36,8 +37,8 @@ export class MemoryUserControl {
     return this.store.save(normalizedCandidate, true);
   }
 
-  pause(): void { this.paused = true; }
-  resume(): void { this.paused = false; }
+  pause(): void { this.paused = true; this.store.setPaused(true); }
+  resume(): void { this.store.setPaused(false); this.paused = false; }
   isPaused(): boolean { return this.paused; }
 
   review(options: MemoryReviewOptions = {}): PersistentMemoryRecord[] {
