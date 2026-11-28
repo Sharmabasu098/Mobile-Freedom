@@ -4,7 +4,8 @@ import { PersistentMemoryStore, type PersistentMemoryRecord } from "./persistent
 export type MemoryReviewOptions = { now?: number };
 export type MemoryUserControlOptions = { clock?: () => number; retentionMs?: number };
 
-const sensitivePattern = /\\b(bank account|account number|password|passcode|medical diagnosis|diagnosis|medical details|credit card|ssn|social security)\\b|बैंक खाते|खाता नंबर|पासवर्ड|चिकित्सकीय निदान|मेडिकल विवरण/i;
+// Single escaped word boundaries: "\\b" in source represents regex word-boundary syntax.
+const sensitivePattern = /\b(bank account|account number|password|passcode|medical diagnosis|diagnosis|medical details|credit card|ssn|social security)\b|बैंक खाते|खाता नंबर|पासवर्ड|चिकित्सकीय निदान|मेडिकल विवरण/i;
 
 function validateCandidate(candidate: MemoryCandidate): void {
   if (!candidate || !["preference", "project", "instruction"].includes(candidate.category) ||
@@ -43,7 +44,9 @@ export class MemoryUserControl {
     if (this.paused) return [];
     const now = options.now ?? this.clock();
     if (!Number.isFinite(now)) throw new Error("Review time must be finite");
-    return this.store.list().filter(record => now - record.createdAt <= this.retentionMs);
+    const cutoff = now - this.retentionMs;
+    this.store.purgeExpired(cutoff);
+    return this.store.list();
   }
 
   correct(id: string, candidate: MemoryCandidate): PersistentMemoryRecord {
@@ -61,8 +64,7 @@ export class MemoryUserControl {
   deleteAll(confirmed?: boolean): boolean {
     if (this.paused) throw new Error("Memory is paused");
     if (confirmed !== true) throw new Error("Explicit confirmation is required to delete all memories");
-    const records = this.store.list();
-    for (const record of records) this.store.delete(record.id);
+    this.store.clear();
     return true;
   }
 }
