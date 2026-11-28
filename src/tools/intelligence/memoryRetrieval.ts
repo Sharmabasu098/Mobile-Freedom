@@ -38,12 +38,12 @@ function expand(tokenSet: Set<string>): Set<string> {
 function validRecord(value: unknown): value is PersistentMemoryRecord {
   if (!value || typeof value !== "object") return false;
   const r = value as Record<string, unknown>;
-  return typeof r.id === "string" && r.id.length > 0 &&
-    ["preference", "project", "instruction"].includes(String(r.category)) &&
-    typeof r.value === "string" && r.value.trim().length > 0 &&
-    r.durable === true && r.schemaVersion === 1 &&
-    typeof r.createdAt === "number" && Number.isFinite(r.createdAt) &&
-    typeof r.updatedAt === "number" && Number.isFinite(r.updatedAt);
+  return typeof r["id"] === "string" && r["id"].length > 0 &&
+    ["preference", "project", "instruction"].includes(String(r["category"])) &&
+    typeof r["value"] === "string" && r["value"].trim().length > 0 &&
+    r["durable"] === true && r["schemaVersion"] === 1 &&
+    typeof r["createdAt"] === "number" && Number.isFinite(r["createdAt"]) &&
+    typeof r["updatedAt"] === "number" && Number.isFinite(r["updatedAt"]);
 }
 
 function isRelevant(queryTokens: Set<string>, memory: PersistentMemoryRecord): boolean {
