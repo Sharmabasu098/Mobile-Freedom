@@ -1,0 +1,35 @@
+name: VF-02.7 Full Verification
+
+on:
+  push:
+    branches:
+      - vf-02.7-memory-safety-user-control
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-verification:
+    name: TypeScript, Production Build, Full Regression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout isolated VF-02.7 branch
+        uses: actions/checkout@v4
+        with:
+          ref: vf-02.7-memory-safety-user-control
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: TypeScript verification
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: Full regression test suite
+        run: npm test
+      - name: Verify build artifact
+        run: test -s dist/index.html
