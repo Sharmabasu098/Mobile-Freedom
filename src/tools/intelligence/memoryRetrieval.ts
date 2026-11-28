@@ -22,7 +22,7 @@ const synonymGroups = [
 ];
 
 function normalize(text: string): string {
-  return text.toLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, " ").replace(/\\s+/g, " ").trim();
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " ").trim();
 }
 
 function tokens(text: string): Set<string> {
