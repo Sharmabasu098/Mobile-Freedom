@@ -5,7 +5,7 @@ const stopWords = new Set([
   "to", "of", "in", "on", "at", "for", "from", "with", "by", "as", "it", "this", "that",
   "these", "those", "i", "we", "you", "he", "she", "they", "my", "our", "your", "their",
   "do", "does", "did", "can", "could", "should", "would", "will", "what", "when", "where",
-  "why", "how", "explain", "review", "continue", "any", "all", "only", "uses", "using", "used"
+  "why", "how", "explain", "review", "continue", "any", "all", "only", "uses", "using", "used", "architecture"
 ]);
 
 const synonymGroups = [
@@ -14,11 +14,9 @@ const synonymGroups = [
   ["safe", "safety", "safely", "protect", "protected", "secure", "security"],
   ["workflow", "process", "steps", "step-by-step"],
   ["merge", "merged", "merging", "merge-policy", "pr", "pull-request"],
-  ["architecture", "architectural", "design", "structure"],
   ["memory", "memories", "remember", "retrieval"],
   ["travel", "trip", "itinerary", "travel-planning"],
-  ["website", "web", "browser", "homepage"],
-  ["toolkit", "tools", "utilities", "utility"]
+  ["website", "web", "browser", "homepage"]
 ];
 
 function normalize(text: string): string {
