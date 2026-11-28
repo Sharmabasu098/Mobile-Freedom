@@ -1,0 +1,33 @@
+name: VF-02.6 Focused RED
+
+on:
+  push:
+    branches:
+      - vf-02.6-memory-retrieval-relevance
+    paths:
+      - src/tools/intelligence/memoryRetrieval.test.ts
+      - src/tools/intelligence/memoryRetrieval.ts
+      - src/tools/intelligence/persistentMemoryStorage.ts
+      - src/tools/intelligence/memoryExtraction.ts
+      - .github/workflows/vf-02.6-focused-red.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  focused-red:
+    name: MR Retrieval Focused Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run VF-02.6 focused retrieval tests
+        run: npx vitest run src/tools/intelligence/memoryRetrieval.test.ts
