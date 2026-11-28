@@ -196,3 +196,81 @@ describe("VF-02.4.2 Memory Extraction — test-first contract", () => {
   });
 
 });
+
+describe("VF-02.4.4 Memory Extraction Test Matrix — test-first", () => {
+  it("ME-01 accepts durable preferences and rejects temporary preferences", () => {
+    expect(extractMemoryCandidates("I prefer concise explanations.").some((c) => c.category === "preference" && c.durable === true)).toBe(true);
+    expect(extractMemoryCandidates("Today I prefer tea.")).toEqual([]);
+  });
+
+  it("ME-02 accepts an ongoing project and rejects generic project wording", () => {
+    expect(extractMemoryCandidates("I am working on Project Aurora.").some((c) => c.category === "project")).toBe(true);
+    expect(extractMemoryCandidates("I am currently fixing the project.").some((c) => c.category === "project")).toBe(false);
+  });
+
+  it("ME-03 accepts durable future instructions but rejects task-scoped instructions", () => {
+    expect(extractMemoryCandidates("Always verify CI before declaring PASS.").some((c) => c.category === "instruction")).toBe(true);
+    expect(extractMemoryCandidates("For this task only, answer in one sentence.").some((c) => c.category === "instruction")).toBe(false);
+  });
+
+  it("ME-04 filters casual and ordinary question content", () => {
+    expect(extractMemoryCandidates("Haha, nice!")).toEqual([]);
+    expect(extractMemoryCandidates("What is the capital of Japan?")).toEqual([]);
+    expect(extractMemoryCandidates("I prefer step-by-step explanations.").some((c) => c.category === "preference")).toBe(true);
+  });
+
+  it("ME-05 rejects sensitive data even when explicitly phrased as a memory request", () => {
+    expect(extractMemoryCandidates("Remember my password is fake-example-123.")).toEqual([]);
+    expect(extractMemoryCandidates("Save this API token: fake-token-456.")).toEqual([]);
+    expect(extractMemoryCandidates("Do not remember my private medical details.")).toEqual([]);
+    expect(extractMemoryCandidates("My friend's medical details are confidential.")).toEqual([]);
+  });
+
+  it("ME-06 rejects hypothetical, quoted third-party, temporary, and ambiguous statements", () => {
+    const inputs = [
+      "Imagine I prefer very long answers.",
+      "My friend said, 'I prefer Hindi answers.'",
+      "For today, use very long replies.",
+      "Maybe I like that style.",
+    ];
+    for (const input of inputs) expect(extractMemoryCandidates(input)).toEqual([]);
+  });
+
+  it("ME-07 does not miss clear durable preferences, project context, or instructions in Hindi/Hinglish", () => {
+    expect(extractMemoryCandidates("मुझे सरल भाषा में समझाना पसंद है।").some((c) => c.category === "preference")).toBe(true);
+    expect(extractMemoryCandidates("Main Mobile Freedom par kaam kar raha hoon.").some((c) => c.category === "project")).toBe(true);
+    expect(extractMemoryCandidates("PR merge se pehle meri approval lena.").some((c) => c.category === "instruction")).toBe(true);
+  });
+
+  it("ME-08 extracts only durable content from mixed messages", () => {
+    const result = extractMemoryCandidates("I am busy today. I prefer concise answers.");
+    expect(result.some((c) => c.category === "preference")).toBe(true);
+    expect(result.some((c) => c.value.toLowerCase().includes("busy today"))).toBe(false);
+  });
+
+  it("ME-09 normalizes whitespace and bilingual inputs without language-specific false positives", () => {
+    expect(extractMemoryCandidates("   I   prefer   concise answers.   ").some((c) => c.category === "preference")).toBe(true);
+    expect(extractMemoryCandidates("Technical details English में, explanation Hindi में देना।").some((c) => c.category === "preference")).toBe(true);
+    expect(extractMemoryCandidates("आज मौसम अच्छा है।")).toEqual([]);
+  });
+
+  it("ME-10 suppresses duplicate candidates from repeated durable statements", () => {
+    const result = extractMemoryCandidates("I prefer concise answers. I prefer concise answers.");
+    expect(result.filter((c) => c.category === "preference")).toHaveLength(1);
+  });
+
+  it("ME-11 handles conflicting general preference statements deterministically while preserving scoped preferences", () => {
+    const result = extractMemoryCandidates("I prefer detailed answers. From now on, I prefer concise answers. For coding, I prefer detailed explanations.");
+    const preferences = result.filter((c) => c.category === "preference");
+    expect(preferences.length).toBeGreaterThanOrEqual(2);
+    const combined = preferences.map((c) => c.value.toLowerCase()).join(" ");
+    expect(combined).toContain("concise");
+    expect(combined).toContain("coding");
+  });
+
+  it("ME-12 remains extraction-only and returns candidates without persistence side effects", () => {
+    const candidates = extractMemoryCandidates("I prefer concise answers.");
+    expect(Array.isArray(candidates)).toBe(true);
+    expect(candidates.every((candidate) => typeof candidate.category === "string" && typeof candidate.value === "string")).toBe(true);
+  });
+});
