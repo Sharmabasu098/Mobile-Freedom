@@ -31,12 +31,12 @@ function validateCandidate(candidate: MemoryCandidate): void {
 function validateRecord(value: unknown): value is PersistentMemoryRecord {
   if (!value || typeof value !== "object") return false;
   const r = value as Record<string, unknown>;
-  return typeof r.id === "string" && r.id.length > 0 &&
-    ["preference", "project", "instruction"].includes(String(r.category)) &&
-    typeof r.value === "string" && r.value.trim().length > 0 &&
-    typeof r.createdAt === "number" && Number.isFinite(r.createdAt) &&
-    typeof r.updatedAt === "number" && Number.isFinite(r.updatedAt) &&
-    r.schemaVersion === 1 && r.durable === true;
+  return typeof r['id'] === "string" && r['id'].length > 0 &&
+    ["preference", "project", "instruction"].includes(String(r['category'])) &&
+    typeof r['value'] === "string" && r['value'].trim().length > 0 &&
+    typeof r['createdAt'] === "number" && Number.isFinite(r['createdAt']) &&
+    typeof r['updatedAt'] === "number" && Number.isFinite(r['updatedAt']) &&
+    r['schemaVersion'] === 1 && r['durable'] === true;
 }
 
 export class PersistentMemoryStore {
@@ -76,7 +76,7 @@ export class PersistentMemoryStore {
     validateCandidate(candidate);
     const data = this.read();
     const key = normalize(candidate.value);
-    const duplicate = data.records.find(r => r.category === candidate.category && normalize(r.value) === key);
+    const duplicate = data.records.find(r => r['category'] === candidate.category && normalize(r['value']) === key);
     if (duplicate) return duplicate;
     const now = this.clock();
     const record: PersistentMemoryRecord = {
@@ -91,10 +91,10 @@ export class PersistentMemoryStore {
   update(id: string, candidate: MemoryCandidate): PersistentMemoryRecord {
     validateCandidate(candidate);
     const data = this.read();
-    const index = data.records.findIndex(r => r.id === id);
+    const index = data.records.findIndex(r => r['id'] === id);
     if (index < 0) throw new Error("Persistent memory record not found");
     const existing = data.records[index];
-    const duplicate = data.records.find(r => r.id !== id && r.category === candidate.category && normalize(r.value) === normalize(candidate.value));
+    const duplicate = data.records.find(r => r['id'] !== id && r['category'] === candidate.category && normalize(r['value']) === normalize(candidate.value));
     if (duplicate) throw new Error("Updated memory would duplicate another record");
     const updated: PersistentMemoryRecord = { ...existing, category: candidate.category, value: candidate.value.trim(), updatedAt: this.clock(), durable: true };
     data.records[index] = updated;
@@ -104,7 +104,7 @@ export class PersistentMemoryStore {
 
   delete(id: string): boolean {
     const data = this.read();
-    const next = data.records.filter(r => r.id !== id);
+    const next = data.records.filter(r => r['id'] !== id);
     if (next.length === data.records.length) return false;
     data.records = next;
     this.write(data);
