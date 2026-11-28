@@ -29,7 +29,8 @@ describe("VF-02.5 Persistent Memory Storage regression", () => {
   });
 
   it("updates an existing record and rejects duplicate updates", () => {
-    const store = new PersistentMemoryStore(new MemoryAdapter(), { idFactory: () => "id-1", clock: () => 10 });
+    let nextId = 0;
+    const store = new PersistentMemoryStore(new MemoryAdapter(), { idFactory: () => "id-" + ++nextId, clock: () => 10 });
     store.save({ category: "project", value: "Mobile Freedom workflow", durable: true }, true);
     store.save({ category: "project", value: "RaceNova game workflow", durable: true }, true);
     expect(store.update("id-1", { category: "project", value: "Mobile Freedom safe workflow", durable: true })).toMatchObject({ id: "id-1", updatedAt: 10 });
