@@ -5,7 +5,7 @@ export type MemoryReviewOptions = { now?: number };
 export type MemoryUserControlOptions = { clock?: () => number; retentionMs?: number };
 
 // Single escaped word boundaries: "\\b" in source represents regex word-boundary syntax.
-const sensitivePattern = /\b(bank account|account number|password|passcode|medical diagnosis|diagnosis|medical details|credit card|ssn|social security)\b|बैंक खाते|खाता नंबर|पासवर्ड|चिकित्सकीय निदान|मेडिकल विवरण/i;
+const sensitivePattern = /\b(?:bank\s+account|account\s+(?:number|details)|password|passcode|medical\s+(?:diagnosis|details)|diagnosis|credit\s+card|card\s+(?:number|details)|cvv|cvc|otp|one\s*time\s*password|pin(?:\s*(?:number|code))?|ssn|social\s*security|aadhaar|aadhar|pan\s*(?:number|card)?|ifsc|routing\s*(?:number|details))\b|बैंक\s*(?:खाता|खाते)|खाता\s*(?:नंबर|संख्या|विवरण)|पासवर्ड|पिन\s*(?:नंबर|संख्या|कोड)?|ओटीपी|आधार\s*(?:नंबर|संख्या|विवरण)?|पैन\s*(?:नंबर|संख्या|कार्ड)?|क्रेडिट\s*कार्ड|कार्ड\s*(?:नंबर|विवरण)|सीवीवी|चिकित्सकीय\s*निदान|मेडिकल\s*विवरण/i;
 
 function validateCandidate(candidate: MemoryCandidate): void {
   if (!candidate || !["preference", "project", "instruction"].includes(candidate.category) ||
