@@ -1,9 +1,9 @@
-name: VF-02.6 Focused RED
+name: VF-02.6 Integration Verification
 
 on:
   push:
     branches:
-      - vf-02.6-memory-retrieval-relevance
+      - vf-02.6-integration-verification
     paths:
       - src/tools/intelligence/memoryRetrieval.test.ts
       - src/tools/intelligence/memoryRetrieval.precision.test.ts
@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   focused-red:
-    name: MR Retrieval Focused Tests
+    name: VF-02.6 Integration Checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,5 +30,9 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Run VF-02.6 focused retrieval tests
-        run: npx vitest run src/tools/intelligence/memoryRetrieval.test.ts src/tools/intelligence/memoryRetrieval.precision.test.ts
+      - name: Run VF-02.6 retrieval and VF-02.5 storage regression tests
+        run: npx vitest run src/tools/intelligence/memoryRetrieval.test.ts src/tools/intelligence/memoryRetrieval.precision.test.ts src/tools/intelligence/persistentMemoryStorage.test.ts src/tools/intelligence/shortTermMemory.test.ts
+      - name: TypeScript check
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
