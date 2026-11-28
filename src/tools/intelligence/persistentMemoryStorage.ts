@@ -111,6 +111,20 @@ export class PersistentMemoryStore {
     return true;
   }
 
+
+
+  /** Persist memory pause state separately from memory records. */
+  getPaused(): boolean {
+    try { return this.adapter.getItem("mobile-freedom:memory-paused") === "true"; }
+    catch { return true; }
+  }
+
+
+  /** Write pause state; callers must not resume if persistence fails. */
+  setPaused(paused: boolean): void {
+    this.adapter.setItem("mobile-freedom:memory-paused", paused ? "true" : "false");
+  }
+
   /** Atomically clears the record set with one storage write. */
   clear(): void {
     this.write({ schemaVersion: 1, records: [] });
