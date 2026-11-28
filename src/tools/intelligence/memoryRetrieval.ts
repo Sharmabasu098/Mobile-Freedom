@@ -5,7 +5,7 @@ const stopWords = new Set([
   "to", "of", "in", "on", "at", "for", "from", "with", "by", "as", "it", "this", "that",
   "these", "those", "i", "we", "you", "he", "she", "they", "my", "our", "your", "their",
   "do", "does", "did", "can", "could", "should", "would", "will", "what", "when", "where",
-  "why", "how", "explain", "review", "continue", "should", "any", "all", "only"
+  "why", "how", "explain", "review", "continue", "any", "all", "only", "uses", "using", "used"
 ]);
 
 const synonymGroups = [
@@ -51,14 +51,13 @@ function validRecord(value: unknown): value is PersistentMemoryRecord {
 function isRelevant(queryTokens: Set<string>, memory: PersistentMemoryRecord): boolean {
   const memoryTokens = tokens(memory.value);
   if (!queryTokens.size || !memoryTokens.size) return false;
-  const expandedQuery = expand(queryTokens);
-  const expandedMemory = expand(memoryTokens);
-  let shared = 0;
-  for (const token of expandedQuery) if (expandedMemory.has(token)) shared++;
-  // Expansion is symmetric, so require at least one original-topic overlap or a shared synonym group.
-  const originalOverlap = [...queryTokens].some((token => expandedMemory.has(token))) ||
-    [...memoryTokens].some((token => expandedQuery.has(token)));
-  return originalOverlap && shared >= 1;
+
+  const queryExpanded = expand(queryTokens);
+  const memoryExpanded = expand(memoryTokens);
+  // Exact overlap is strongest; synonym overlap is allowed for materially related topics.
+  const exactOverlap = [...queryTokens].some((token) => memoryTokens.has(token));
+  const relatedOverlap = [...queryExpanded].some((token) => memoryExpanded.has(token));
+  return exactOverlap || relatedOverlap;
 }
 
 /** Conservative, deterministic retrieval. Invalid records are ignored; input is never mutated. */
