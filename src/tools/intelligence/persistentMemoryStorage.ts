@@ -110,4 +110,19 @@ export class PersistentMemoryStore {
     this.write(data);
     return true;
   }
+
+  /** Atomically clears the record set with one storage write. */
+  clear(): void {
+    this.write({ schemaVersion: 1, records: [] });
+  }
+
+  /** Purges expired records in one write; if the write fails, the original data remains. */
+  purgeExpired(cutoff: number): number {
+    if (!Number.isFinite(cutoff)) throw new Error("Expiry cutoff must be finite");
+    const data = this.read();
+    const next = data.records.filter(record => record.createdAt >= cutoff);
+    const removed = data.records.length - next.length;
+    if (removed > 0) this.write({ schemaVersion: 1, records: next });
+    return removed;
+  }
 }
